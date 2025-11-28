@@ -1,13 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using GreenDragonTrading.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace GreenDragonTrading.Domain.Entities;
 
 [Table("users")]
-[Index(nameof(Username), IsUnique = true)]
-[Index(nameof(Email), IsUnique = true)]
 public class User
 {
     [Key]

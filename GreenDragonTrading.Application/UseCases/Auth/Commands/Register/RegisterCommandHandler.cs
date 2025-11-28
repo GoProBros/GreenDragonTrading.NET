@@ -2,6 +2,7 @@ using GreenDragonTrading.Application.DTOs.Auth;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
+using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 
@@ -9,18 +10,18 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register;
 
 public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthResponse>
 {
-    private readonly IUserRepository _userRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
     private readonly IRedisService _redisService;
 
     public RegisterCommandHandler(
-        IUserRepository userRepository,
+        IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
         IRedisService redisService)
     {
-        _userRepository = userRepository;
+        _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
         _redisService = redisService;
@@ -29,15 +30,15 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
     public async Task<AuthResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
         // Check if username exists
-        if (await _userRepository.UsernameExistsAsync(request.Username, cancellationToken))
+        if (await _unitOfWork.Users.UsernameExistsAsync(request.Username, cancellationToken))
         {
-            throw new InvalidOperationException("Username already exists");
+            throw new ConflictException(nameof(User), nameof(User.Username), request.Username);
         }
 
         // Check if email exists
-        if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
+        if (await _unitOfWork.Users.EmailExistsAsync(request.Email, cancellationToken))
         {
-            throw new InvalidOperationException("Email already exists");
+            throw new ConflictException(nameof(User), nameof(User.Email), request.Email);
         }
 
         // Create user
@@ -50,7 +51,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
             CreatedAt = DateTime.UtcNow
         };
 
-        await _userRepository.AddAsync(user, cancellationToken);
+        await _unitOfWork.Users.AddAsync(user, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Generate tokens
         var accessToken = _jwtService.GenerateAccessToken(user);

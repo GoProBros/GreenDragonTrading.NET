@@ -1,3 +1,4 @@
+using GreenDragonTrading.Api.Middlewares;
 using GreenDragonTrading.Application;
 using GreenDragonTrading.Infrastructure;
 using Serilog;
@@ -29,6 +30,9 @@ try
     builder.Services.AddSwaggerGen();
 
     var app = builder.Build();
+
+    // Global Exception Handler
+    app.UseGlobalExceptionMiddleware();
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())

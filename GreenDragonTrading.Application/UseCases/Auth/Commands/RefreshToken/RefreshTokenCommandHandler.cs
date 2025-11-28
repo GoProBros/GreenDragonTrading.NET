@@ -1,5 +1,7 @@
 using GreenDragonTrading.Application.DTOs.Auth;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 
@@ -7,16 +9,16 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken;
 
 public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, AuthResponse>
 {
-    private readonly IUserRepository _userRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IJwtService _jwtService;
     private readonly IRedisService _redisService;
 
     public RefreshTokenCommandHandler(
-        IUserRepository userRepository,
+        IUnitOfWork unitOfWork,
         IJwtService jwtService,
         IRedisService redisService)
     {
-        _userRepository = userRepository;
+        _unitOfWork = unitOfWork;
         _jwtService = jwtService;
         _redisService = redisService;
     }
@@ -28,7 +30,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
 
         if (userId == null)
         {
-            throw new UnauthorizedAccessException("Invalid access token");
+            throw new UnauthorizedException("Invalid access token");
         }
 
         // Validate refresh token from Redis
@@ -36,15 +38,15 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
 
         if (!isValidRefreshToken)
         {
-            throw new UnauthorizedAccessException("Invalid or expired refresh token");
+            throw new UnauthorizedException("Invalid or expired refresh token");
         }
 
         // Get user
-        var user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
+        var user = await _unitOfWork.Users.GetByIdAsync(userId.Value, cancellationToken);
 
         if (user == null)
         {
-            throw new UnauthorizedAccessException("User not found");
+            throw new NotFoundException(nameof(User), userId.Value);
         }
 
         // Generate new tokens

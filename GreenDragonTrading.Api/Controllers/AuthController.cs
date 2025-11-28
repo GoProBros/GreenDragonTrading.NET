@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs.Auth;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Login;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Logout;
@@ -22,52 +23,52 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> Register([FromBody] RegisterRequest request)
     {
         var command = new RegisterCommand(request.Username, request.Email, request.Password);
         var result = await _mediator.Send(command);
-        return Ok(result);
+        return Ok(ApiResponse<AuthResponse>.SuccessResponse(result, "Registration successful"));
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> Login([FromBody] LoginRequest request)
     {
         var command = new LoginCommand(request.Email, request.Password);
         var result = await _mediator.Send(command);
-        return Ok(result);
+        return Ok(ApiResponse<AuthResponse>.SuccessResponse(result, "Login successful"));
     }
 
     [Authorize]
     [HttpPost("logout")]
-    public async Task<ActionResult> Logout()
+    public async Task<ActionResult<ApiResponse>> Logout()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
                           ?? User.FindFirst("sub")?.Value;
 
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
-            return Unauthorized();
+            return Unauthorized(ApiResponse.FailResponse("Unauthorized", "Invalid user token"));
         }
 
         var command = new LogoutCommand(userId);
         await _mediator.Send(command);
 
-        return Ok(new { message = "Logged out successfully" });
+        return Ok(ApiResponse.SuccessResponse("Logged out successfully"));
     }
 
     [HttpPost("refresh-token")]
-    public async Task<ActionResult<AuthResponse>> RefreshToken([FromBody] RefreshTokenRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> RefreshToken([FromBody] RefreshTokenRequest request)
     {
         var authHeader = Request.Headers.Authorization.ToString();
         var accessToken = authHeader.Replace("Bearer ", "");
 
         if (string.IsNullOrEmpty(accessToken))
         {
-            return BadRequest(new { message = "Access token is required in Authorization header" });
+            return BadRequest(ApiResponse<AuthResponse>.FailResponse("Bad request", "Access token is required in Authorization header"));
         }
 
         var command = new RefreshTokenCommand(accessToken, request.RefreshToken);
         var result = await _mediator.Send(command);
-        return Ok(result);
+        return Ok(ApiResponse<AuthResponse>.SuccessResponse(result, "Token refreshed successfully"));
     }
 }

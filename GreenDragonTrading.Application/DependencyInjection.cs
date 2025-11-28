@@ -1,4 +1,6 @@
 ﻿using FluentValidation;
+using GreenDragonTrading.Application.Common.Behaviors;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GreenDragonTrading.Application;
@@ -9,8 +11,12 @@ public static class DependencyInjection
     {
         var assembly = typeof(DependencyInjection).Assembly;
 
-        // Register MediatR
-        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
+        // Register MediatR with Pipeline Behaviors
+        services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssembly(assembly);
+            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        });
 
         // Register FluentValidation
         services.AddValidatorsFromAssembly(assembly);
