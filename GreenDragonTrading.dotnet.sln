@@ -13,6 +13,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenDragonTrading.Infrastr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenDragonTrading.SharedKernel", "GreenDragonTrading.SharedKernel\GreenDragonTrading.SharedKernel.csproj", "{19BA1EC1-BCBB-3B36-EDBF-561B0D703283}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6E7E0A9E-95E2-4DE9-BB73-68D53E3AA904}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,6 +46,13 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8E542894-3184-D8B9-A756-FAF6EAE3A066} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{E1F18DC6-C1FE-EB00-04EC-6DEB0854737A} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{FB3FE87C-061F-84C7-8EF6-2112782E431B} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{9AD4FF04-EF8E-BC75-C8CE-5B44668E1902} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{19BA1EC1-BCBB-3B36-EDBF-561B0D703283} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C8FA2B5D-0D83-4833-82CE-11FD84612683}
