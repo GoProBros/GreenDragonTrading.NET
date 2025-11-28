@@ -7,14 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GreenDragonTrading.Domain\GreenDragonTrading.Domain.csproj" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DTOs\" />
-    <Folder Include="Interfaces\" />
-    <Folder Include="Common\" />
-    <Folder Include="UseCases\" />
+    <ProjectReference Include="..\GreenDragonTrading.Domain\GreenDragonTrading.Domain.csproj" />
   </ItemGroup>
 
 </Project>
