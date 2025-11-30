@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Domain.Interfaces;
+using GreenDragonTrading.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace GreenDragonTrading.Infrastructure.Persistence
@@ -8,10 +9,15 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         private readonly GdtPostgreSqlDbContext _context;
         private IDbContextTransaction? _transaction;
 
+        // Repository properties
+        private ISymbolRepository symbols;
+
         public UnitOfWork(GdtPostgreSqlDbContext context)
         {
             _context = context;
         }
+
+        public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

@@ -1,22 +1,17 @@
 ﻿using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace GreenDragonTrading.Infrastructure.Persistence.Repository
+namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
-    public class GenericRepository<T>(GdtPostgreSqlDbContext context) : IGenericRepository<T> where T : class
+    public class PostgreSqlGenericRepository<T>(GdtPostgreSqlDbContext context) : IPostgreSqlGenericRepository<T> where T : class
     {
         protected readonly GdtPostgreSqlDbContext _context = context;
         protected readonly DbSet<T> _dbSet = context.Set<T>();
 
         public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _dbSet.FindAsync(new object[] { id }, cancellationToken);
+            return await _dbSet.FindAsync([id], cancellationToken);
         }
 
         public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default)

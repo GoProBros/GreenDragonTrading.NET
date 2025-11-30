@@ -1,9 +1,13 @@
-﻿using GreenDragonTrading.Domain.Interfaces;
+﻿using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Interfaces;
 using GreenDragonTrading.Infrastructure.Persistence;
-using GreenDragonTrading.Infrastructure.Persistence.Repository;
+using GreenDragonTrading.Infrastructure.Persistence.Repositories;
+using GreenDragonTrading.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace GreenDragonTrading.Infrastructure
 {
@@ -21,7 +25,34 @@ namespace GreenDragonTrading.Infrastructure
 
             // Register Unit of Work and Repositories here if needed
             services.AddScoped<IUnitOfWork, UnitOfWork>();
-            services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+            services.AddScoped(typeof(IPostgreSqlGenericRepository<>), typeof(PostgreSqlGenericRepository<>));
+
+            // Register Services
+            services.AddScoped<ISsiService, SsiService>();
+            services.AddScoped<IVndService, VndService>();
+
+            // Register Api options
+            services.Configure<SsiApiOptions>(configuration.GetSection(SsiApiOptions.SectionName));
+            services.Configure<VndApiOptions>(configuration.GetSection(VndApiOptions.SectionName));
+
+            // Register HttpClient
+            services.AddHttpClient<ISsiService, SsiService>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<SsiApiOptions>>().Value;
+
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+
+            services.AddHttpClient<IVndService, VndService>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<VndApiOptions>>().Value;
+
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
 
             return services;
         }
