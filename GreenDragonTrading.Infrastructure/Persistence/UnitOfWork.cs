@@ -4,20 +4,18 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace GreenDragonTrading.Infrastructure.Persistence
 {
-    public class UnitOfWork : IUnitOfWork
+    public class UnitOfWork(GdtPostgreSqlDbContext context) : IUnitOfWork
     {
-        private readonly GdtPostgreSqlDbContext _context;
+        private readonly GdtPostgreSqlDbContext _context = context;
         private IDbContextTransaction? _transaction;
 
         // Repository properties
-        private ISymbolRepository symbols;
+        private ISymbolRepository? symbols;
 
-        public UnitOfWork(GdtPostgreSqlDbContext context)
-        {
-            _context = context;
-        }
+        private ISectorRepository? sectors;
 
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
+        public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

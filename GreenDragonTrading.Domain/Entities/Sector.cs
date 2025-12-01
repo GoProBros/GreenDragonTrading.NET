@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Diagnostics.CodeAnalysis;
 
 namespace GreenDragonTrading.Domain.Entities
 {
@@ -12,7 +13,7 @@ namespace GreenDragonTrading.Domain.Entities
         [Key]
         [Column("id")]
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
-        public int Id { get; set; }
+        public string Id { get; set; } = null!;
 
         [Column("en_name", TypeName = "varchar(100)")]
         [MaxLength(100)]
@@ -23,7 +24,7 @@ namespace GreenDragonTrading.Domain.Entities
         public string? ViName { get; set; }
 
         [Column("parent_id")]
-        public int? ParentId { get; set; }
+        public string? ParentId { get; set; }
 
         [Column("level")]
         public int? Level { get; set; }

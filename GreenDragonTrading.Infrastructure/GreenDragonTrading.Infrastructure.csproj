@@ -18,4 +18,8 @@
     <ProjectReference Include="..\GreenDragonTrading.Domain\GreenDragonTrading.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Persistence\Migrations\" />
+  </ItemGroup>
+
 </Project>

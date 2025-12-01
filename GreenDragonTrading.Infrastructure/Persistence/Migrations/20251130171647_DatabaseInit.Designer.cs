@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    [Migration("20251130101954_UpdateStatus")]
-    partial class UpdateStatus
+    [Migration("20251130171647_DatabaseInit")]
+    partial class DatabaseInit
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -90,8 +90,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Sector", b =>
                 {
-                    b.Property<int>("Id")
-                        .HasColumnType("integer")
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
                         .HasColumnName("id");
 
                     b.Property<string>("EnName")
@@ -103,8 +103,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("level");
 
-                    b.Property<int?>("ParentId")
-                        .HasColumnType("integer")
+                    b.Property<string>("ParentId")
+                        .HasColumnType("text")
                         .HasColumnName("parent_id");
 
                     b.Property<string>("ViName")
@@ -173,8 +173,9 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("listing_date");
 
-                    b.Property<int>("SectorId")
-                        .HasColumnType("integer")
+                    b.Property<string>("SectorId")
+                        .IsRequired()
+                        .HasColumnType("text")
                         .HasColumnName("sector_id");
 
                     b.Property<short>("Status")

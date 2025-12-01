@@ -34,7 +34,7 @@ namespace GreenDragonTrading.Domain.Entities
 
         [Column("sector_id")]
         [Required]
-        public int SectorId { get; set; }
+        public string? SectorId { get; set; } 
 
         /// <summary>
         /// Phân loại: Cổ phiếu / ETF / Trái phiếu,...

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class symbolinit : Migration
+    public partial class DatabaseInit : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -21,7 +21,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
                     normal_fluctuation_limit = table.Column<decimal>(type: "numeric(5,4)", nullable: false),
                     first_day_fluctuation_limit = table.Column<decimal>(type: "numeric(5,4)", nullable: false),
-                    no_rights_fluctuation_limit = table.Column<decimal>(type: "numeric(5,4)", nullable: false)
+                    no_rights_fluctuation_limit = table.Column<decimal>(type: "numeric(5,4)", nullable: false),
+                    status = table.Column<short>(type: "smallint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -32,10 +33,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                 name: "sectors",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "integer", nullable: false),
+                    id = table.Column<string>(type: "text", nullable: false),
                     en_name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true),
                     vi_name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true),
-                    parent_id = table.Column<int>(type: "integer", nullable: true),
+                    parent_id = table.Column<string>(type: "text", nullable: true),
                     level = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
@@ -57,7 +58,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     en_company_name = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false),
                     vi_company_name = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true),
                     exchange_code = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false),
-                    sector_id = table.Column<int>(type: "integer", nullable: false),
+                    sector_id = table.Column<string>(type: "text", nullable: false),
                     type = table.Column<short>(type: "smallint", nullable: false),
                     founding_date = table.Column<DateTime>(type: "date", nullable: true),
                     listing_date = table.Column<DateTime>(type: "date", nullable: true),
@@ -67,7 +68,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     website = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true),
                     telephone = table.Column<string>(type: "varchar(25)", maxLength: 25, nullable: true),
                     email = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true),
-                    fax = table.Column<string>(type: "varchar(25)", maxLength: 25, nullable: true)
+                    fax = table.Column<string>(type: "varchar(25)", maxLength: 25, nullable: true),
+                    status = table.Column<short>(type: "smallint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -88,12 +90,12 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 
             migrationBuilder.InsertData(
                 table: "exchanges",
-                columns: new[] { "code", "first_day_fluctuation_limit", "name", "no_rights_fluctuation_limit", "normal_fluctuation_limit" },
+                columns: new[] { "code", "first_day_fluctuation_limit", "name", "no_rights_fluctuation_limit", "normal_fluctuation_limit", "status" },
                 values: new object[,]
                 {
-                    { "HNX", 0.30m, "Sở Giao dịch Chứng khoán Hà Nội", 0.30m, 0.10m },
-                    { "HSX", 0.20m, "Sở Giao dịch Chứng khoán Thành phố Hồ Chí Minh", 0.20m, 0.07m },
-                    { "UPCOM", 0.40m, "Thị trường UPCoM", 0.40m, 0.15m }
+                    { "HNX", 0.30m, "Sở Giao dịch Chứng khoán Hà Nội", 0.30m, 0.10m, (short)1 },
+                    { "HSX", 0.20m, "Sở Giao dịch Chứng khoán Thành phố Hồ Chí Minh", 0.20m, 0.07m, (short)1 },
+                    { "UPCOM", 0.40m, "Thị trường UPCoM", 0.40m, 0.15m, (short)1 }
                 });
 
             migrationBuilder.CreateIndex(
