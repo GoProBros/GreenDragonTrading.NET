@@ -1,41 +1,51 @@
-﻿namespace GreenDragonTrading.Domain.Constants
+﻿namespace GreenDragonTrading.Domain.Constants.SSI
 {
-    public static class SsiConstantsV1
+    public static class SsiConstantsV2
     {
         /// <summary>
         /// SSI Exchange Codes : HOSE / HSX
         /// </summary>
-        public const string SSI_EXCHANGE_V1_HSX = "hose";
+        public const string SSI_EXCHANGE_HSX = "HOSE";
 
         /// <summary>
         /// SSI Exchange Codes : HNX
         /// </summary>
-        public const string SSI_EXCHANGE_V1_HNX = "hnx";
+        public const string SSI_EXCHANGE_HNX = "HNX";
 
         /// <summary>
         /// SSI Exchange Codes : UPCOM
         /// </summary>
-        public const string SSI_EXCHANGE_V1_UPCOM = "upcom";
+        public const string SSI_EXCHANGE_UPCOM = "UPCOM";
 
         /// <summary>
-        /// SSI Symbol Types V1: Stock
+        /// SSI Symbol Types V2: Stock
         /// </summary>
-        public const string SSI_SYMBOL_TYPE_V1_STOCK = "s";
+        public const string SSI_SYMBOL_TYPE_STOCK = "S";
 
         /// <summary>
-        /// SSI Symbol Types V1: ETF
+        /// SSI Symbol Types V2: ETF
         /// </summary>
-        public const string SSI_SYMBOL_TYPE_V1_ETF = "e";
+        public const string SSI_SYMBOL_TYPE_ETF = "E";
 
         /// <summary>
-        /// SSI Symbol Types V1: Bond
+        /// SSI Symbol Types V2: Bond
         /// </summary>
-        public const string SSI_SYMBOL_TYPE_V1_BOND = "b";
+        public const string SSI_SYMBOL_TYPE_BOND = "D";
 
         /// <summary>
-        /// SSI Symbol Types V1: Mutual Fund
+        /// SSI Symbol Types V2: Mutual Fund
         /// </summary>
-        public const string SSI_SYMBOL_TYPE_V1_MUTUAL_FUND = "m";
+        public const string SSI_SYMBOL_TYPE_MUTUAL_FUND = "U";
+
+        /// <summary>
+        /// SSI Symbol Types V2: Futures
+        /// </summary>
+        public const string SSI_SYMBOL_TYPE_FUTURES = "FU";
+
+        /// <summary>
+        /// SSI Symbol Types V2: Covered Warrant
+        /// </summary>
+        public const string SSI_SYMBOL_TYPE_COVERED_WARRANT = "W";
 
         /// <summary>
         /// SSI Symbol Trading Status: Normal

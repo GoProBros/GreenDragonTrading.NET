@@ -1,22 +1,23 @@
 ﻿using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Constants;
+using GreenDragonTrading.Domain.Constants.SSI;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
-namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsi
+namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1
 {
-    public class ImportSymbolsFromSsiCommandHandler(
-        ISsiService ssiService,
+    public class ImportSymbolsFromSsiCommandHandlerV1(
+        ISsiServiceV1 ssiService,
         IUnitOfWork uow,
-        ILogger<ImportSymbolsFromSsiCommandHandler> logger) : IRequestHandler<ImportSymbolsFromSsiCommand, ImportSymbolsFromSsiResult>
+        ILogger<ImportSymbolsFromSsiCommandHandlerV1> logger) : IRequestHandler<ImportSymbolsFromSsiCommandV1, ImportSymbolsFromSsiV1Result>
     {
-        private readonly ISsiService _ssiService = ssiService;
+        private readonly ISsiServiceV1 _ssiService = ssiService;
         private readonly IUnitOfWork _uow = uow;
-        private readonly ILogger<ImportSymbolsFromSsiCommandHandler> _logger = logger;
+        private readonly ILogger<ImportSymbolsFromSsiCommandHandlerV1> _logger = logger;
 
         /// <summary>
         /// Handles the import of symbol data from SSI API for all exchanges (HSX, HNX, UPCOM).
@@ -26,13 +27,13 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
         /// <param name="request">The import command request.</param>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
         /// <returns>A <see cref="ImportSymbolsFromSsiResult"/> containing counts of imported and updated symbols.</returns>
-        public async Task<ImportSymbolsFromSsiResult> Handle(ImportSymbolsFromSsiCommand request, CancellationToken cancellationToken)
+        public async Task<ImportSymbolsFromSsiV1Result> Handle(ImportSymbolsFromSsiCommandV1 request, CancellationToken cancellationToken)
         {
             try
             {
-                (List<Symbol> HsxAddList, List<Symbol> HsxUpdateList) = await MapSsiSymbolsToDomainSymbolsAsync(SsiConstantsV1.SSI_EXCHANGE_V1_HSX, cancellationToken);
-                (List<Symbol> HnxAddList, List<Symbol> HnxUpdateList) = await MapSsiSymbolsToDomainSymbolsAsync(SsiConstantsV1.SSI_EXCHANGE_V1_HNX, cancellationToken);
-                (List<Symbol> UpComAddList, List<Symbol> upComUpdateList) = await MapSsiSymbolsToDomainSymbolsAsync(SsiConstantsV1.SSI_EXCHANGE_V1_UPCOM, cancellationToken);
+                (List<Symbol> HsxAddList, List<Symbol> HsxUpdateList) = await MapSsiSymbolsToDomainSymbolsAsync(SsiConstantsV1.SSI_EXCHANGE_HSX, cancellationToken);
+                (List<Symbol> HnxAddList, List<Symbol> HnxUpdateList) = await MapSsiSymbolsToDomainSymbolsAsync(SsiConstantsV1.SSI_EXCHANGE_HNX, cancellationToken);
+                (List<Symbol> UpComAddList, List<Symbol> upComUpdateList) = await MapSsiSymbolsToDomainSymbolsAsync(SsiConstantsV1.SSI_EXCHANGE_UPCOM, cancellationToken);
 
                 List<Symbol> symbolToAdd = [.. HsxAddList, .. HnxAddList, .. UpComAddList];
 
@@ -44,12 +45,12 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
                 _logger.LogInformation("Successfully imported {Count} new symbols from SSI", symbolToAdd.Count);
                 _logger.LogInformation("Successfully updated {Count} symbols from SSI", symbolToUpdate.Count);
 
-                return new ImportSymbolsFromSsiResult(symbolToAdd.Count, symbolToUpdate.Count, $"Successfully imported {symbolToAdd.Count} symbols from SSI, successfully updated {symbolToUpdate.Count} symbols from SSI");
+                return new ImportSymbolsFromSsiV1Result(symbolToAdd.Count, symbolToUpdate.Count, $"Successfully imported {symbolToAdd.Count} symbols from SSI, successfully updated {symbolToUpdate.Count} symbols from SSI");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error importing symbols from SSI");
-                return new ImportSymbolsFromSsiResult(0,0, "Error importing symbols from SSI");
+                return new ImportSymbolsFromSsiV1Result(0,0, "Error importing symbols from SSI");
             }
         }
 
@@ -140,10 +141,10 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
         {
             return ssiType switch
             {
-                SsiConstantsV1.SSI_SYMBOL_TYPE_V1_STOCK => SymbolType.Stock,
-                SsiConstantsV1.SSI_SYMBOL_TYPE_V1_ETF => SymbolType.ETF,
-                SsiConstantsV1.SSI_SYMBOL_TYPE_V1_BOND => SymbolType.BOND,
-                SsiConstantsV1.SSI_SYMBOL_TYPE_V1_MUTUAL_FUND => SymbolType.MutualFund,
+                SsiConstantsV1.SSI_SYMBOL_TYPE_STOCK => SymbolType.Stock,
+                SsiConstantsV1.SSI_SYMBOL_TYPE_ETF => SymbolType.ETF,
+                SsiConstantsV1.SSI_SYMBOL_TYPE_BOND => SymbolType.BOND,
+                SsiConstantsV1.SSI_SYMBOL_TYPE_MUTUAL_FUND => SymbolType.MutualFund,
                 _ => SymbolType.Unknown,
             };
         }
@@ -179,9 +180,9 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
         {
             return ssiExchangeCode.ToLower() switch
             {
-                SsiConstantsV1.SSI_EXCHANGE_V1_HSX => ExchangeConstant.EXCHANGE_HSX,
-                SsiConstantsV1.SSI_EXCHANGE_V1_HNX => ExchangeConstant.EXCHANGE_HNX,
-                SsiConstantsV1.SSI_EXCHANGE_V1_UPCOM => ExchangeConstant.EXCHANGE_UPCOM,
+                SsiConstantsV1.SSI_EXCHANGE_HSX => ExchangeConstant.EXCHANGE_HSX,
+                SsiConstantsV1.SSI_EXCHANGE_HNX => ExchangeConstant.EXCHANGE_HNX,
+                SsiConstantsV1.SSI_EXCHANGE_UPCOM => ExchangeConstant.EXCHANGE_UPCOM,
                 _ => "UNKNOWN",
             };
         }

@@ -1,6 +1,7 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
-using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsi;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV2;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,10 +33,23 @@ namespace GreenDragonTrading.Api.Controllers
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of imported and updated symbols.</returns>
         [HttpPost("v1/import-symbols-from-ssi")]
-        public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiResult>>> ImportSymbolsFromSsi(CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiV1Result>>> ImportSymbolsFromSsi(CancellationToken cancellationToken = default)
         {
-            var result = await _mediator.Send(new ImportSymbolsFromSsiCommand(), cancellationToken);
-            return Ok(ApiResponse<ImportSymbolsFromSsiResult>.SuccessResponse(result, result.Message));
+            var result = await _mediator.Send(new ImportSymbolsFromSsiCommandV1(), cancellationToken);
+            return Ok(ApiResponse<ImportSymbolsFromSsiV1Result>.SuccessResponse(result, result.Message));
+        }
+
+        /// <summary>
+        /// Imports symbol data (stocks, ETFs) from SSI API for all exchanges (HSX, HNX, UPCOM).
+        /// Compares with existing records and performs bulk insert/update operations.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>An API response containing the count of imported and updated symbols.</returns>
+        [HttpPost("v2/import-symbols-from-ssi")]
+        public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiV2Result>>> ImportSymbolsFromSsiV2(CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new ImportSymbolsFromSsiCommandV2(), cancellationToken);
+            return Ok(ApiResponse<ImportSymbolsFromSsiV2Result>.SuccessResponse(result, result.Message));
         }
     }
 }

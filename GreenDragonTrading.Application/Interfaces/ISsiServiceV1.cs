@@ -2,7 +2,7 @@
 
 namespace GreenDragonTrading.Application.Interfaces
 {
-    public interface ISsiService
+    public interface ISsiServiceV1
     {
         /// <summary>
         /// Fetches the list of symbols (stocks, ETFs, bonds) from SSI API for a specific exchange.
