@@ -15,6 +15,9 @@ namespace GreenDragonTrading.Api.Controllers
             _ssiService = ssiService;
         }
 
+        /// <summary>
+        /// Gets the list of symbols for a given exchange from SSI API.
+        /// </summary>
         [HttpGet("symbols/{exchange}")]
         public async Task<IActionResult> GetSymbols(string exchange)
         {
@@ -22,6 +25,9 @@ namespace GreenDragonTrading.Api.Controllers
             return Ok(new { Data = symbols, Count = symbols.Count });
         }
 
+        /// <summary>
+        /// Gets detailed information for a specific symbol from SSI API.
+        /// </summary>
         [HttpGet("symbol-details/{symbol}")]
         public async Task<IActionResult> GetSymbolDetails(string symbol)
         {
@@ -29,6 +35,9 @@ namespace GreenDragonTrading.Api.Controllers
             return Ok(details);
         }
 
+        /// <summary>
+        /// Gets the list of industries from SSI API.
+        /// </summary>
         [HttpGet("industries")]
         public async Task<IActionResult> GetIndustries()
         {

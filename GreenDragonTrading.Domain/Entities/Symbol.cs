@@ -41,40 +41,8 @@ namespace GreenDragonTrading.Domain.Entities
         [Required]
         public SymbolType Type { get; set; }
 
-        [Column("company_profile", TypeName = "varchar")]
-        public string? CompanyProfile { get; set; }
-
-        [Column("founding_date", TypeName = "date")]
-        public DateTime? FoundingDate { get; set; }
-
-        [Column("listing_date", TypeName = "date")]
-        public DateTime? ListingDate { get; set; }
-
-        [Column("charter_capital")]
-        public long? CharterCapital { get; set; }
-
-        [Column("first_price")]
-        public long? FirstPrice { get; set; }
-
-        [Column("address", TypeName = "varchar(255)")]
-        [MaxLength(255)]
-        public string? Address { get; set; }
-
-        [Column("website", TypeName = "varchar(100)")]
-        [MaxLength(100)]
-        public string? Website { get; set; }
-
-        [Column("telephone", TypeName = "varchar(25)")]
-        [MaxLength(25)]
-        public string? Telephone { get; set; }
-
-        [Column("email", TypeName = "varchar(100)")]
-        [MaxLength(100)]
-        public string? Email { get; set; }
-
-        [Column("fax", TypeName = "varchar(25)")]
-        [MaxLength(25)]
-        public string? Fax { get; set; }
+        [Column("trading_status", TypeName = "smallint")]
+        public SymbolStatus TradingStatus { get; set; } = SymbolStatus.Normal;
 
         [Column("status", TypeName = "smallint")]
         [Required]

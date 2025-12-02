@@ -12,22 +12,30 @@ namespace GreenDragonTrading.Api.Controllers
     {
         private readonly IMediator _mediator = mediator;
 
+        /// <summary>
+        /// Imports sector/industry data from SSI API into the database.
+        /// Fetches all industry levels and performs bulk insert/update operations.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>An API response containing the count of imported and updated sectors.</returns>
         [HttpPost("v1/import-sectors-from-ssi")]
-        public async Task<IActionResult> ImportSectorsFromSsi(CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<ImportSectorsFromSsiResult>>> ImportSectorsFromSsi(CancellationToken cancellationToken = default)
         {
-            var command = new ImportSectorsFromSsiCommand();
-            var result = await _mediator.Send(command, cancellationToken);
-
-            return Ok(ApiResponse<int>.SuccessResponse(result.ImportedCount, result.Message));
+            var result = await _mediator.Send(new ImportSectorsFromSsiCommand(), cancellationToken);
+            return Ok(ApiResponse<ImportSectorsFromSsiResult>.SuccessResponse(result, result.Message));
         }
 
+        /// <summary>
+        /// Imports symbol data (stocks, ETFs, bonds) from SSI API for all exchanges (HSX, HNX, UPCOM).
+        /// Compares with existing records and performs bulk insert/update operations.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>An API response containing the count of imported and updated symbols.</returns>
         [HttpPost("v1/import-symbols-from-ssi")]
-        public async Task<IActionResult> ImportSymbolsFromSsi(CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiResult>>> ImportSymbolsFromSsi(CancellationToken cancellationToken = default)
         {
-            var command = new ImportSymbolsFromSsiCommand();
-            var result = await _mediator.Send(command, cancellationToken);
-
-            return Ok(ApiResponse<int>.SuccessResponse(result.ImportedCount, result.Message));
+            var result = await _mediator.Send(new ImportSymbolsFromSsiCommand(), cancellationToken);
+            return Ok(ApiResponse<ImportSymbolsFromSsiResult>.SuccessResponse(result, result.Message));
         }
     }
 }

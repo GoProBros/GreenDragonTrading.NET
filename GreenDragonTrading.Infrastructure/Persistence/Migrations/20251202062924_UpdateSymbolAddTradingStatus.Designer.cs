@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251202062924_UpdateSymbolAddTradingStatus")]
+    partial class UpdateSymbolAddTradingStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -123,6 +126,24 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(20)")
                         .HasColumnName("ticker");
 
+                    b.Property<string>("Address")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("address");
+
+                    b.Property<long?>("CharterCapital")
+                        .HasColumnType("bigint")
+                        .HasColumnName("charter_capital");
+
+                    b.Property<string>("CompanyProfile")
+                        .HasColumnType("varchar")
+                        .HasColumnName("company_profile");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("email");
+
                     b.Property<string>("EnCompanyName")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)")
@@ -134,9 +155,26 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(20)")
                         .HasColumnName("exchange_code");
 
+                    b.Property<string>("Fax")
+                        .HasMaxLength(25)
+                        .HasColumnType("varchar(25)")
+                        .HasColumnName("fax");
+
+                    b.Property<long?>("FirstPrice")
+                        .HasColumnType("bigint")
+                        .HasColumnName("first_price");
+
+                    b.Property<DateTime?>("FoundingDate")
+                        .HasColumnType("date")
+                        .HasColumnName("founding_date");
+
                     b.Property<string>("Isin")
                         .HasColumnType("varchar(25)")
                         .HasColumnName("isin");
+
+                    b.Property<DateTime?>("ListingDate")
+                        .HasColumnType("date")
+                        .HasColumnName("listing_date");
 
                     b.Property<string>("SectorId")
                         .HasColumnType("varchar(10)")
@@ -145,6 +183,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.Property<short>("Status")
                         .HasColumnType("smallint")
                         .HasColumnName("status");
+
+                    b.Property<string>("Telephone")
+                        .HasMaxLength(25)
+                        .HasColumnType("varchar(25)")
+                        .HasColumnName("telephone");
 
                     b.Property<short>("TradingStatus")
                         .HasColumnType("smallint")
@@ -158,6 +201,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)")
                         .HasColumnName("vi_company_name");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("website");
 
                     b.HasKey("Ticker");
 
