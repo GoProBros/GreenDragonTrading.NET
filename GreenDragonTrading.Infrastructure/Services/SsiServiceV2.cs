@@ -52,7 +52,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                 var response = await _httpClient.SendAsync(request, cancellationToken);
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogInformation("Fetching SSI Securities from URL: {Url}", urlWithQuery);
 
                 return JsonSerializer.Deserialize<TResponse>(content, _jsonOptions) ?? new TResponse();
             }

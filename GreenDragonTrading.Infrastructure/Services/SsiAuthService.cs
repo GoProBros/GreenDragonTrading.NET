@@ -2,6 +2,7 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Constants.SSI;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
@@ -10,109 +11,67 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
+    /// <summary>
+    /// Service for handling authentication with SSI via caching mechanism.
+    /// Registered as Transient (via AddHttpClient), but state is preserved in Singleton IMemoryCache.
+    /// </summary>
     public class SsiAuthService(
         HttpClient httpClient,
         ILogger<SsiAuthService> logger,
-        IOptions<SsiApiOptionsV2> ssiApiOptions) : ISsiAuthService
+        IOptions<SsiApiOptionsV2> ssiApiOptions,
+        IMemoryCache cache) : ISsiAuthService
     {
         private readonly HttpClient _httpClient = httpClient;
         private readonly ILogger<SsiAuthService> _logger = logger;
         private readonly SsiApiOptionsV2 _ssiOptions = ssiApiOptions.Value;
+        private readonly IMemoryCache _cache = cache;
 
-        private string? _accessToken;
-        private DateTimeOffset _tokenExpirationTime = DateTimeOffset.MinValue;
-        private readonly SemaphoreSlim _semaphore = new(1, 1);
-        private const int RefreshBufferSeconds = 600;
+        private const string CacheKey = "SSI_ACCESS_TOKEN";
+        private const int RefreshBufferSeconds = 600; // 10 minutes buffer
+
         private static readonly JsonSerializerOptions _jsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
         };
 
-        public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default)
-        {
-            if (!IsTokenExpired())
-            {
-                _logger.LogInformation("SSI Access token is still available do not need to get a new one.");
-                return _accessToken!;
-            }
-
-            _logger.LogInformation("SSI Access token is expired are not existed. Getting a new one.");
-            await _semaphore.WaitAsync(cancellationToken);
-            try
-            {
-                if (!IsTokenExpired())
-                {
-                    return _accessToken!;
-                }
-
-                _accessToken = await FetchNewAccessTokenAsync(cancellationToken);
-                _logger.LogInformation("Get new SSI access token successfully.");
-
-                UpdateTokenExpiration(_accessToken);
-                _logger.LogInformation("Update SSI access token expiration successfully.");
-                return _accessToken;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to refresh SSI Access Token.");
-                throw;
-            }
-            finally
-            {
-                _semaphore.Release();
-            }
-        }
-
         /// <summary>
-        /// Check if access token is expired or 10 minutes before expired
-        /// </summary>
-        /// <returns>
-        /// True: if token is expired or 10 minutes before expired
-        /// False: if token is still availble
-        /// </returns>
-        private bool IsTokenExpired()
-        {
-            if (string.IsNullOrEmpty(_accessToken)) return true;
-
-            return DateTimeOffset.UtcNow >= _tokenExpirationTime.AddSeconds(-RefreshBufferSeconds);
-        }
-
-        /// <summary>
-        /// Update new exprired time for access token
-        /// </summary>
-        /// <param name="token">New access token get exp</param>
-        private void UpdateTokenExpiration(string token)
-        {
-            _logger.LogInformation("Updating SSI access token expiration.");
-            try
-            {
-                var handler = new JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadJwtToken(token);
-
-                var expClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "exp")?.Value;
-
-                if (long.TryParse(expClaim, out long expSeconds))
-                {
-                    _tokenExpirationTime = DateTimeOffset.FromUnixTimeSeconds(expSeconds);
-                }
-                else
-                {
-                    _tokenExpirationTime = DateTimeOffset.UtcNow.AddMinutes(10);
-                    _logger.LogWarning("Cannot parse 'exp' claim from SSI Token.");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error parsing JWT Token.");
-                _tokenExpirationTime = DateTimeOffset.MinValue;
-            }
-        }
-
-        /// <summary>
-        /// Get new access token from ssi service
+        /// Get valid access token. If token is cached and valid, return it.
+        /// If not, fetch new token from SSI, cache it, and return.
+        /// Handles thread-safety automatically via Cache.GetOrCreateAsync.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
-        /// <returns>New access token from ssi service</returns>
+        /// <returns>Valid Access Token string.</returns>
+        public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default)
+        {
+            var token = await _cache.GetOrCreateAsync(CacheKey, async entry =>
+            {
+                _logger.LogInformation("SSI Access token in cache is missing or expired. Fetching a new one...");
+
+                var newToken = await FetchNewAccessTokenAsync(cancellationToken);
+                var expirationTime = ParseTokenExpiration(newToken);
+
+                entry.AbsoluteExpiration = expirationTime.AddSeconds(-RefreshBufferSeconds);
+
+                _logger.LogInformation("New SSI Access Token cached. Cache expires at: {Expiry}", entry.AbsoluteExpiration);
+
+                return newToken;
+            });
+
+            if (string.IsNullOrEmpty(token))
+            {
+                throw new InvalidOperationException("Failed to retrieve or cache SSI Access Token.");
+            }
+
+             _logger.LogInformation("SSI Access token is available in cache.");
+            return token;
+        }
+
+        /// <summary>
+        /// Get new access token from SSI service API.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>New raw access token string.</returns>
+        /// <exception cref="HttpRequestException">Thrown when API call fails or returns empty token.</exception>
         private async Task<string> FetchNewAccessTokenAsync(CancellationToken cancellationToken)
         {
             var url = $"{_ssiOptions.FastConnectUrl}{SsiApiDefineV2.AccessToken}";
@@ -123,7 +82,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                 consumerSecret = _ssiOptions.ConsumerSecret
             };
 
-            _logger.LogInformation("Getting a new SSI access token from {Url}", url);
+            _logger.LogInformation("Requesting new SSI access token from {Url}", url);
 
             var response = await _httpClient.PostAsJsonAsync(url, requestBody, cancellationToken);
             response.EnsureSuccessStatusCode();
@@ -131,12 +90,41 @@ namespace GreenDragonTrading.Infrastructure.Services
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
             var result = JsonSerializer.Deserialize<SingleResponse<AccessTokenResponse>>(content, _jsonOptions);
 
-            if (result?.Data?.AccessToken == null)
+            if (string.IsNullOrEmpty(result?.Data?.AccessToken))
             {
                 throw new HttpRequestException($"SSI API returned OK but AccessToken is null. Message: {result?.Message}");
             }
 
             return result.Data.AccessToken;
+        }
+
+        /// <summary>
+        /// Parse the JWT token to extract the 'exp' (expiration) claim.
+        /// </summary>
+        /// <param name="token">The JWT Access Token.</param>
+        /// <returns>DateTimeOffset representing the expiration time.</returns>
+        private DateTimeOffset ParseTokenExpiration(string token)
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var jwtToken = handler.ReadJwtToken(token);
+
+                var expClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "exp")?.Value;
+
+                if (long.TryParse(expClaim, out long expSeconds))
+                {
+                    return DateTimeOffset.FromUnixTimeSeconds(expSeconds);
+                }
+
+                _logger.LogWarning("Cannot parse 'exp' claim from SSI Token. Using default 1 hour expiration.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing JWT Token structure.");
+            }
+
+            return DateTimeOffset.UtcNow.AddHours(1);
         }
     }
 }
