@@ -34,7 +34,7 @@
             {
                 Success = false,
                 Message = message,
-                Errors = []
+                Errors = [error]
             };
         }
     }
@@ -66,7 +66,7 @@
             {
                 Success = false,
                 Message = message,
-                Errors = []
+                Errors = [error]
             };
         }
     }

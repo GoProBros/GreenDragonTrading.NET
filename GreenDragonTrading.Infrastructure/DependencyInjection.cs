@@ -29,25 +29,14 @@ namespace GreenDragonTrading.Infrastructure
 
             // Register Services
             services.AddScoped<ISsiService, SsiService>();
-            services.AddScoped<IVndService, VndService>();
 
             // Register Api options
             services.Configure<SsiApiOptions>(configuration.GetSection(SsiApiOptions.SectionName));
-            services.Configure<VndApiOptions>(configuration.GetSection(VndApiOptions.SectionName));
 
             // Register HttpClient
             services.AddHttpClient<ISsiService, SsiService>((sp, client) =>
             {
                 var options = sp.GetRequiredService<IOptions<SsiApiOptions>>().Value;
-
-                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-                client.DefaultRequestHeaders.Add("Accept", "application/json");
-                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
-            });
-
-            services.AddHttpClient<IVndService, VndService>((sp, client) =>
-            {
-                var options = sp.GetRequiredService<IOptions<VndApiOptions>>().Value;
 
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");

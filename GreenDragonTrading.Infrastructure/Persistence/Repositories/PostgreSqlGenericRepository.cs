@@ -56,6 +56,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             _dbSet.Update(entity);
         }
 
+        public virtual void UpdateRange(IEnumerable<T> entities)
+        {
+            _dbSet.UpdateRange(entities);
+        }
+
         public virtual void Remove(T entity)
         {
             _dbSet.Remove(entity);
