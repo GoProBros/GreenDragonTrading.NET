@@ -17,6 +17,8 @@ namespace GreenDragonTrading.Infrastructure
             this IServiceCollection services,
             IConfiguration configuration)
         {
+            services.AddMemoryCache();
+
             // Register DbContext
             services.AddDbContext<GdtPostgreSqlDbContext>(options =>
                 options.UseNpgsql(
@@ -26,10 +28,6 @@ namespace GreenDragonTrading.Infrastructure
             // Register Unit of Work and Repositories here if needed
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped(typeof(IPostgreSqlGenericRepository<>), typeof(PostgreSqlGenericRepository<>));
-
-            // Register Services
-            services.AddScoped<ISsiServiceV1, SsiServiceV1>();
-            services.AddSingleton<ISsiAuthService, SsiAuthService>();
 
             // Register Api options
             services.Configure<SsiApiOptionsV1>(configuration.GetSection(SsiApiOptionsV1.SectionName));
@@ -50,6 +48,14 @@ namespace GreenDragonTrading.Infrastructure
 
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/x-www-form-urlencoded");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+            services.AddHttpClient<ISsiAuthService, SsiAuthService>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
+
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
             });
 
