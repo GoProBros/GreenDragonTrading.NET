@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsi;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,9 +13,18 @@ namespace GreenDragonTrading.Api.Controllers
         private readonly IMediator _mediator = mediator;
 
         [HttpPost("v1/import-sectors-from-ssi")]
-        public async Task<IActionResult> ImportFromVnd(CancellationToken cancellationToken = default)
+        public async Task<IActionResult> ImportSectorsFromSsi(CancellationToken cancellationToken = default)
         {
-            var command = new ImportSectorFromSsiCommand();
+            var command = new ImportSectorsFromSsiCommand();
+            var result = await _mediator.Send(command, cancellationToken);
+
+            return Ok(ApiResponse<int>.SuccessResponse(result.ImportedCount, result.Message));
+        }
+
+        [HttpPost("v1/import-symbols-from-ssi")]
+        public async Task<IActionResult> ImportSymbolsFromSsi(CancellationToken cancellationToken = default)
+        {
+            var command = new ImportSymbolsFromSsiCommand();
             var result = await _mediator.Send(command, cancellationToken);
 
             return Ok(ApiResponse<int>.SuccessResponse(result.ImportedCount, result.Message));

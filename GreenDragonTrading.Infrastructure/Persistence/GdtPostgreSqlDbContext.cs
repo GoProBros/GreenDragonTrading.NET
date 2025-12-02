@@ -14,12 +14,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<Symbol>(entity =>
-            {
-                entity.HasIndex(e => e.Ticker).IsUnique();
-                entity.HasIndex(e => e.ViCompanyName).IsUnique();
-            });
-
             // Seed data
             DatabaseSeeder.SeedAll(modelBuilder);
         }

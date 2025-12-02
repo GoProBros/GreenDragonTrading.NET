@@ -11,7 +11,7 @@ namespace GreenDragonTrading.Domain.Entities
     public class Sector
     {
         [Key]
-        [Column("id")]
+        [Column("id", TypeName = "varchar(10)")]
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public string Id { get; set; } = null!;
 
@@ -23,7 +23,7 @@ namespace GreenDragonTrading.Domain.Entities
         [MaxLength(100)]
         public string? ViName { get; set; }
 
-        [Column("parent_id")]
+        [Column("parent_id", TypeName = "varchar(10)")]
         public string? ParentId { get; set; }
 
         [Column("level")]

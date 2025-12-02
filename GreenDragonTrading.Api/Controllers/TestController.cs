@@ -19,7 +19,7 @@ namespace GreenDragonTrading.Api.Controllers
         public async Task<IActionResult> GetSymbols(string exchange)
         {
             var symbols = await _ssiService.FetchSymbolsListAsync(exchange);
-            return Ok(symbols);
+            return Ok(new { Data = symbols, Count = symbols.Count });
         }
 
         [HttpGet("symbol-details/{symbol}")]

@@ -16,9 +16,7 @@ try
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
-        .Enrich.FromLogContext()
-        .Enrich.WithEnvironmentName()
-        .Enrich.WithThreadId());
+        );
 
     // Add services to the container.
     builder.Services.AddInfrastructure(builder.Configuration);

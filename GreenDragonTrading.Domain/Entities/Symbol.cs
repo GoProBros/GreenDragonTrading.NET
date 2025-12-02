@@ -11,17 +11,16 @@ namespace GreenDragonTrading.Domain.Entities
     public class Symbol
     {
         [Key]
-        [Column("ticker", TypeName = "varchar(10)")]
-        [MaxLength(10)]
+        [Column("ticker", TypeName = "varchar(20)")]
+        [MaxLength(20)]
         public string Ticker { get; set; } = null!;
 
-        [Column("isin")]
+        [Column("isin", TypeName = "varchar(25)")]
         public string? Isin { get; set; }
 
         [Column("en_company_name", TypeName = "varchar(255)")]
-        [Required]
         [MaxLength(255)]
-        public string EnCompanyName { get; set; } = null!;
+        public string? EnCompanyName { get; set; } = null!;
 
         [Column("vi_company_name", TypeName = "varchar(255)")]
         [MaxLength(255)]
@@ -32,8 +31,7 @@ namespace GreenDragonTrading.Domain.Entities
         [MaxLength(20)]
         public string ExchangeCode { get; set; } = null!;
 
-        [Column("sector_id")]
-        [Required]
+        [Column("sector_id", TypeName = "varchar(10)")]
         public string? SectorId { get; set; } 
 
         /// <summary>
@@ -42,6 +40,9 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("type")]
         [Required]
         public SymbolType Type { get; set; }
+
+        [Column("company_profile", TypeName = "varchar")]
+        public string? CompanyProfile { get; set; }
 
         [Column("founding_date", TypeName = "date")]
         public DateTime? FoundingDate { get; set; }
@@ -84,6 +85,6 @@ namespace GreenDragonTrading.Domain.Entities
         public virtual Exchange Exchange { get; set; } = null!;
 
         [ForeignKey("SectorId")]
-        public virtual Sector Sector { get; set; } = null!;
+        public virtual Sector? Sector { get; set; }
     }
 }

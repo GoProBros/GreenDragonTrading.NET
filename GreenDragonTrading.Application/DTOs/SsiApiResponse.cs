@@ -42,6 +42,9 @@ namespace GreenDragonTrading.Application.DTOs
 
         [JsonPropertyName("stockSymbol")]
         public string? StockSymbol { get; set; }
+
+        [JsonPropertyName("stockType")]
+        public string? StockType { get; set; }
     }
 
     public class SsiSymbolDetailsDto

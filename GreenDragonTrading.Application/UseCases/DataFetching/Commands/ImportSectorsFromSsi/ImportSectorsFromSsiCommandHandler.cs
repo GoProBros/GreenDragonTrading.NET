@@ -8,14 +8,14 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi
 {
-    public class ImportSectorFromSsiCommandHandler(
+    public class ImportSectorsFromSsiCommandHandler(
         ISsiService ssiService,
         IUnitOfWork uow,
-        ILogger<ImportSectorFromSsiCommandHandler> logger) : IRequestHandler<ImportSectorFromSsiCommand, ImportSectorsFromSsiResult>
+        ILogger<ImportSectorsFromSsiCommandHandler> logger) : IRequestHandler<ImportSectorsFromSsiCommand, ImportSectorsFromSsiResult>
     {
         private readonly ISsiService _ssiService = ssiService;
         private readonly IUnitOfWork _uow = uow;
-        private readonly ILogger<ImportSectorFromSsiCommandHandler> _logger = logger;
+        private readonly ILogger<ImportSectorsFromSsiCommandHandler> _logger = logger;
 
         /// <summary>
         /// Handle import sectors data from SSI api
@@ -23,7 +23,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSe
         /// <param name="request">Request record</param>
         /// <param name="cancellationToken">Cancellation tolen</param>
         /// <returns>Sectors data base on SSI inserted to database</returns>
-        public async Task<ImportSectorsFromSsiResult> Handle(ImportSectorFromSsiCommand request, CancellationToken cancellationToken)
+        public async Task<ImportSectorsFromSsiResult> Handle(ImportSectorsFromSsiCommand request, CancellationToken cancellationToken)
         {
             try
             {

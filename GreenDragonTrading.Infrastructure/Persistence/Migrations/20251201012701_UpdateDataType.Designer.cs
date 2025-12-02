@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251201012701_UpdateDataType")]
+    partial class UpdateDataType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -119,8 +122,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Symbol", b =>
                 {
                     b.Property<string>("Ticker")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)")
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)")
                         .HasColumnName("ticker");
 
                     b.Property<string>("Address")
@@ -132,16 +135,13 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("charter_capital");
 
-                    b.Property<string>("CompanyProfile")
-                        .HasColumnType("varchar")
-                        .HasColumnName("company_profile");
-
                     b.Property<string>("Email")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)")
                         .HasColumnName("email");
 
                     b.Property<string>("EnCompanyName")
+                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)")
                         .HasColumnName("en_company_name");
@@ -174,6 +174,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnName("listing_date");
 
                     b.Property<string>("SectorId")
+                        .IsRequired()
                         .HasColumnType("varchar(10)")
                         .HasColumnName("sector_id");
 
@@ -206,6 +207,12 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SectorId");
 
+                    b.HasIndex("Ticker")
+                        .IsUnique();
+
+                    b.HasIndex("ViCompanyName")
+                        .IsUnique();
+
                     b.ToTable("symbols");
                 });
 
@@ -228,7 +235,9 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 
                     b.HasOne("GreenDragonTrading.Domain.Entities.Sector", "Sector")
                         .WithMany("Symbols")
-                        .HasForeignKey("SectorId");
+                        .HasForeignKey("SectorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Exchange");
 

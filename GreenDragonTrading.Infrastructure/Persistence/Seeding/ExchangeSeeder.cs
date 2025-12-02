@@ -1,3 +1,4 @@
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
             modelBuilder.Entity<Exchange>().HasData(
                 new Exchange
                 {
-                    Code = "HSX",
+                    Code = ExchangeConstant.EXCHANGE_HSX,
                     Name = "Sở Giao dịch Chứng khoán Thành phố Hồ Chí Minh",
                     NormalFluctuationLimit = 0.07m,
                     FirstDayFluctuationLimit = 0.20m,
@@ -20,7 +21,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
                 },
                 new Exchange
                 {
-                    Code = "HNX",
+                    Code = ExchangeConstant.EXCHANGE_HNX,
                     Name = "Sở Giao dịch Chứng khoán Hà Nội",
                     NormalFluctuationLimit = 0.10m,
                     FirstDayFluctuationLimit = 0.30m,
@@ -29,7 +30,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
                 },
                 new Exchange
                 {
-                    Code = "UPCOM",
+                    Code = ExchangeConstant.EXCHANGE_UPCOM,
                     Name = "Thị trường UPCoM",
                     NormalFluctuationLimit = 0.15m,
                     FirstDayFluctuationLimit = 0.40m,

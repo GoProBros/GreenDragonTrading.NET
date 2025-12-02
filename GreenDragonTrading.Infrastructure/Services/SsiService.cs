@@ -1,6 +1,7 @@
 ﻿using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
@@ -19,26 +20,83 @@ namespace GreenDragonTrading.Infrastructure.Services
 
         public async Task<List<SsiSymbolDto>> FetchSymbolsListAsync(string exchange, CancellationToken cancellationToken = default)
         {
+            var tasks = new[]
+                {
+                    FetchStocksListAsync(exchange, cancellationToken),
+                    FetchETFsListAsync(exchange, cancellationToken),
+                    FetchBondsListAsync(exchange, cancellationToken),
+                    //FetchFuturesListAsync(cancellationToken)
+                };
+
+            await Task.WhenAll(tasks);
+
+            return [.. tasks.SelectMany(t => t.Result)];
+        }
+
+        private async Task<List<SsiSymbolDto>> FetchStocksListAsync(string exchange, CancellationToken cancellationToken = default)
+        {
             string url = $"{_ssiApiOptions.IBoardQuery}/stock/exchange/{exchange}";
 
-            _logger.LogInformation("Fetching SSI symbols from URL: {Url}", url);
+            return await ParseSymbolsDataAsync(url, SymbolType.Stock, exchange, cancellationToken);
+        }
 
-            // Call API
-            var response = await _httpClient.GetAsync(url, cancellationToken);
-            response.EnsureSuccessStatusCode();
+        private async Task<List<SsiSymbolDto>> FetchETFsListAsync(string exchange, CancellationToken cancellationToken = default)
+        {
+            string url = $"{_ssiApiOptions.IBoardQuery}/stock/type/e/{exchange}";
 
-            // Parse response
-            var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
-            var result = JsonSerializer.Deserialize<SsiQueryResponse<List<SsiSymbolDto>>>(jsonString, _jsonOptions);
+            return await ParseSymbolsDataAsync(url, SymbolType.ETF, exchange, cancellationToken);
+        }
 
-            if (result?.IsSuccess != true)
+        //private async Task<List<SsiSymbolDto>> FetchFuturesListAsync(CancellationToken cancellationToken = default)
+        //{
+        //    string url = $"{_ssiApiOptions.IBoardQuery}/stock/exchange/fu";
+
+        //    return await ParseSymbolsDataAsync(url, SymbolType.Futures,null, cancellationToken);
+        //}
+
+        private async Task<List<SsiSymbolDto>> FetchBondsListAsync(string exchange, CancellationToken cancellationToken = default)
+        {
+            string url = $"{_ssiApiOptions.IBoardQuery}/stock/type/b/{exchange}bond";
+
+            return await ParseSymbolsDataAsync(url, SymbolType.BOND, exchange, cancellationToken);
+        }
+
+        private async Task<List<SsiSymbolDto>> ParseSymbolsDataAsync(string url, SymbolType type , string? exchange, CancellationToken cancellationToken = default)
+        {
+            try
             {
-                _logger.LogError("Failed to fetch SSI symbols: {ErrorMessage}", result?.Message);
+                _logger.LogInformation("Fetching SSI {Type} from URL: {Url}", type.ToString(), url);
+
+                // Call API
+                var response = await _httpClient.GetAsync(url, cancellationToken);
+                response.EnsureSuccessStatusCode();
+
+                // Parse response
+                var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
+                var result = JsonSerializer.Deserialize<SsiQueryResponse<List<SsiSymbolDto>>>(jsonString, _jsonOptions);
+
+                if (result?.IsSuccess != true)
+                {
+                    _logger.LogError("Failed to fetch SSI {Type}: {ErrorMessage}", type.ToString(), result?.Message);
+                    return [];
+                }
+
+                if (type == SymbolType.Futures)
+                {
+                    _logger.LogInformation("Successfully fetched {Count} {Type} from SSI.", result.Data?.Count ?? 0, type.ToString());
+                }
+                else
+                {
+                    _logger.LogInformation("Successfully fetched {Count} {Type} of {Exchange} from SSI.", result.Data?.Count ?? 0, type.ToString(), exchange);
+                }
+
+                return result.Data ?? [];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception occurred while fetching SSI {Type} from URL: {Url}", type.ToString(), url);
                 return [];
             }
-
-            _logger.LogInformation("Successfully fetched {Count} symbols of {Exchange} from SSI.", result.Data?.Count ?? 0, exchange);
-            return result.Data ?? [];
         }
 
         public async Task<SsiSymbolDetailsDto?> FetchSymbolsDetailsAsync(string symbol, CancellationToken cancellationToken = default)
