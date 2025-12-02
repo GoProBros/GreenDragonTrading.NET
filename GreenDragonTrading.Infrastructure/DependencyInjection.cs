@@ -28,18 +28,28 @@ namespace GreenDragonTrading.Infrastructure
             services.AddScoped(typeof(IPostgreSqlGenericRepository<>), typeof(PostgreSqlGenericRepository<>));
 
             // Register Services
-            services.AddScoped<ISsiService, SsiService>();
+            services.AddScoped<ISsiServiceV1, SsiServiceV1>();
+            services.AddSingleton<ISsiAuthService, SsiAuthService>();
 
             // Register Api options
-            services.Configure<SsiApiOptions>(configuration.GetSection(SsiApiOptions.SectionName));
+            services.Configure<SsiApiOptionsV1>(configuration.GetSection(SsiApiOptionsV1.SectionName));
+            services.Configure<SsiApiOptionsV2>(configuration.GetSection(SsiApiOptionsV2.SectionName));
 
             // Register HttpClient
-            services.AddHttpClient<ISsiService, SsiService>((sp, client) =>
+            services.AddHttpClient<ISsiServiceV1, SsiServiceV1>((sp, client) =>
             {
-                var options = sp.GetRequiredService<IOptions<SsiApiOptions>>().Value;
+                var options = sp.GetRequiredService<IOptions<SsiApiOptionsV1>>().Value;
 
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+            services.AddHttpClient<ISsiServiceV2, SsiServiceV2>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
+
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/x-www-form-urlencoded");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
             });
 

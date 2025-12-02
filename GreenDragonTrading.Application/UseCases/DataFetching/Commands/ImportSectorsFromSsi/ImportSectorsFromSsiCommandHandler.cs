@@ -9,11 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi
 {
     public class ImportSectorsFromSsiCommandHandler(
-        ISsiService ssiService,
+        ISsiServiceV1 ssiService,
         IUnitOfWork uow,
         ILogger<ImportSectorsFromSsiCommandHandler> logger) : IRequestHandler<ImportSectorsFromSsiCommand, ImportSectorsFromSsiResult>
     {
-        private readonly ISsiService _ssiService = ssiService;
+        private readonly ISsiServiceV1 _ssiService = ssiService;
         private readonly IUnitOfWork _uow = uow;
         private readonly ILogger<ImportSectorsFromSsiCommandHandler> _logger = logger;
 

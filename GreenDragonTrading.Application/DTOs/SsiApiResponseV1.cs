@@ -16,7 +16,7 @@ namespace GreenDragonTrading.Application.DTOs
         public bool IsSuccess => Code == "SUCCESS";
     }
 
-    public class SsiApiResponse<T> : SsiQueryResponse<T>
+    public class SsiApiResponseV1<T> : SsiQueryResponse<T>
     {
         [JsonPropertyName("paging")]
         public int? Paging { get; set; }

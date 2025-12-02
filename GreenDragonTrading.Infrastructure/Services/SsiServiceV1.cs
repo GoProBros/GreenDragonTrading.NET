@@ -8,11 +8,11 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
-    public class SsiService(HttpClient httpClient, ILogger<SsiService> logger, IOptions<SsiApiOptions> ssiApiOptions) : ISsiService
+    public class SsiServiceV1(HttpClient httpClient, ILogger<SsiServiceV1> logger, IOptions<SsiApiOptionsV1> ssiApiOptions) : ISsiServiceV1
     {
         private readonly HttpClient _httpClient = httpClient;
-        private readonly ILogger<SsiService> _logger = logger;
-        private readonly SsiApiOptions _ssiApiOptions = ssiApiOptions.Value;
+        private readonly ILogger<SsiServiceV1> _logger = logger;
+        private readonly SsiApiOptionsV1 _ssiApiOptions = ssiApiOptions.Value;
         private static readonly JsonSerializerOptions _jsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
@@ -32,7 +32,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                     FetchStocksListAsync(exchange, cancellationToken),
                     FetchETFsListAsync(exchange, cancellationToken),
                     FetchBondsListAsync(exchange, cancellationToken),
-                    //FetchFuturesListAsync(cancellationToken)
                 };
 
             await Task.WhenAll(tasks);
@@ -66,13 +65,6 @@ namespace GreenDragonTrading.Infrastructure.Services
             return await ParseSymbolsDataAsync(url, SymbolType.ETF, exchange, cancellationToken);
         }
 
-        //private async Task<List<SsiSymbolDto>> FetchFuturesListAsync(CancellationToken cancellationToken = default)
-        //{
-        //    string url = $"{_ssiApiOptions.IBoardQuery}/stock/exchange/fu";
-
-        //    return await ParseSymbolsDataAsync(url, SymbolType.Futures,null, cancellationToken);
-        //}
-
         /// <summary>
         /// Fetches the list of bond symbols from SSI API for a specific exchange.
         /// </summary>
@@ -101,11 +93,9 @@ namespace GreenDragonTrading.Infrastructure.Services
             {
                 _logger.LogInformation("Fetching SSI {Type} from URL: {Url}", type.ToString(), url);
 
-                // Call API
                 var response = await _httpClient.GetAsync(url, cancellationToken);
                 response.EnsureSuccessStatusCode();
 
-                // Parse response
                 var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
                 var result = JsonSerializer.Deserialize<SsiQueryResponse<List<SsiSymbolDto>>>(jsonString, _jsonOptions);
 
@@ -146,13 +136,11 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             _logger.LogInformation("Fetching SSI symbol details from URL: {Url}", url);
 
-            // Call API
             var response = await _httpClient.GetAsync(url, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            // Parse response
             var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
-            var result = JsonSerializer.Deserialize<SsiApiResponse<SsiSymbolDetailsDto>>(jsonString, _jsonOptions);
+            var result = JsonSerializer.Deserialize<SsiApiResponseV1<SsiSymbolDetailsDto>>(jsonString, _jsonOptions);
 
             if (result?.IsSuccess != true)
             {
@@ -176,11 +164,9 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             _logger.LogInformation("Fetching SSI industries from URL: {Url}", url);
 
-            // Call API
             var response = await _httpClient.GetAsync(url, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            // Parse response
             var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
             var result = JsonSerializer.Deserialize<SsiQueryResponse<List<SsiIndustryDto>>>(jsonString, _jsonOptions);
 
