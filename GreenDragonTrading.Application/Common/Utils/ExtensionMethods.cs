@@ -1,4 +1,6 @@
-﻿namespace GreenDragonTrading.Application.Common.Utils
+﻿using System.Text.Json;
+
+namespace GreenDragonTrading.Application.Common.Utils
 {
     public static class ExtensionMethods
     {

@@ -1,6 +1,7 @@
 ﻿using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Interfaces;
+using GreenDragonTrading.Infrastructure.BackgroundWorkers;
 using GreenDragonTrading.Infrastructure.Persistence;
 using GreenDragonTrading.Infrastructure.Persistence.Repositories;
 using GreenDragonTrading.Infrastructure.Services;
@@ -8,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 
 namespace GreenDragonTrading.Infrastructure
 {
@@ -24,10 +26,17 @@ namespace GreenDragonTrading.Infrastructure
                 options.UseNpgsql(
                     configuration.GetConnectionString("GdtPostgreSqlConnection"),
                     b => b.MigrationsAssembly(typeof(GdtPostgreSqlDbContext).Assembly.FullName)));
+            string redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
 
             // Register Unit of Work and Repositories here if needed
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped(typeof(IPostgreSqlGenericRepository<>), typeof(PostgreSqlGenericRepository<>));
+            services.AddSingleton<ISsiStreamingService, SsiStreamingService>();
+            services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
+            services.AddScoped<IRedisService, RedisService>();
+
+            // Register Background Service for handling streaming events
+            services.AddHostedService<SsiStreamingBackgroundService>();
 
             // Register Api options
             services.Configure<SsiApiOptionsV1>(configuration.GetSection(SsiApiOptionsV1.SectionName));
