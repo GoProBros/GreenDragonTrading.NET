@@ -28,7 +28,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         private const int ReconnectDelaySeconds = 3;
 
         /// <inheritdoc/>
-        public event Action<string>? OnBroadcastReceived;
+        public event Func<string, Task>? OnBroadcastReceived;
 
         /// <inheritdoc/>
         public event Action<string>? OnErrorReceived;
@@ -125,12 +125,15 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// Handles broadcast messages from the hub.
         /// </summary>
         /// <param name="data">The broadcast data received.</param>
-        private void HandleBroadcast(string data)
+        private async void HandleBroadcast(string data)
         {
             try
             {
                 _logger.LogDebug("Broadcast received: {Data}", data);
-                OnBroadcastReceived?.Invoke(data);
+                if (OnBroadcastReceived != null)
+                {
+                    await OnBroadcastReceived.Invoke(data);
+                }
             }
             catch (Exception ex)
             {

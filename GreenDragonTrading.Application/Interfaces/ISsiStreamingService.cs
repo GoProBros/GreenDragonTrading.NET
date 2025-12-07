@@ -28,7 +28,7 @@
         /// <summary>
         /// Event triggered when broadcast data is received from SSI.
         /// </summary>
-        event Action<string>? OnBroadcastReceived;
+        event Func<string, Task>? OnBroadcastReceived;
 
         /// <summary>
         /// Event triggered when an error message is received from SSI.

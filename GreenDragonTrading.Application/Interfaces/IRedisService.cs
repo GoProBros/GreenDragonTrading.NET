@@ -12,6 +12,8 @@
 
         Task SetHashFieldAsync<T>(string key, string fieldName, T value);
 
+        Task SetHashFieldsAsync(string key, Dictionary<string, object> fieldValues);
+
         Task<T?> GetHashFieldAsync<T>(string key, string fieldName);
 
         Task<bool> RemoveAsync(string key);

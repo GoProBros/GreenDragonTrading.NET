@@ -53,6 +53,22 @@ namespace GreenDragonTrading.Infrastructure.Services
             await _db.HashSetAsync(key, fieldName, stringValue);
         }
 
+        public async Task SetHashFieldsAsync(string key, Dictionary<string, object> fieldValues)
+        {
+            if (fieldValues == null || fieldValues.Count == 0)
+                return;
+
+            var hashEntries = fieldValues.Select(kvp =>
+            {
+                string stringValue = kvp.Value is string s
+                    ? s
+                    : JsonSerializer.Serialize(kvp.Value, _jsonOptions);
+                return new HashEntry(kvp.Key, stringValue);
+            }).ToArray();
+
+            await _db.HashSetAsync(key, hashEntries);
+        }
+
         public async Task<T?> GetHashFieldAsync<T>(string key, string fieldName)
         {
             var value = await _db.HashGetAsync(key, fieldName);
