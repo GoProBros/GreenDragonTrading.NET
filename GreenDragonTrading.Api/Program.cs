@@ -2,6 +2,7 @@ using Serilog;
 using GreenDragonTrading.Infrastructure;
 using GreenDragonTrading.Application;
 using GreenDragonTrading.Infrastructure.Hubs;
+using System.IO;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -28,7 +29,12 @@ try
     
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+    });
 
     var app = builder.Build();
 
