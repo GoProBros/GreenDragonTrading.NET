@@ -91,5 +91,67 @@
         /// SSI Symbol Trading Status: Suspended PT
         /// </summary>
         public const string SSI_SYMBOL_TRADING_STATUS_SUSPENDED_PT = "SP";
+
+        #region SSI Streaming
+        /// <summary>
+        /// SSI Streaming Data Type: F - Securities status
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_F = "F";
+
+        /// <summary>
+        /// SSI Streaming Data Type: X - Securities snapshot
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_X = "X";
+
+        /// <summary>
+        /// SSI Streaming Data Type: X-Quote - provides best bid/ask. 
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_X_QUOTE = "X-QUOTE";
+
+        /// <summary>
+        /// SSI Streaming Data Type: X-Trade
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_X_TRADE = "X-TRADE";
+
+        /// <summary>
+        /// SSI Streaming Data Type: Foreign room
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_FOREIGN = "R";
+
+        /// <summary>
+        /// SSI Streaming Data Type: B - OHLCV returns open, high, low, close, volume of securities/indexes by tick. 
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_B = "B";
+
+        /// <summary>
+        /// SSI Streaming Data Type: R - Foreign room
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_R = "R";
+
+        /// <summary>
+        /// SSI Streaming Data Type: MI - Realtime update index values of HOSE, HNX, UPCOM. 
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_MI = "MI";
+
+        /// <summary>
+        /// SSI Streaming Data Type: OL - Odlot message including open, high, low, close, volume .. of stocks 
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_OL = "OL";
+
+        /// <summary>
+        /// SSI Streaming Channel: X-Quote - provides best bid/ask. 
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_X_QUOTE = "X-QUOTE";
+
+        /// <summary>
+        /// SSI Streaming Channel: X-Trade
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_X_TRADE = "X-TRADE";
+
+        /// <summary>
+        /// SSI Streaming Channel: Foreign room
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_FOREIGN = "R";
+        #endregion SSI Streaming
     }
 }
