@@ -114,6 +114,11 @@
         public const string SSI_STREAMING_DATA_TYPE_X_TRADE = "X-TRADE";
 
         /// <summary>
+        /// SSI Streaming Data Type: Foreign room
+        /// </summary>
+        public const string SSI_STREAMING_DATA_TYPE_FOREIGN = "R";
+
+        /// <summary>
         /// SSI Streaming Data Type: B - OHLCV returns open, high, low, close, volume of securities/indexes by tick. 
         /// </summary>
         public const string SSI_STREAMING_DATA_TYPE_B = "B";
@@ -132,6 +137,21 @@
         /// SSI Streaming Data Type: OL - Odlot message including open, high, low, close, volume .. of stocks 
         /// </summary>
         public const string SSI_STREAMING_DATA_TYPE_OL = "OL";
+
+        /// <summary>
+        /// SSI Streaming Channel: X-Quote - provides best bid/ask. 
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_X_QUOTE = "X-QUOTE";
+
+        /// <summary>
+        /// SSI Streaming Channel: X-Trade
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_X_TRADE = "X-TRADE";
+
+        /// <summary>
+        /// SSI Streaming Channel: Foreign room
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_FOREIGN = "R";
         #endregion SSI Streaming
     }
 }

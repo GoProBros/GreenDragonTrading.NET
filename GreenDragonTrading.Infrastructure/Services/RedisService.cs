@@ -73,7 +73,6 @@ namespace GreenDragonTrading.Infrastructure.Services
             return await _db.KeyExistsAsync(key);
         }
 
-
         private static HashEntry[] ConvertToHashEntries<T>(T obj)
         {
             var properties = typeof(T).GetProperties();
@@ -94,7 +93,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             return [.. entries];
         }
 
-        private T ConvertFromHashEntries<T>(HashEntry[] entries)
+        private static T ConvertFromHashEntries<T>(HashEntry[] entries)
         {
             var obj = Activator.CreateInstance<T>();
             var properties = typeof(T).GetProperties();
