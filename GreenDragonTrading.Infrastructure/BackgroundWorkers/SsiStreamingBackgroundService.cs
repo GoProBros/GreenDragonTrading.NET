@@ -3,11 +3,11 @@ using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Constants.SSI;
 using GreenDragonTrading.Domain.Interfaces;
-using Microsoft.AspNet.SignalR.Client.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 {
@@ -21,6 +21,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         private readonly ISsiStreamingService _streamingService;
         private readonly ILogger<SsiStreamingBackgroundService> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly IMarketDataBroadcaster _broadcaster;
 
         private readonly Func<string, Task> _broadcastHandler;
         private readonly Action<string> _errorHandler;
@@ -29,11 +30,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         public SsiStreamingBackgroundService(
             ISsiStreamingService streamingService,
             ILogger<SsiStreamingBackgroundService> logger,
-            IServiceScopeFactory serviceScopeFactory )
+            IServiceScopeFactory serviceScopeFactory,
+            IMarketDataBroadcaster broadcaster)
         {
             _streamingService = streamingService;
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
+            _broadcaster = broadcaster;
 
             _broadcastHandler = async (data) => await HandleBroadcast(data);
             _errorHandler = async (error) => await HandleError(error);
@@ -118,7 +121,6 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
         public override void Dispose()
         {
-            // Unsubscribe from events with the same delegates
             _streamingService.OnBroadcastReceived -= _broadcastHandler;
             _streamingService.OnErrorReceived -= _errorHandler;
             _streamingService.OnStateChanged -= _stateChangedHandler;
@@ -148,7 +150,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private static async Task UpdateExistingQuoteData(IRedisService redis, string redisKey, XQuoteResponse response)
+        private async Task UpdateExistingQuoteData(IRedisService redis, string redisKey, XQuoteResponse response)
         {
             var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
             var updates = new Dictionary<string, object>();
@@ -169,10 +171,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (updates.Count > 0)
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
+                updates["Ticker"] = response.Symbol!;
+                await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
             }
         }
 
-        private static async Task CreateNewQuoteData(IRedisService redis, string redisKey, XQuoteResponse response)
+        private async Task CreateNewQuoteData(IRedisService redis, string redisKey, XQuoteResponse response)
         {
             var newData = new MarketSymbolDto
             {
@@ -191,6 +195,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 AskVol3 = response.AskVol3 ?? default,
             };
             await redis.SetHashAsync(redisKey, newData);
+            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
         }
         #endregion Handle X-QUOTE
 
@@ -216,7 +221,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private static async Task UpdateExistingTradeData(IRedisService redis, string redisKey, XTradeResponse response)
+        private  async Task UpdateExistingTradeData(IRedisService redis, string redisKey, XTradeResponse response)
         {
             var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
             var updates = new Dictionary<string, object>();
@@ -239,10 +244,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (updates.Count > 0)
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
+
+                updates["Ticker"] = response.Symbol!;
+                await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
             }
         }
 
-        private static async Task CreateNewTradeData(IRedisService redis, string redisKey, XTradeResponse response)
+        private async Task CreateNewTradeData(IRedisService redis, string redisKey, XTradeResponse response)
         {
             var newData = new MarketSymbolDto
             {
@@ -263,6 +271,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 PriorVal = response.PriorVal ?? default
             };
             await redis.SetHashAsync(redisKey, newData);
+            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
         }
         #endregion Handle X-QUOTE
 

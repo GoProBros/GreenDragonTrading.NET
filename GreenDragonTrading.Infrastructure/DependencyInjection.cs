@@ -34,6 +34,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<ISsiStreamingService, SsiStreamingService>();
             services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<IRedisService, RedisService>();
+            services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
 
             // Register Background Service for handling streaming events
             services.AddHostedService<SsiStreamingBackgroundService>();

@@ -1,6 +1,7 @@
 using Serilog;
 using GreenDragonTrading.Infrastructure;
 using GreenDragonTrading.Application;
+using GreenDragonTrading.Infrastructure.Hubs;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -21,6 +22,10 @@ try
     // Add services to the container.
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddApplication();
+    
+    // Add SignalR
+    builder.Services.AddSignalR();
+    
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
@@ -39,6 +44,9 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    
+    // Map SignalR Hub
+    app.MapHub<MarketDataHub>("/hubs/marketdata");
 
     await app.RunAsync();
 }
