@@ -24,13 +24,13 @@ namespace GreenDragonTrading.Application.DTOs
 
         public double AskVol3 { get; set; }
 
-        public double? LastPrice { get; set; }
+        public double LastPrice { get; set; }
 
-        public double? LastVol { get; set; }
+        public double LastVol { get; set; }
 
-        public double? Change { get; set; }
+        public double Change { get; set; }
 
-        public double? RatioChange{ get; set; }
+        public double RatioChange{ get; set; }
 
         public double BidPrice1 { get; set; }
 
@@ -44,18 +44,19 @@ namespace GreenDragonTrading.Application.DTOs
 
         public double BidVol3 { get; set; }
 
-        public double? TotalVal { get; set; }
+        public double TotalVal { get; set; }
 
-        public double? TotalVol { get; set; }
+        public double TotalVol { get; set; }
 
-        public double? Highest { get; set; }
+        public double Highest { get; set; }
 
-        public double? Lowest { get; set; }
+        public double Lowest { get; set; }
 
-        public string? Side { get; set; }
+        public string Side { get; set; } = string.Empty;
 
+        public double AvgPrice { get; set; }
 
-
+        public double PriorVal { get; set; }
 
         public string? TradingSession { get; set; }
 
