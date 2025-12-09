@@ -24,7 +24,8 @@ namespace GreenDragonTrading.Application.Interfaces
         /// Fetches the list of all industry sectors from SSI API.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
+        /// <param name="level", optional">The industry level to filter by (e.g., 1, 2, 3). If null, fetches all levels.</param>
         /// <returns>A list of <see cref="SsiIndustryDto"/> containing industry/sector information from SSI.</returns>
-        Task<List<SsiIndustryDto>> FetchIndustryListAsync(CancellationToken cancellationToken = default);
+        Task<List<SsiIndustryDto>> FetchIndustryListAsync(int? level, CancellationToken cancellationToken = default);
     }
 }

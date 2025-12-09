@@ -2,6 +2,7 @@
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV2;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.MapSymbolSector;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -50,6 +51,18 @@ namespace GreenDragonTrading.Api.Controllers
         {
             var result = await _mediator.Send(new ImportSymbolsFromSsiCommandV2(), cancellationToken);
             return Ok(ApiResponse<ImportSymbolsFromSsiV2Result>.SuccessResponse(result, result.Message));
+        }
+
+        /// <summary>
+        /// Maps existed symbols to sectors based on SSI data.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>An API response containing the count of mapped symbols.</returns>
+        [HttpPost("v1/map-symbols-sector-from-ssi")]
+        public async Task<ActionResult<ApiResponse<MapSymbolSectorCommandResult>>> MapSymbolSectorFromSsi(CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new MapSymbolSectorCommand(), cancellationToken);
+            return Ok(ApiResponse<MapSymbolSectorCommandResult>.SuccessResponse(result, result.Message));
         }
     }
 }

@@ -158,9 +158,13 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
         /// <returns>A list of <see cref="SsiIndustryDto"/> containing all industry sectors.</returns>
-        public async Task<List<SsiIndustryDto>> FetchIndustryListAsync(CancellationToken cancellationToken = default)
+        public async Task<List<SsiIndustryDto>> FetchIndustryListAsync(int? level, CancellationToken cancellationToken = default)
         {
             string url = $"{_ssiApiOptions.IBoardApi}/statistics/company/sectors-data-v2";
+            if (level.HasValue)
+            {
+                url = $"{_ssiApiOptions.IBoardApi}/statistics/company/sectors-data-v2?level={level}";
+            }
 
             _logger.LogInformation("Fetching SSI industries from URL: {Url}", url);
 

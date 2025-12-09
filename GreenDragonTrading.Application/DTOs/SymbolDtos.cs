@@ -2,7 +2,7 @@
 
 namespace GreenDragonTrading.Application.DTOs
 {
-    public class SymbolDtos
+    public class SymbolDto
     {
         public string Ticker { get; set; } = null!;
 
