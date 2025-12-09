@@ -58,6 +58,18 @@ namespace GreenDragonTrading.Application.DTOs
 
         public double PriorVal { get; set; }
 
+        public double TotalRoom { get; set; }
+
+        public double CurrentRoom { get; set; }
+
+        public double FBuyVol { get; set; }
+
+        public double FSellVol { get; set; }
+
+        public double FBuyVal { get; set; }
+
+        public double FSellVal { get; set; }
+
         public string? TradingSession { get; set; }
 
         public string? TradingStatus { get; set; }

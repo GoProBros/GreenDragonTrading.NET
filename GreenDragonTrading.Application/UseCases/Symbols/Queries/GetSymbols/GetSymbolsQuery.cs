@@ -12,7 +12,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
         string? Sector) : IRequest<GetSymbolsQueryResult>;
 
     public record GetSymbolsQueryResult(
-        List<SymbolDtos> Symbols,
+        List<SymbolDto> Symbols,
         int TotalCount,
         [property: JsonIgnore] string Message
     );

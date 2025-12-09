@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
-using System.Threading.Channels;
 
 namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 {
@@ -97,6 +96,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_FOREIGN))
                 {
                     var response = JsonSerializer.Deserialize<ForeignRoomResponse>(wrapperResponse.Content!);
+                    await HandleForeignRoom(_redis, response);
                 }
             }
             catch (Exception ex)
@@ -208,11 +208,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 if (await redis.ExistsAsync(redisKey))
                 {
-                    await UpdateExistingTradeData(redis, redisKey, response);
+                    await UpdateExistingForeignData(redis, redisKey, response);
                 }
                 else
                 {
-                    await CreateNewTradeData(redis, redisKey, response);
+                    await CreateNewForeignData(redis, redisKey, response);
                 }
             }
             catch (Exception ex)
@@ -221,7 +221,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private  async Task UpdateExistingTradeData(IRedisService redis, string redisKey, XTradeResponse response)
+        private  async Task UpdateExistingForeignData(IRedisService redis, string redisKey, XTradeResponse response)
         {
             var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
             var updates = new Dictionary<string, object>();
@@ -250,7 +250,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private async Task CreateNewTradeData(IRedisService redis, string redisKey, XTradeResponse response)
+        private async Task CreateNewForeignData(IRedisService redis, string redisKey, XTradeResponse response)
         {
             var newData = new MarketSymbolDto
             {
@@ -274,6 +274,66 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
         }
         #endregion Handle X-QUOTE
+
+        #region Handle Foreign Room
+        private async Task HandleForeignRoom(IRedisService redis, ForeignRoomResponse? response)
+        {
+            try
+            {
+                string redisKey = $"{RedisConstants.REDIS_KEY_PREFIX_MARKET_DATA}:{response!.Symbol}";
+
+                if (await redis.ExistsAsync(redisKey))
+                {
+                    await UpdateExistingTradeData(redis, redisKey, response);
+                }
+                else
+                {
+                    await CreateNewTradeData(redis, redisKey, response);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling X-TRADE data for symbol: {Symbol}", response?.Symbol);
+            }
+        }
+
+        private async Task UpdateExistingTradeData(IRedisService redis, string redisKey, ForeignRoomResponse response)
+        {
+            var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
+            var updates = new Dictionary<string, object>();
+
+            AddIfChanged(updates, nameof(MarketSymbolDto.TotalRoom), response.TotalRoom, existingData.TotalRoom);
+            AddIfChanged(updates, nameof(MarketSymbolDto.CurrentRoom), response.CurrentRoom, existingData.CurrentRoom);
+            AddIfChanged(updates, nameof(MarketSymbolDto.FBuyVol), response.FBuyVol, existingData.FBuyVol);
+            AddIfChanged(updates, nameof(MarketSymbolDto.FSellVol), response.FSellVol, existingData.FSellVol);
+            AddIfChanged(updates, nameof(MarketSymbolDto.FSellVal), response.FSellVal, existingData.FSellVal);
+            AddIfChanged(updates, nameof(MarketSymbolDto.FBuyVal), response.FBuyVal, existingData.FBuyVal);
+
+            if (updates.Count > 0)
+            {
+                await redis.SetHashFieldsAsync(redisKey, updates);
+
+                updates["Ticker"] = response.Symbol!;
+                await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
+            }
+        }
+
+        private async Task CreateNewTradeData(IRedisService redis, string redisKey, ForeignRoomResponse response)
+        {
+            var newData = new MarketSymbolDto
+            {
+                Ticker = response.Symbol!,
+                TotalRoom = response.TotalRoom ?? default,
+                CurrentRoom = response.CurrentRoom ?? default,
+                FBuyVol = response.FBuyVol ?? default,
+                FSellVol= response.FSellVol ?? default,
+                FBuyVal = response.FBuyVal ?? default,
+                FSellVal = response.FSellVal ?? default,
+            };
+            await redis.SetHashAsync(redisKey, newData);
+            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
+        }
+        #endregion Handle Foreign Room
 
         private static void AddIfChanged<T>(Dictionary<string, object> updates, string fieldName, T? newValue, T existingValue) where T : struct
         {
