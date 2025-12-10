@@ -5,8 +5,14 @@ using GreenDragonTrading.Domain.Enums;
 
 namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
 {
+    /// <summary>
+    /// GetSymbolsQuery Validator
+    /// </summary>
     public class GetSymbolsQueryValidator : AbstractValidator<GetSymbolsQuery>
     {
+        /// <summary>
+        /// GetSymbolsQuery Validator
+        /// </summary>
         public GetSymbolsQueryValidator()
         {
             RuleFor(x => x.PageIndex)
@@ -32,12 +38,22 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
                 .WithMessage("Sector không được vượt quá 10 ký tự");
         }
 
+        /// <summary>
+        /// Determines whether the specified value represents a valid symbol type or is unspecified.
+        /// </summary>
+        /// <param name="type">The symbol type value to validate. If null, the value is considered unspecified and valid.</param>
+        /// <returns>true if the value is null or corresponds to a defined member of the SymbolType enumeration; otherwise, false.</returns>
         private static bool BeValidSymbolType(int? type)
         {
             if (!type.HasValue) return true;
             return Enum.IsDefined(typeof(SymbolType), (short)type.Value);
         }
 
+        /// <summary>
+        /// Determines whether the specified value represents a valid exchange or is unspecified.
+        /// </summary>
+        /// <param name="exchange">The exchange value to validate. If null, the value is considered unspecified and valid.</param>
+        /// <returns>true if the value is null or corresponds to a defined member of the Exchange enumeration; otherwise, false.</returns>
         private static bool BeValidExchange(string? exchange)
         {
             if (string.IsNullOrWhiteSpace(exchange)) return true;

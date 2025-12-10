@@ -6,6 +6,11 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
 {
+    /// <summary>
+    /// Get symbols with pagination and optional filters handling
+    /// </summary>
+    /// <param name="logger">Logger</param>
+    /// <param name="unitOfWork">Unit of work</param>
     public class GetSymbolsQueryHandler(
         ILogger<GetSymbolsQueryHandler> logger,
         IUnitOfWork unitOfWork) : IRequestHandler<GetSymbolsQuery, GetSymbolsQueryResult>
@@ -13,6 +18,12 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly ILogger<GetSymbolsQueryHandler> _logger = logger;
 
+        /// <summary>
+        /// Get symbols with pagination and optional filters handling
+        /// </summary>
+        /// <param name="request">Request model</param>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>A list of symbols</returns>
         public async Task<GetSymbolsQueryResult> Handle(GetSymbolsQuery request, CancellationToken cancellationToken)
         {
             try

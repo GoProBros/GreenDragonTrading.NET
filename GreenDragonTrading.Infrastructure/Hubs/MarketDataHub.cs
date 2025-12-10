@@ -11,18 +11,12 @@ namespace GreenDragonTrading.Infrastructure.Hubs
     /// This Hub handles client connections and group subscriptions.
     /// Business logic should be in Application layer, not here.
     /// </summary>
-    public class MarketDataHub : Hub
+    public class MarketDataHub(
+        ILogger<MarketDataHub> logger,
+        IRedisService redisService) : Hub
     {
-        private readonly ILogger<MarketDataHub> _logger;
-        private readonly IRedisService _redisService;
-
-        public MarketDataHub(
-            ILogger<MarketDataHub> logger,
-            IRedisService redisService)
-        {
-            _logger = logger;
-            _redisService = redisService;
-        }
+        private readonly ILogger<MarketDataHub> _logger = logger;
+        private readonly IRedisService _redisService = redisService;
 
         public override async Task OnConnectedAsync()
         {

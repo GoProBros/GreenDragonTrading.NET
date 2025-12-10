@@ -4,6 +4,9 @@ namespace GreenDragonTrading.Application.Common.Validation
 {
     public static class PaginationValidatorRules
     {
+        /// <summary>
+        /// Page size validation rule that only accepts specific 10, 20, 50, 100, 1000, 5000
+        /// </summary>
         public static IRuleBuilderOptions<T, int> ValidPageSize<T>(this IRuleBuilder<T, int> ruleBuilder)
         {
             int[] allowedSizes = { 10, 20, 50, 100, 1000, 5000 };

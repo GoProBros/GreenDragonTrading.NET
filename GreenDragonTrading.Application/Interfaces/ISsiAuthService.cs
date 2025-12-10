@@ -1,5 +1,8 @@
 ﻿namespace GreenDragonTrading.Application.Interfaces
 {
+    /// <summary>
+    /// Handles authentication for SSI V2 API (OAuth, RSA).
+    /// </summary>
     public interface ISsiAuthService
     {
         /// <summary>
