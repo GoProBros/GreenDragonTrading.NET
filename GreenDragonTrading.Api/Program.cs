@@ -23,10 +23,23 @@ try
     // Add services to the container.
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddApplication();
-    
+
+    // Add CORS
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AppCorsPolicy", policy =>
+        {
+            policy.WithOrigins(allowedOrigins ?? [])
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
+    });
+
     // Add SignalR
     builder.Services.AddSignalR();
-    
+
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
@@ -47,10 +60,13 @@ try
 
     app.UseHttpsRedirection();
 
+    // Use CORS
+    app.UseCors("AppCorsPolicy");
+
     app.UseAuthorization();
 
     app.MapControllers();
-    
+
     // Map SignalR Hub
     app.MapHub<MarketDataHub>("/hubs/marketdata");
 
