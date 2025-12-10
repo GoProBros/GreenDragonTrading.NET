@@ -1,8 +1,8 @@
-using Serilog;
-using GreenDragonTrading.Infrastructure;
+using GreenDragonTrading.Api.Middlewares;
 using GreenDragonTrading.Application;
+using GreenDragonTrading.Infrastructure;
 using GreenDragonTrading.Infrastructure.Hubs;
-using System.IO;
+using Serilog;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -35,6 +35,8 @@ try
         var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
         options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
     });
+
+    builder.Services.AddExceptionHandler<CustomExceptionHandler>();
 
     var app = builder.Build();
 
