@@ -2,6 +2,9 @@
 
 namespace GreenDragonTrading.Application.Interfaces
 {
+    /// <summary>
+    /// Service for fetching symbols/sectors from SSI V2 REST API.
+    /// </summary>
     public interface ISsiServiceV2
     {
         /// <summary>

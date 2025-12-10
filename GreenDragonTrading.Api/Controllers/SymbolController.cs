@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace GreenDragonTrading.Api.Controllers
 {
+    /// <summary>
+    /// Controller for managing symbol-related operations.
+    /// </summary>
     [Route("api/v1/symbol")]
     [ApiController]
     public class SymbolController(IMediator mediator) : ControllerBase

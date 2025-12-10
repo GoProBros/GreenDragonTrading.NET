@@ -4,6 +4,9 @@ namespace GreenDragonTrading.Application.Common.Utils
 {
     public static class ExtensionMethods
     {
+        /// <summary>
+        /// Generates a query string from the properties of an object.
+        /// </summary>
         public static string ToQueryString(this object obj)
         {
             var properties = from p in obj.GetType().GetProperties()

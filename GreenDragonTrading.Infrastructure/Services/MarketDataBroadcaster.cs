@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
+    /// <inheritdoc/>
     public class MarketDataBroadcaster(
         IHubContext<MarketDataHub> hubContext,
         ILogger<MarketDataBroadcaster> logger) : IMarketDataBroadcaster
@@ -12,6 +13,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         private readonly IHubContext<MarketDataHub> _hubContext = hubContext;
         private readonly ILogger<MarketDataBroadcaster> _logger = logger;
 
+        /// <inheritdoc/>
         public async Task BroadcastMarketDataAsync<T>(string symbol, T data, CancellationToken cancellationToken = default)
         {
             try

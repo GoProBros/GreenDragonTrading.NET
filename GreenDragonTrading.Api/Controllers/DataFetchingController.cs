@@ -8,6 +8,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace GreenDragonTrading.Api.Controllers
 {
+    /// <summary>
+    /// Fetches data from external APIs and imports into the system.
+    /// </summary>
+    /// <param name="mediator">Mediator service</param>
     [Route("api/data-fetching")]
     [ApiController]
     public class DataFetchingController(IMediator mediator) : ControllerBase

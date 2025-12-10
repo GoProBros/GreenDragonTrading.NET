@@ -9,6 +9,7 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
+    /// <inheritdoc/>
     public class SsiServiceV2(
         HttpClient httpClient,
         ILogger<SsiServiceV2> logger,
@@ -24,6 +25,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             PropertyNameCaseInsensitive = true
         };
 
+        /// <inheritdoc/>
         public async Task<(SecuritiesDetailsResponse result, int count)> FetchSecuritiesDetails(
             SecuritiesDetailsRequest requestQuery,
             CancellationToken cancellationToken = default)
@@ -41,6 +43,12 @@ namespace GreenDragonTrading.Infrastructure.Services
             return (result, actualCount);
         }
 
+        /// <summary>
+        /// Handle the HTTP request to SSI API and deserialize the response.
+        /// </summary>
+        /// <typeparam name="TResponse">Response type for each API</typeparam>
+        /// <param name="urlWithQuery">Query string for the API request</param>
+        /// <param name="cancellationToken">Cancellation token for the operation</param>
         private async Task<TResponse> HandlerRequest<TResponse>(string urlWithQuery, CancellationToken cancellationToken)
             where TResponse : class, new()
         {

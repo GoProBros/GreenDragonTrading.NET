@@ -8,6 +8,7 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
+    /// <inheritdoc/>
     public class SsiServiceV1(HttpClient httpClient, ILogger<SsiServiceV1> logger, IOptions<SsiApiOptionsV1> ssiApiOptions) : ISsiServiceV1
     {
         private readonly HttpClient _httpClient = httpClient;
@@ -18,13 +19,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             PropertyNameCaseInsensitive = true
         };
 
-        /// <summary>
-        /// Fetches the complete list of symbols (stocks, ETFs, bonds) from SSI API for a specific exchange.
-        /// This method aggregates results from multiple symbol type endpoints in parallel.
-        /// </summary>
-        /// <param name="exchange">The exchange code (e.g., HSX, HNX, UPCOM).</param>
-        /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>A combined list of <see cref="SsiSymbolDto"/> from all symbol types.</returns>
+        /// <inheritdoc/>
         public async Task<List<SsiSymbolDto>> FetchSymbolsListAsync(string exchange, CancellationToken cancellationToken = default)
         {
             var tasks = new[]
@@ -123,13 +118,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
         }
 
-        /// <summary>
-        /// Fetches detailed company profile information for a specific symbol from SSI API.
-        /// Includes company name, industry, financial data, and other company-specific details.
-        /// </summary>
-        /// <param name="symbol">The stock symbol/ticker to fetch details for.</param>
-        /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>A <see cref="SsiSymbolDetailsDto"/> with company details, or null if fetch fails.</returns>
+        /// <inheritdoc/>
         public async Task<SsiSymbolDetailsDto?> FetchSymbolsDetailsAsync(string symbol, CancellationToken cancellationToken = default)
         {
             string url = $"{_ssiApiOptions.IBoardApi}/statistics/company/ssmi/company-profile?symbol={symbol}&language=vn";
@@ -152,12 +141,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             return result.Data;
         }
 
-        /// <summary>
-        /// Fetches the complete list of industry sectors from SSI API.
-        /// Retrieves all sector levels (1-4) with Vietnamese and English names.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>A list of <see cref="SsiIndustryDto"/> containing all industry sectors.</returns>
+        /// <inheritdoc/>
         public async Task<List<SsiIndustryDto>> FetchIndustryListAsync(int? level, CancellationToken cancellationToken = default)
         {
             string url = $"{_ssiApiOptions.IBoardApi}/statistics/company/sectors-data-v2";

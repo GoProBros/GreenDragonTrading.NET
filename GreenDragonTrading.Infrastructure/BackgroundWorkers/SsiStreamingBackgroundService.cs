@@ -26,6 +26,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         private readonly Action<string> _errorHandler;
         private readonly Action<string, string> _stateChangedHandler;
 
+        /// <summary>
+        /// Constructor for SsiStreamingBackgroundService.
+        /// </summary>
+        /// <param name="streamingService">Define streaming service</param>
+        /// <param name="logger">Logger</param>
+        /// <param name="serviceScopeFactory">Service scope factory</param>
+        /// <param name="broadcaster">Market data broadcaster</param>
         public SsiStreamingBackgroundService(
             ISsiStreamingService streamingService,
             ILogger<SsiStreamingBackgroundService> logger,
@@ -45,7 +52,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             _streamingService.OnErrorReceived += _errorHandler;
             _streamingService.OnStateChanged += _stateChangedHandler;
         }
-
+        
         protected async override Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("SSI Streaming Background Service started.");
@@ -74,6 +81,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             await _streamingService.SwitchChannelsAsync(foreignFilter);
         }
 
+        /// <summary>
+        /// Handle incoming broadcast data.
+        /// </summary>
+        /// <param name="data">Data received from the streaming service</param>
         private async Task HandleBroadcast(string data)
         {
             try
@@ -105,20 +116,29 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
+        /// <summary>
+        /// Handle streaming errors.
+        /// </summary>
+        /// <param name="error">Error message</param>
         private async Task HandleError(string error)
         {
             _logger.LogError("SSI Streaming error: {Error}", error);
-            
-            // Notify all connected clients about the error
         }
 
+        /// <summary>
+        /// Handle state changes in the streaming connection.
+        /// </summary>
+        /// <param name="oldState">Old streaming state</param>
+        /// <param name="newState">New streaming state</param>
+        /// <returns></returns>
         private async Task HandleStateChanged(string oldState, string newState)
         {
             _logger.LogInformation("SSI connection state changed: {OldState} -> {NewState}", oldState, newState);
-            
-            // Notify all connected clients about connection state change
         }
 
+        /// <summary>
+        /// Dispose the background service and unsubscribe from events.
+        /// </summary>
         public override void Dispose()
         {
             _streamingService.OnBroadcastReceived -= _broadcastHandler;
@@ -129,6 +149,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         }
 
         #region Handle X-QUOTE
+
+        /// <summary>
+        /// Handle X-QUOTE data from SSI streaming service.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="response">X-QUOTE data from SSI</param>
         private async Task HandleXQuote(IRedisService redis, XQuoteResponse? response)
         {
             try
@@ -150,6 +176,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
+        /// <summary>
+        /// Update existing quote data of symbol in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to retrieve existing symbol data</param>
+        /// <param name="response">X-QUOTE data from SSI</param>
         private async Task UpdateExistingQuoteData(IRedisService redis, string redisKey, XQuoteResponse response)
         {
             var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
@@ -176,6 +208,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
+        /// <summary>
+        /// When no existing quote data, create new entry in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to store new symbol data</param>
+        /// <param name="response">X-QUOTE data from SSI</param>
         private async Task CreateNewQuoteData(IRedisService redis, string redisKey, XQuoteResponse response)
         {
             var newData = new MarketSymbolDto
@@ -197,9 +235,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             await redis.SetHashAsync(redisKey, newData);
             await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
         }
+
         #endregion Handle X-QUOTE
 
         #region Handle X-TRADE
+
+        /// <summary>
+        /// Handle X-TRADE data from SSI streaming service.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="response">X-TRADE data from SSI</param>
         private async Task HandleXTrade(IRedisService redis, XTradeResponse? response)
         {
             try
@@ -208,11 +253,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 if (await redis.ExistsAsync(redisKey))
                 {
-                    await UpdateExistingForeignData(redis, redisKey, response);
+                    await UpdateExistingTradeData(redis, redisKey, response);
                 }
                 else
                 {
-                    await CreateNewForeignData(redis, redisKey, response);
+                    await CreateNewTradeData(redis, redisKey, response);
                 }
             }
             catch (Exception ex)
@@ -221,7 +266,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private  async Task UpdateExistingForeignData(IRedisService redis, string redisKey, XTradeResponse response)
+        /// <summary>
+        /// Update existing trade data of symbol in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to retrieve symbol data</param>
+        /// <param name="response">X-TRADE data from SSI</param>
+        private async Task UpdateExistingTradeData(IRedisService redis, string redisKey, XTradeResponse response)
         {
             var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
             var updates = new Dictionary<string, object>();
@@ -250,7 +301,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private async Task CreateNewForeignData(IRedisService redis, string redisKey, XTradeResponse response)
+        /// <summary>
+        /// If no existing trade data, create new entry in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to retrieve symbol data</param>
+        /// <param name="response">X-TRADE data from SSI</param
+        private async Task CreateNewTradeData(IRedisService redis, string redisKey, XTradeResponse response)
         {
             var newData = new MarketSymbolDto
             {
@@ -273,9 +330,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             await redis.SetHashAsync(redisKey, newData);
             await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
         }
-        #endregion Handle X-QUOTE
+
+        #endregion Handle X-TRADE
 
         #region Handle Foreign Room
+
+        /// <summary>
+        /// Handle Foreign Room data from SSI streaming service.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="response">Foreign Room response data</param>
         private async Task HandleForeignRoom(IRedisService redis, ForeignRoomResponse? response)
         {
             try
@@ -284,11 +348,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 if (await redis.ExistsAsync(redisKey))
                 {
-                    await UpdateExistingTradeData(redis, redisKey, response);
+                    await UpdateExistingForeignData(redis, redisKey, response);
                 }
                 else
                 {
-                    await CreateNewTradeData(redis, redisKey, response);
+                    await CreateNewForeignData(redis, redisKey, response);
                 }
             }
             catch (Exception ex)
@@ -297,7 +361,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private async Task UpdateExistingTradeData(IRedisService redis, string redisKey, ForeignRoomResponse response)
+        /// <summary>
+        /// Update existing foreign data of symbol in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to retrieve symbol data from redis</param>
+        /// <param name="response">Foreign data from SSI</param>
+        private async Task UpdateExistingForeignData(IRedisService redis, string redisKey, ForeignRoomResponse response)
         {
             var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
             var updates = new Dictionary<string, object>();
@@ -318,7 +388,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        private async Task CreateNewTradeData(IRedisService redis, string redisKey, ForeignRoomResponse response)
+        /// <summary>
+        /// If no existing trade data, create new entry in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to retrieve symbol data from redis</param>
+        /// <param name="response">Foreign data from SSI</param>
+        private async Task CreateNewForeignData(IRedisService redis, string redisKey, ForeignRoomResponse response)
         {
             var newData = new MarketSymbolDto
             {
@@ -326,15 +402,24 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 TotalRoom = response.TotalRoom ?? default,
                 CurrentRoom = response.CurrentRoom ?? default,
                 FBuyVol = response.FBuyVol ?? default,
-                FSellVol= response.FSellVol ?? default,
+                FSellVol = response.FSellVol ?? default,
                 FBuyVal = response.FBuyVal ?? default,
                 FSellVal = response.FSellVal ?? default,
             };
             await redis.SetHashAsync(redisKey, newData);
             await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
         }
+
         #endregion Handle Foreign Room
 
+        /// <summary>
+        /// Check if new value is different from existing value, and add to updates if changed.
+        /// </summary>
+        /// <typeparam name="T">Type of the value</typeparam>
+        /// <param name="updates">Dictionary of updated fields</param>
+        /// <param name="fieldName">Name of field</param>
+        /// <param name="newValue">New value of field</param>
+        /// <param name="existingValue">Old value of field</param>
         private static void AddIfChanged<T>(Dictionary<string, object> updates, string fieldName, T? newValue, T existingValue) where T : struct
         {
             var valueToCompare = newValue ?? default;
@@ -344,6 +429,14 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
+        /// <summary>
+        /// Check if new value is different from existing value, and add to updates if changed.
+        /// </summary>
+        /// <typeparam name="T">Type of the value</typeparam>
+        /// <param name="updates">Dictionary of updated fields</param>
+        /// <param name="fieldName">Name of field</param>
+        /// <param name="newValue">New value of field</param>
+        /// <param name="existingValue">Old value of field</param>
         private static void AddIfChanged(Dictionary<string, object> updates, string fieldName, string? newValue, string existingValue)
         {
             var valueToCompare = newValue ?? string.Empty;
