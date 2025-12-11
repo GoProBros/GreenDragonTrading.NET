@@ -1,4 +1,5 @@
-﻿using GreenDragonTrading.Application.DTOs;
+﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
@@ -13,7 +14,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
     /// <param name="unitOfWork">Unit of work</param>
     public class GetSymbolsQueryHandler(
         ILogger<GetSymbolsQueryHandler> logger,
-        IUnitOfWork unitOfWork) : IRequestHandler<GetSymbolsQuery, GetSymbolsQueryResult>
+        IUnitOfWork unitOfWork) : IRequestHandler<GetSymbolsQuery, ApiResponse<PaginatedResponse<SymbolDto>>>
     {
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly ILogger<GetSymbolsQueryHandler> _logger = logger;
@@ -24,7 +25,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
         /// <param name="request">Request model</param>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>A list of symbols</returns>
-        public async Task<GetSymbolsQueryResult> Handle(GetSymbolsQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<PaginatedResponse<SymbolDto>>> Handle(GetSymbolsQuery request, CancellationToken cancellationToken)
         {
             try
             {
@@ -50,7 +51,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols
                     Status = s.Status
                 }).ToList();
 
-                return new GetSymbolsQueryResult(symbolDtos, totalCount, "Thành công");
+                return ApiResponse<PaginatedResponse<SymbolDto>>.Success(PaginatedResponse<SymbolDto>.Create(symbolDtos, totalCount, request.PageIndex, request.PageSize));
             }
             catch (Exception ex)
             {

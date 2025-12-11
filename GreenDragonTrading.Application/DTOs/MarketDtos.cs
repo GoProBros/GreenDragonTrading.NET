@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace GreenDragonTrading.Application.DTOs
+﻿namespace GreenDragonTrading.Application.DTOs
 {
     public class MarketSymbolDto
     {
@@ -73,5 +71,18 @@ namespace GreenDragonTrading.Application.DTOs
         public string? TradingSession { get; set; }
 
         public string? TradingStatus { get; set; }
+    }
+
+    public class IntradayOhlc
+    {
+        public string Symbol { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public string TradingDate { get; set; } = string.Empty;
+        public string Time { get; set; } = string.Empty;
+        public string Open { get; set; } = string.Empty;
+        public string High { get; set; } = string.Empty;
+        public string Low { get; set; } = string.Empty;
+        public string Close { get; set; } = string.Empty;
+        public string Volume { get; set; } = string.Empty;
     }
 }

@@ -1,74 +1,66 @@
-﻿namespace GreenDragonTrading.Application.Common.Models
+﻿using System.Text.Json.Serialization;
+
+namespace GreenDragonTrading.Application.Common.Models
 {
-    public class ApiResponse<T>
+    public record ApiResponse
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public T? Data { get; set; }
-        public List<string>? Errors { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public bool IsSuccess { get; init; }
+        public string Message { get; init; } = string.Empty;
 
-        public static ApiResponse<T> SuccessResponse(T data, string message = "Success")
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? Errors { get; init; }
+
+        public DateTime ResponseTime { get; init; } = DateTime.Now;
+
+        protected ApiResponse(bool isSuccess, string message, List<string>? errors = null)
         {
-            return new ApiResponse<T>
-            {
-                Success = true,
-                Message = message,
-                Data = data
-            };
+            IsSuccess = isSuccess;
+            Message = message;
+            Errors = errors;
         }
 
-        public static ApiResponse<T> FailResponse(string message, List<string>? errors = null)
+        #region Factory Methods (Non-Generic)
+
+        public static ApiResponse Success(string message = "Thành công")
+            => new(true, message);
+
+        public static ApiResponse Failure(string message, List<string> errors) => new(false, message, errors);
+
+        public static ApiResponse Failure(string message, string? error = null)
         {
-            return new ApiResponse<T>
-            {
-                Success = false,
-                Message = message,
-                Errors = errors
-            };
+            List<string>? errorList = !string.IsNullOrWhiteSpace(error) ? [error] : null;
+
+            return new(false, message, errorList);
         }
 
-        public static ApiResponse<T> FailResponse(string message, string error)
-        {
-            return new ApiResponse<T>
-            {
-                Success = false,
-                Message = message,
-                Errors = [error]
-            };
-        }
+        #endregion
     }
 
-    public class ApiResponse : ApiResponse<object>
+    public record ApiResponse<T> : ApiResponse
     {
-        public static ApiResponse SuccessResponse(string message = "Success")
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public T? Data { get; init; }
+
+        private ApiResponse(bool isSuccess, string message, T? data, List<string>? errors = null)
+            : base(isSuccess, message, errors)
         {
-            return new ApiResponse
-            {
-                Success = true,
-                Message = message
-            };
+            Data = data;
         }
 
-        public new static ApiResponse FailResponse(string message, List<string>? errors = null)
+        #region Factory Methods (Generic)
+
+        public static ApiResponse<T> Success(T data, string message = "Thành công")
+            => new(true, message, data);
+
+        public new static ApiResponse<T> Failure(string message, List<string> errors)
+            => new(false, message, default, errors);
+
+        public new static ApiResponse<T> Failure(string message, string? error = null)
         {
-            return new ApiResponse
-            {
-                Success = false,
-                Message = message,
-                Errors = errors
-            };
+            List<string>? errorList = !string.IsNullOrWhiteSpace(error) ? [error] : null;
+            return new(false, message, default, errorList);
         }
 
-        public new static ApiResponse FailResponse(string message, string error)
-        {
-            return new ApiResponse
-            {
-                Success = false,
-                Message = message,
-                Errors = [error]
-            };
-        }
+        #endregion
     }
-
 }

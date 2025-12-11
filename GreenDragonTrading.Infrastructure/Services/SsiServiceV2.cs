@@ -26,7 +26,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         };
 
         /// <inheritdoc/>
-        public async Task<(SecuritiesDetailsResponse result, int count)> FetchSecuritiesDetails(
+        public async Task<(SecuritiesDetailsResponse result, int count)> FetchSecuritiesDetailsAsync(
             SecuritiesDetailsRequest requestQuery,
             CancellationToken cancellationToken = default)
         {
@@ -38,6 +38,24 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             SecuritiesDetailsResponse result = await HandlerRequest<SecuritiesDetailsResponse>(urlWithQuery, cancellationToken);
             int actualCount = result.Data.Sum(item => item.RepeatedInfo.Count);
+            _logger.LogInformation("Fetch successfully {Count} SSI Securities.", actualCount);
+
+            return (result, actualCount);
+        }
+
+        /// <inheritdoc/>
+        public async Task<(IntradayOhlcResponse result, int count)> FetchIntradayOhlcAsync(
+            IntradayOhlcRequest requestQuery,
+            CancellationToken cancellationToken = default)
+        {
+            string url = $"{_ssiApiOptions.FastConnectUrl}{SsiApiDefineV2.GetIntradayOhlc}";
+
+            string urlWithQuery = url + requestQuery.ToQueryString();
+
+            _logger.LogInformation("Fetching SSI Intraday OHLC from URL: {Url}", urlWithQuery);
+
+            IntradayOhlcResponse result = await HandlerRequest<IntradayOhlcResponse>(urlWithQuery, cancellationToken);
+            int actualCount = result.Data.Count;
             _logger.LogInformation("Fetch successfully {Count} SSI Securities.", actualCount);
 
             return (result, actualCount);

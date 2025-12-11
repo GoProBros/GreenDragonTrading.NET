@@ -29,7 +29,6 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
         /// </summary>
         /// <param name="request">The import command request.</param>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>A <see cref="ImportSymbolsFromSsiResult"/> containing counts of imported and updated symbols.</returns>
         public async Task<ImportSymbolsFromSsiV2Result> Handle(ImportSymbolsFromSsiCommandV2 request, CancellationToken cancellationToken)
         {
             try
@@ -78,7 +77,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
                 List<RepeatedSecuritiesDetailsInfo>? validSsiSymbols = [];
                 do
                 {
-                    (SecuritiesDetailsResponse ssiSymbols, int count) = await _ssiService.FetchSecuritiesDetails(requestQuery, cancellationToken);
+                    (SecuritiesDetailsResponse ssiSymbols, int count) = await _ssiService.FetchSecuritiesDetailsAsync(requestQuery, cancellationToken);
 
                     var securities = ssiSymbols.Data
                         .Where(d => d.RepeatedInfo != null)

@@ -1,4 +1,5 @@
-﻿using GreenDragonTrading.Application.DTOs;
+﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
@@ -11,7 +12,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols
     /// </summary>
     public class SearchSymbolsQueryHandler(
         IUnitOfWork uow,
-        ILogger<SearchSymbolsQueryHandler> logger) : IRequestHandler<SearchSymbolsQuery, SearchSymbolsQueryResult>
+        ILogger<SearchSymbolsQueryHandler> logger) : IRequestHandler<SearchSymbolsQuery, ApiResponse<PaginatedResponse<SimpleSymbolDto>>>
     {
         private readonly IUnitOfWork _uow = uow;
         private readonly ILogger<SearchSymbolsQueryHandler> _logger = logger;
@@ -22,20 +23,28 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols
         /// <param name="request">Request model containing search parameters</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns></returns>
-        public async Task<SearchSymbolsQueryResult> Handle(SearchSymbolsQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<PaginatedResponse<SimpleSymbolDto>>> Handle(SearchSymbolsQuery request, CancellationToken cancellationToken)
         {
             try
             {
-                IEnumerable<Symbol> symbols = await _uow.Symbols.SearchSymbolsAsync(request.Query, request.IsTickerOnly, cancellationToken);
-                return new SearchSymbolsQueryResult
-                (
-                    [.. symbols.Select(s => new SimpleSymbolDto
-                    {
-                        Ticker = s.Ticker,
-                        EnCompanyName = s.EnCompanyName,
-                        ViCompanyName = s.ViCompanyName,
-                    })]
-                );
+                _logger.LogInformation("Searching symbols with query: {Query}, IsTickerOnly: {IsTickerOnly}, PageIndex: {PageIndex}, PageSize: {PageSize}",
+                    request.Query, request.IsTickerOnly, request.PageIndex, request.PageSize);
+
+                var (symbols, totalCount) = await _uow.Symbols.SearchSymbolsAsync(
+                    request.Query,
+                    request.IsTickerOnly,
+                    request.PageIndex,
+                    request.PageSize,
+                    cancellationToken);
+
+                var simpleSymbols = symbols.Select(s => new SimpleSymbolDto
+                {
+                    Ticker = s.Ticker,
+                    ViCompanyName = s.ViCompanyName,
+                    EnCompanyName = s.EnCompanyName
+                }).ToList();
+
+                return ApiResponse<PaginatedResponse<SimpleSymbolDto>>.Success(PaginatedResponse<SimpleSymbolDto>.Create(simpleSymbols, totalCount, request.PageIndex, request.PageSize));
             }
             catch (Exception ex)
             {

@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols;
@@ -23,10 +24,14 @@ namespace GreenDragonTrading.Api.Controllers
         /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
         /// <returns>An <see cref="ApiResponse{T}"/> containing a paginated list of symbols and metadata.</returns>
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<GetSymbolsQueryResult>>> GetSymbols([FromQuery] GetSymbolsQuery query, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<SymbolDto>>> GetSymbols([FromQuery] GetSymbolsQuery query, CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(query, cancellationToken);
-            return Ok(ApiResponse<GetSymbolsQueryResult>.SuccessResponse(result, result.Message));
+            if (!result.IsSuccess) 
+            { 
+                return NotFound(result);
+            }
+            return Ok(result);
         }
 
         /// <summary>
@@ -36,10 +41,14 @@ namespace GreenDragonTrading.Api.Controllers
         /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
         /// <returns>An <see cref="ApiResponse{T}"/> containing the symbol details.</returns>
         [HttpGet("{ticker}")]
-        public async Task<ActionResult<ApiResponse<GetSymbolQueryResult>>> GetSymbol([FromRoute] string ticker, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<SymbolDto>>>> GetSymbol([FromRoute] string ticker, CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new GetSymbolQuery(ticker), cancellationToken);
-            return Ok(ApiResponse<GetSymbolQueryResult>.SuccessResponse(result, result.Message));
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
         }
 
         /// <summary>
@@ -48,10 +57,14 @@ namespace GreenDragonTrading.Api.Controllers
         /// <param name="request">Request model contains search parameters</param>
         /// <param name="cancellationToken">Cancellation token</param>
         [HttpGet("search")]
-        public async Task<ActionResult<ApiResponse<SearchSymbolsQueryResult>>> SearchSymbols([FromQuery] SearchSymbolsQuery request, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<SimpleSymbolDto>>>> SearchSymbols([FromQuery] SearchSymbolsQuery request, CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(request, cancellationToken);
-            return Ok(ApiResponse<SearchSymbolsQueryResult>.SuccessResponse(result));
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
         }
     }
 }
