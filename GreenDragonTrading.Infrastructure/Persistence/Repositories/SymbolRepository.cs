@@ -53,5 +53,16 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 
             return (symbols, totalCount);
         }
+
+        public Task<IEnumerable<Symbol>> SearchSymbolsAsync(string query, bool isTickerOnly, CancellationToken cancellationToken = default)
+        {
+            return _dbSet
+                .AsNoTracking()
+                .Where(s => EF.Functions.ILike(s.Ticker, $"%{query}%") ||
+                            (!isTickerOnly && EF.Functions.ILike(s.ViCompanyName!, $"%{query}%")) ||
+                            (!isTickerOnly && EF.Functions.ILike(s.EnCompanyName!, $"%{query}%")))
+                .ToListAsync(cancellationToken)
+                .ContinueWith(t => (IEnumerable<Symbol>)t.Result, cancellationToken);
+        }
     }
 }

@@ -44,9 +44,18 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
-        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-        options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+        // Include XML comments from API project
+        var apiXmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var apiXmlPath = Path.Combine(AppContext.BaseDirectory, apiXmlFile);
+        options.IncludeXmlComments(apiXmlPath, includeControllerXmlComments: true);
+        
+        // Include XML comments from Application project (for DTOs, Commands, Queries)
+        var applicationXmlFile = "GreenDragonTrading.Application.xml";
+        var applicationXmlPath = Path.Combine(AppContext.BaseDirectory, applicationXmlFile);
+        if (File.Exists(applicationXmlPath))
+        {
+            options.IncludeXmlComments(applicationXmlPath);
+        }
     });
 
     builder.Services.AddExceptionHandler<CustomExceptionHandler>();
@@ -58,6 +67,7 @@ try
     {
         app.UseSwagger();
         app.UseSwaggerUI();
+        app.UseDeveloperExceptionPage();
     }
 
     app.UseHttpsRedirection();

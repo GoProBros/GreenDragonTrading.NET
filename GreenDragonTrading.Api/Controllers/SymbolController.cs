@@ -1,6 +1,7 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols;
+using GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,6 +40,18 @@ namespace GreenDragonTrading.Api.Controllers
         {
             var result = await _mediator.Send(new GetSymbolQuery(ticker), cancellationToken);
             return Ok(ApiResponse<GetSymbolQueryResult>.SuccessResponse(result, result.Message));
+        }
+
+        /// <summary>
+        /// Search for symbols based on a query string make isTickerOnly flase if you want to search by ticker or companyname.
+        /// </summary>
+        /// <param name="request">Request model contains search parameters</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        [HttpGet("search")]
+        public async Task<ActionResult<ApiResponse<SearchSymbolsQueryResult>>> SearchSymbols([FromQuery] SearchSymbolsQuery request, CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+            return Ok(ApiResponse<SearchSymbolsQueryResult>.SuccessResponse(result));
         }
     }
 }
