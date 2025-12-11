@@ -2,15 +2,17 @@
 
 namespace GreenDragonTrading.Application.DTOs
 {
-    public class SymbolDto
+    public class SimpleSymbolDto
     {
         public string Ticker { get; set; } = null!;
-
-        public string? Isin { get; set; }
+        public string? ViCompanyName { get; set; }
 
         public string? EnCompanyName { get; set; } = null!;
+    }
 
-        public string? ViCompanyName { get; set; }
+    public class SymbolDto : SimpleSymbolDto
+    {
+        public string? Isin { get; set; }
 
         public string ExchangeCode { get; set; } = null!;
 

@@ -13,5 +13,7 @@ namespace GreenDragonTrading.Domain.Interfaces
             string? exchange = null,
             string? sector = null,
             CancellationToken cancellationToken = default);
+
+        Task<IEnumerable<Symbol>> SearchSymbolsAsync(string query, bool isTickerOnly, CancellationToken cancellationToken = default);
     }
 }
