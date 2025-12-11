@@ -1,4 +1,5 @@
-﻿using GreenDragonTrading.Application.DTOs;
+﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol
     /// <param name="uow">Unit of work</param>
     public class GetSymbolQueryHandler(
         ILogger<GetSymbolQueryHandler> logger,
-        IUnitOfWork uow) : IRequestHandler<GetSymbolQuery, GetSymbolQueryResult>
+        IUnitOfWork uow) : IRequestHandler<GetSymbolQuery, ApiResponse<SymbolDto>>
     {
         private readonly ILogger<GetSymbolQueryHandler> _logger = logger;
         private readonly IUnitOfWork _uow = uow;
@@ -23,7 +24,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol
         /// <param name="request">Request model</param>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>Details data of symbol</returns>
-        public async Task<GetSymbolQueryResult> Handle(GetSymbolQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<SymbolDto>> Handle(GetSymbolQuery request, CancellationToken cancellationToken)
         {
             try
             {
@@ -32,7 +33,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol
                 if (symbol == null)
                 {
                     _logger.LogWarning("Symbol not found for Ticker: {Ticker}", request.Ticker);
-                    return new GetSymbolQueryResult (null, "Không tìm thấy mã");
+                    return ApiResponse<SymbolDto>.Failure("Không tìm thấy mã");
                 }
 
                 var symbolDto = new SymbolDto
@@ -47,12 +48,12 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol
                     Status = symbol.Status
                 };
 
-                return new GetSymbolQueryResult(symbolDto, "Thành công");
+                return ApiResponse<SymbolDto>.Success(symbolDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error handling GetSymbolQuery for Ticker: {Ticker}", request.Ticker);
-                throw;
+                return ApiResponse<SymbolDto>.Failure("Lỗi xảy ra khi xử lý yêu cầu", ex.Message);
             }
         }
     }

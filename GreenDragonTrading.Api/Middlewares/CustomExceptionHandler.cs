@@ -18,42 +18,42 @@ namespace GreenDragonTrading.Api.Middlewares
                 case FluentValidation.ValidationException validationEx:
                     statusCode = StatusCodes.Status400BadRequest;
                     var errors = validationEx.Errors.Select(e => e.ErrorMessage).ToList();
-                    response = ApiResponse.FailResponse("Lỗi kiểm tra dữ liệu đầu vào.", errors);
+                    response = ApiResponse.Failure("Lỗi kiểm tra dữ liệu đầu vào.", errors);
                     break;
 
                 case BusinessRuleException businessEx:
                     statusCode = StatusCodes.Status400BadRequest;
-                    response = ApiResponse.FailResponse("Vi phạm quy tắc nghiệp vụ.", businessEx.Message);
+                    response = ApiResponse.Failure("Vi phạm quy tắc nghiệp vụ.", businessEx.Message);
                     break;
 
                 case Domain.Exceptions.ValidationException domainValidationEx:
                     statusCode = StatusCodes.Status400BadRequest;
-                    response = ApiResponse.FailResponse("Lỗi kiểm tra dữ liệu đầu vào.", domainValidationEx.Message);
+                    response = ApiResponse.Failure("Lỗi kiểm tra dữ liệu đầu vào.", domainValidationEx.Message);
                     break;
 
                 case NotFoundException notFoundEx: 
                     statusCode = StatusCodes.Status404NotFound;
-                    response = ApiResponse.FailResponse("Không tìm thấy tài nguyên.", notFoundEx.Message);
+                    response = ApiResponse.Failure("Không tìm thấy tài nguyên.", notFoundEx.Message);
                     break;
 
                 case ConflictException conflictEx: 
                     statusCode = StatusCodes.Status409Conflict;
-                    response = ApiResponse.FailResponse("Tài nguyên đã tồn tại.", conflictEx.Message);
+                    response = ApiResponse.Failure("Tài nguyên đã tồn tại.", conflictEx.Message);
                     break;
 
                 case AccessDeniedException accessDeniedEx: 
                     statusCode = StatusCodes.Status403Forbidden;
-                    response = ApiResponse.FailResponse("Bạn không có quyền thực hiện hành động này.", accessDeniedEx.Message);
+                    response = ApiResponse.Failure("Bạn không có quyền thực hiện hành động này.", accessDeniedEx.Message);
                     break;
 
                 case UnauthenticatedException unauthenticatedEx: 
                     statusCode = StatusCodes.Status401Unauthorized;
-                    response = ApiResponse.FailResponse("Lỗi xác thực.", unauthenticatedEx.Message);
+                    response = ApiResponse.Failure("Lỗi xác thực.", unauthenticatedEx.Message);
                     break;
 
                 default:
                     statusCode = StatusCodes.Status500InternalServerError;
-                    response = ApiResponse.FailResponse("Lỗi hệ thống.", "Đã xảy ra lỗi máy chủ không mong muốn.");
+                    response = ApiResponse.Failure("Lỗi hệ thống.", "Đã xảy ra lỗi máy chủ không mong muốn.");
                     break;
             }
 
