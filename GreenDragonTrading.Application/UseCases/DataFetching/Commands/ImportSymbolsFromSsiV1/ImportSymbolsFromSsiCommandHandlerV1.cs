@@ -26,7 +26,6 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
         /// </summary>
         /// <param name="request">The import command request.</param>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>A <see cref="ImportSymbolsFromSsiResult"/> containing counts of imported and updated symbols.</returns>
         public async Task<ImportSymbolsFromSsiV1Result> Handle(ImportSymbolsFromSsiCommandV1 request, CancellationToken cancellationToken)
         {
             try

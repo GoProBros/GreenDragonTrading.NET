@@ -66,5 +66,21 @@ namespace GreenDragonTrading.Api.Controllers
             }
             return Ok(result);
         }
+
+        ///// <summary>
+        ///// Get intraday OHLC data for a specific symbol within a date range.
+        ///// </summary>
+        ///// <param name="request">Request model containing symbol and date range information.</param>
+        ///// <param name="cancellationToken">Cancellation token</param>
+        //[HttpGet("intraday-ohlc")]
+        //public async Task<ActionResult<PaginatedResponse<IntradayOhlc>>> IntradayOhlc([FromQuery] GetIntradayOhlcQuery request, CancellationToken cancellationToken = default)
+        //{
+        //    var result = await _mediator.Send(request, cancellationToken);
+        //    if (!result.IsSuccess)
+        //    {
+        //        return BadRequest(result);
+        //    }
+        //    return Ok(result);
+        //}
     }
 }

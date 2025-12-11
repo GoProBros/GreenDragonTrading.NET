@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol
                 if (symbol == null)
                 {
                     _logger.LogWarning("Symbol not found for Ticker: {Ticker}", request.Ticker);
-                    return ApiResponse<SymbolDto>.Failure("Không tìm thấy mã");
+                    throw new NotFoundException("Danh sách chứng khoán", request.Ticker);
                 }
 
                 var symbolDto = new SymbolDto
@@ -53,7 +54,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error handling GetSymbolQuery for Ticker: {Ticker}", request.Ticker);
-                return ApiResponse<SymbolDto>.Failure("Lỗi xảy ra khi xử lý yêu cầu", ex.Message);
+                throw;
             }
         }
     }

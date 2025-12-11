@@ -55,8 +55,16 @@ namespace GreenDragonTrading.Infrastructure.Services
             _logger.LogInformation("Fetching SSI Intraday OHLC from URL: {Url}", urlWithQuery);
 
             IntradayOhlcResponse result = await HandlerRequest<IntradayOhlcResponse>(urlWithQuery, cancellationToken);
+            
+            // Check for null data
+            if (result?.Data == null)
+            {
+                _logger.LogWarning("SSI API returned null or empty data for Intraday OHLC");
+                return (result ?? new IntradayOhlcResponse(), 0);
+            }
+            
             int actualCount = result.Data.Count;
-            _logger.LogInformation("Fetch successfully {Count} SSI Securities.", actualCount);
+            _logger.LogInformation("Fetch successfully {Count} SSI Intraday OHLC records.", actualCount);
 
             return (result, actualCount);
         }
