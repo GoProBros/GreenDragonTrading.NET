@@ -1,20 +1,29 @@
-﻿namespace GreenDragonTrading.Domain.Enums
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
+
+namespace GreenDragonTrading.Domain.Enums
 {
     public enum UserRole : short
     {
-        /// <summary>
-        /// Role người dùng
-        /// </summary>
+        [Display(Name = "Người dùng")]
         User = 1,
 
-        /// <summary>
-        /// Role quản lý
-        /// </summary>
+        [Display(Name = "Nhân viên")]
         Staff = 2,
 
-        /// <summary>
-        /// Role quản trị viên
-        /// </summary>
+        [Display(Name = "Quản trị viên")]
         Admin = 3,
+    }
+
+    public static class EnumExtensions
+    {
+        public static string GetDisplayName(this Enum enumValue)
+        {
+            return enumValue.GetType()
+                            .GetMember(enumValue.ToString())
+                            .First()
+                            .GetCustomAttribute<DisplayAttribute>()
+                            ?.GetName() ?? enumValue.ToString();
+        }
     }
 }

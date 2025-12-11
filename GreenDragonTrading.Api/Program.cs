@@ -37,6 +37,11 @@ try
         });
     });
 
+
+    // Add Exception Handler
+    builder.Services.AddExceptionHandler<CustomExceptionHandler>();
+    builder.Services.AddProblemDetails();
+
     // Add SignalR
     builder.Services.AddSignalR();
 
@@ -58,11 +63,10 @@ try
         }
     });
 
-    builder.Services.AddExceptionHandler<CustomExceptionHandler>();
-
     var app = builder.Build();
 
-    // Configure the HTTP request pipeline.
+    app.UseExceptionHandler(options => { });
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -75,6 +79,7 @@ try
     // Use CORS
     app.UseCors("AppCorsPolicy");
 
+    app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();
