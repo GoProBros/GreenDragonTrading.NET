@@ -37,7 +37,19 @@ Infrastructure → Application + Domain
 
 4. **Standard API Response**: Wrap all controller responses in `ApiResponse<T>`
    ```csharp
-   return Ok(ApiResponse<TData>.SuccessResponse(data, "Success message"));
+   // For simple responses
+   return Ok(ApiResponse<TData>.Success(data, "Success message"));
+   
+   // For paginated responses
+   var paginatedResponse = PaginatedResponse<TData>.Create(items, totalCount, pageIndex, pageSize);
+   return Ok(ApiResponse<PaginatedResponse<TData>>.Success(paginatedResponse, "Success message"));
+   
+   // For non-generic responses
+   return Ok(ApiResponse.Success("Success message"));
+   
+   // For error responses
+   return BadRequest(ApiResponse.Failure("Error message", "Error detail"));
+   return BadRequest(ApiResponse<TData>.Failure("Error message", errorList));
    ```
 
 ## External Integrations
@@ -107,6 +119,60 @@ dotnet run --project GreenDragonTrading.Api
 2. Subscribes to market data channels
 3. Processes SSI streaming responses (X, Z channels)
 4. Broadcasts via `IMarketDataBroadcaster` (SignalR hub wrapper)
+
+## Response Models
+
+### ApiResponse<T>
+Standard response wrapper for all API endpoints. Located in `GreenDragonTrading.Application/Common/Models/ApiResponse.cs`.
+
+**Properties:**
+- `IsSuccess` (bool): Indicates if the request was successful
+- `Message` (string): Human-readable message
+- `Data` (T, optional): Response payload (generic version only)
+- `Errors` (List<string>, optional): List of error messages
+- `ResponseTime` (DateTime): Timestamp of the response
+
+**Factory Methods:**
+```csharp
+// Non-generic version
+ApiResponse.Success(string message = "Thành công")
+ApiResponse.Failure(string message, List<string> errors)
+ApiResponse.Failure(string message, string? error = null)
+
+// Generic version
+ApiResponse<T>.Success(T data, string message = "Thành công")
+ApiResponse<T>.Failure(string message, List<string> errors)
+ApiResponse<T>.Failure(string message, string? error = null)
+```
+
+### PaginatedResponse<T>
+Wrapper for paginated data responses. Located in `GreenDragonTrading.Application/Common/Models/PaginatedResponse.cs`.
+
+**Properties:**
+- `Items` (IReadOnlyCollection<T>): The data items for current page
+- `PageIndex` (int): Current page number (1-based)
+- `TotalPages` (int): Total number of pages
+- `TotalCount` (int): Total number of items across all pages
+- `HasPreviousPage` (bool): Computed property
+- `HasNextPage` (bool): Computed property
+
+**Factory Method:**
+```csharp
+PaginatedResponse<T>.Create(List<T> items, int count, int pageIndex, int pageSize)
+```
+
+**Usage Pattern:**
+```csharp
+// In handler
+var (data, totalCount) = await _repository.GetPaginatedAsync(pageIndex, pageSize, cancellationToken);
+var items = data.Select(x => MapToDto(x)).ToList();
+var paginatedResponse = PaginatedResponse<TDto>.Create(items, totalCount, pageIndex, pageSize);
+return ApiResponse<PaginatedResponse<TDto>>.Success(paginatedResponse, "Success message");
+
+// In controller
+var result = await _mediator.Send(query, cancellationToken);
+return Ok(result); // ApiResponse is already wrapped by handler
+```
 
 ## Code Conventions
 

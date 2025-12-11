@@ -1,6 +1,5 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
-using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -31,7 +30,7 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols
                     request.Query, request.IsTickerOnly, request.PageIndex, request.PageSize);
 
                 var (symbols, totalCount) = await _uow.Symbols.SearchSymbolsAsync(
-                    request.Query,
+                    request.Query ?? String.Empty,
                     request.IsTickerOnly,
                     request.PageIndex,
                     request.PageSize,
@@ -46,9 +45,9 @@ namespace GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols
 
                 return ApiResponse<PaginatedResponse<SimpleSymbolDto>>.Success(PaginatedResponse<SimpleSymbolDto>.Create(simpleSymbols, totalCount, request.PageIndex, request.PageSize));
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                _logger.LogError(ex, "Error occurred while searching symbols with query: {Query}", request.Query);
+                _logger.LogError(e, "Error occurred while searching symbols with query: {Query}", request.Query);
                 throw;
             }
         }
