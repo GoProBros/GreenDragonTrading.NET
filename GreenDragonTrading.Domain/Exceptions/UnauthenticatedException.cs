@@ -7,7 +7,7 @@
         {
         }
         public UnauthenticatedException()
-            : base("Người dùng chưa đăng nhập.")
+            : base("Chưa xác thực.")
         {
         }
     }
