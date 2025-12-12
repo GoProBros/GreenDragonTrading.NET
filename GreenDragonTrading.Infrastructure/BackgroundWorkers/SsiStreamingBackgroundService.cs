@@ -100,22 +100,22 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X_QUOTE))
                 {
                     var response = JsonSerializer.Deserialize<XQuoteResponse>(wrapperResponse.Content!);
-                    await HandleXQuote(_redis, response);
+                    //await HandleXQuote(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X_TRADE))
                 {
                     var response = JsonSerializer.Deserialize<XTradeResponse>(wrapperResponse.Content!);
-                    await HandleXTrade(_redis, response);
+                    //await HandleXTrade(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_FOREIGN))
                 {
                     var response = JsonSerializer.Deserialize<ForeignRoomResponse>(wrapperResponse.Content!);
-                    await HandleForeignRoom(_redis, response);
+                    //await HandleForeignRoom(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X))
                 {
                     var response = JsonSerializer.Deserialize<SecuritiesSnapshot>(wrapperResponse.Content!);
-                    //await HandleForeignRoom(_redis, response);
+                    await HandleSnapshot(_redis, response);
                 }
             }
             catch (Exception ex)
@@ -419,6 +419,138 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         }
 
         #endregion Handle Foreign Room
+
+        #region Handle Snapshot
+
+        /// <summary>
+        /// Handle Snapshot data from SSI streaming service.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="response">Snapshot response data</param>
+        private async Task HandleSnapshot(IRedisService redis, SecuritiesSnapshot? response)
+        {
+            try
+            {
+                string redisKey = $"{RedisConstants.REDIS_KEY_PREFIX_MARKET_DATA}:{response!.Symbol}";
+
+                if (await redis.ExistsAsync(redisKey))
+                {
+                    await UpdateExistingSnapshotData(redis, redisKey, response);
+                }
+                else
+                {
+                    await CreateNewSnapshotData(redis, redisKey, response);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling Snapshot data for symbol: {Symbol}", response?.Symbol);
+            }
+        }
+
+        /// <summary>
+        /// Update existing snapshot data of symbol in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to retrieve symbol data from redis</param>
+        /// <param name="response">Snapshot data from SSI</param>
+        private async Task UpdateExistingSnapshotData(IRedisService redis, string redisKey, SecuritiesSnapshot response)
+        {
+            var existingData = (await redis.GetHashAsync<MarketSymbolDto>(redisKey))!;
+            var updates = new Dictionary<string, object>();
+
+            // Price data
+            AddIfChanged(updates, nameof(MarketSymbolDto.CeilingPrice), response.Ceiling, existingData.CeilingPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.FloorPrice), response.Floor, existingData.FloorPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.ReferencePrice), response.RefPrice, existingData.ReferencePrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.LastPrice), response.LastVal, existingData.LastPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.LastVol), response.LastVol, existingData.LastVol);
+            //AddIfChanged(updates, nameof(MarketSymbolDto.AvgPrice), response.Avg, existingData.AvgPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.PriorVal), response.PriorVal, existingData.PriorVal);
+            AddIfChanged(updates, nameof(MarketSymbolDto.Highest), response.High, existingData.Highest);
+            AddIfChanged(updates, nameof(MarketSymbolDto.Lowest), response.Low, existingData.Lowest);
+            AddIfChanged(updates, nameof(MarketSymbolDto.Change), response.Change, existingData.Change);
+            AddIfChanged(updates, nameof(MarketSymbolDto.RatioChange), response.RatioChange, existingData.RatioChange);
+
+            // Volume data
+            AddIfChanged(updates, nameof(MarketSymbolDto.TotalVal), response.TotalVal, existingData.TotalVal);
+            AddIfChanged(updates, nameof(MarketSymbolDto.TotalVol), response.TotalVol, existingData.TotalVol);
+
+            // Bid prices and volumes
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice1), response.BidPrice1, existingData.BidPrice1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol1), response.BidVol1, existingData.BidVol1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice2), response.BidPrice2, existingData.BidPrice2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol2), response.BidVol2, existingData.BidVol2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice3), response.BidPrice3, existingData.BidPrice3);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol3), response.BidVol3, existingData.BidVol3);
+
+            // Ask prices and volumes
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice1), response.AskPrice1, existingData.AskPrice1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol1), response.AskVol1, existingData.AskVol1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice2), response.AskPrice2, existingData.AskPrice2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol2), response.AskVol2, existingData.AskVol2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice3), response.AskPrice3, existingData.AskPrice3);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol3), response.AskVol3, existingData.AskVol3);
+
+            // Trading session and status
+            AddIfChanged(updates, nameof(MarketSymbolDto.TradingSession), response.TradingSession, existingData.TradingSession ?? string.Empty);
+            AddIfChanged(updates, nameof(MarketSymbolDto.TradingStatus), response.TradingStatus, existingData.TradingStatus ?? string.Empty);
+            AddIfChanged(updates, nameof(MarketSymbolDto.Side), response.Side, existingData.Side);
+
+            if (updates.Count > 0)
+            {
+                await redis.SetHashFieldsAsync(redisKey, updates);
+            }
+
+            updates["Ticker"] = response.Symbol!;
+            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
+        }
+
+        /// <summary>
+        /// If no existing snapshot data, create new entry in Redis.
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="redisKey">Redis key to store symbol data in redis</param>
+        /// <param name="response">Snapshot data from SSI</param>
+        private async Task CreateNewSnapshotData(IRedisService redis, string redisKey, SecuritiesSnapshot response)
+        {
+            var newData = new MarketSymbolDto
+            {
+                Ticker = response.Symbol!,
+                CeilingPrice = response.Ceiling ?? default,
+                FloorPrice = response.Floor ?? default,
+                ReferencePrice = response.RefPrice ?? default,
+                LastPrice = response.LastVal ?? default,
+                LastVol = response.LastVol ?? default,
+                //AvgPrice = response.Avg ?? default,
+                PriorVal = response.PriorVal ?? default,
+                Highest = response.High ?? default,
+                Lowest = response.Low ?? default,
+                Change = response.Change ?? default,
+                RatioChange = response.RatioChange ?? default,
+                TotalVal = response.TotalVal ?? default,
+                TotalVol = response.TotalVol ?? default,
+                BidPrice1 = response.BidPrice1 ?? default,
+                BidVol1 = response.BidVol1 ?? default,
+                BidPrice2 = response.BidPrice2 ?? default,
+                BidVol2 = response.BidVol2 ?? default,
+                BidPrice3 = response.BidPrice3 ?? default,
+                BidVol3 = response.BidVol3 ?? default,
+                AskPrice1 = response.AskPrice1 ?? default,
+                AskVol1 = response.AskVol1 ?? default,
+                AskPrice2 = response.AskPrice2 ?? default,
+                AskVol2 = response.AskVol2 ?? default,
+                AskPrice3 = response.AskPrice3 ?? default,
+                AskVol3 = response.AskVol3 ?? default,
+                TradingSession = response.TradingSession ?? string.Empty,
+                TradingStatus = response.TradingStatus ?? string.Empty,
+                Side = response.Side ?? string.Empty
+            };
+            await redis.SetHashAsync(redisKey, newData);
+            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
+        }
+
+        #endregion Handle Snapshot
 
         /// <summary>
         /// Check if new value is different from existing value, and add to updates if changed.
