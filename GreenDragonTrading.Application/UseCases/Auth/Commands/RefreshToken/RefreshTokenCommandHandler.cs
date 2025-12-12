@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
 {
-    public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, Result<AuthResponse>>
+    public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, ApiResponse<AuthResponse>>
     {
         private readonly IUnitOfWork _uow;
         private readonly IJwtService _jwtService;
@@ -33,7 +33,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
             _jwtOptions = jwtOptions.Value;
         }
 
-        public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<AuthResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
         {
             try
             {
@@ -88,7 +88,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                 };
 
                 _logger.LogInformation("Update refresh token thành công: {UserId}", userId);
-                return new Result<AuthResponse>(true, "Update refresh token thành công", response);
+                return ApiResponse<AuthResponse>.Success(response, "Làm mới token thành công.");
             }
             catch (Exception ex)
             {

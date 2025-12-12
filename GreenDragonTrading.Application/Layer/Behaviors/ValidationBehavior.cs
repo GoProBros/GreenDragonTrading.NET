@@ -36,7 +36,7 @@ namespace GreenDragonTrading.Application.Layer.Behaviors
 
             if (failures.Any())
             {
-                throw new ValidationException(failures);
+                throw new Domain.Exceptions.ValidationException(failures);
             }
 
             return await next();
