@@ -10,5 +10,5 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
         string Password,
         string FullName,
         string PhoneNumber
-    ) : IRequest<Result>;
+    ) : IRequest<ApiResponse>;
 }

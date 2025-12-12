@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
 {
-    public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResponse>>
+    public class LoginCommandHandler : IRequestHandler<LoginCommand, ApiResponse<AuthResponse>>
     {
         private readonly IUnitOfWork _uow;
         private readonly IJwtService _jwtService;
@@ -33,14 +33,14 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
             _jwtOptions = jwtOptions.Value;
         }
 
-        public async Task<Result<AuthResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<AuthResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
         {
             try
             {
                 var user = await _uow.Users.GetByEmailAsync(request.Email, cancellationToken);
                 if (user == null)
                 {
-                    throw new NotFoundException("Email", request.Email);
+                    throw new NotFoundException("Email không tồn tại.");
                 }
 
                 if (!BCrypt.Net.BCrypt.Verify(request.Password, user.HashedPassword))
@@ -82,7 +82,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                 };
 
                 _logger.LogInformation("Người dùng đăng nhập thành công: {Email}", request.Email);
-                return new Result<AuthResponse>(true, "Đăng nhập thành công", response);
+                return ApiResponse<AuthResponse>.Success(response,"Đăng nhập thành công.");
             }
             catch (Exception ex)
             {

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail
 {
-    public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Result>
+    public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, ApiResponse>
     {
         private readonly IUnitOfWork _uow;
         private readonly IRedisService _redisService;
@@ -23,7 +23,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail
             _logger = logger;
         }
 
-        public async Task<Result> Handle(VerifyEmailCommand request, CancellationToken cancellationToken)
+        public async Task<ApiResponse> Handle(VerifyEmailCommand request, CancellationToken cancellationToken)
         {
             try
             {
@@ -38,7 +38,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail
                 var user = await _uow.Users.GetByIdAsync(tokenData, cancellationToken);
                 if (user == null)
                 {
-                    throw new NotFoundException("User id", tokenData);
+                    throw new NotFoundException("Tài khoản không tồn tại.");
                 }
 
                 if (user.IsEmailVerified)
@@ -52,7 +52,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail
                 await _redisService.RemoveAsync(redisKey);
 
                 _logger.LogInformation("Xác thực email thành công: {Email}", user.Email);
-                return new Result(true, "Xác thực email thành công. Bạn có thể đăng nhập.");
+                return ApiResponse.Success("Xác thực email thành công.");
             }
             catch (Exception ex)
             {

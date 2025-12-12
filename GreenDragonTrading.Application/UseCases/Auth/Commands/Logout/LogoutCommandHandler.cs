@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
 {
-    public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
+    public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ApiResponse>
     {
         private readonly IRedisService _redisService;
         private readonly ILogger<LogoutCommandHandler> _logger;
@@ -19,7 +19,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
             _logger = logger;
         }
 
-        public async Task<Result> Handle(LogoutCommand request, CancellationToken cancellationToken)
+        public async Task<ApiResponse> Handle(LogoutCommand request, CancellationToken cancellationToken)
         {
             try
             {
@@ -34,7 +34,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
                 await _redisService.RemoveAsync(tokenKey);
 
                 _logger.LogInformation("Người dùng đăng xuất thành công: {UserId}", userId);
-                return new Result(true, "Người dùng đăng xuất thành công.");
+                return ApiResponse.Success("Đăng xuất thành công.");
             }
             catch (Exception ex)
             {

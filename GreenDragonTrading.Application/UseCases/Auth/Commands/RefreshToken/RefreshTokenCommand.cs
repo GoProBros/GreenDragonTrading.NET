@@ -7,5 +7,5 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
     public record RefreshTokenCommand(
         string RefreshToken,
         Guid UserId
-    ) : IRequest<Result<AuthResponse>>;
+    ) : IRequest<ApiResponse<AuthResponse>>;
 }

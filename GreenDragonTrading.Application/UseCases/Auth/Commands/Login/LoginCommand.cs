@@ -7,5 +7,5 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
     public record LoginCommand(
         string Email,
         string Password
-    ) : IRequest<Result<AuthResponse>>;
+    ) : IRequest<ApiResponse<AuthResponse>>;
 }

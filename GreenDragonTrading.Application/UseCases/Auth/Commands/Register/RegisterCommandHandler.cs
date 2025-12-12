@@ -12,7 +12,7 @@ using System.Security.Cryptography;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
 {
-    public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
+    public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ApiResponse>
     {
         private readonly IUnitOfWork _uow;
         private readonly IEmailService _emailService;
@@ -34,7 +34,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
             _logger = logger;
         }
 
-        public async Task<Result> Handle(RegisterCommand request, CancellationToken cancellationToken)
+        public async Task<ApiResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
         {
             try
             {
@@ -70,7 +70,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
                 await _emailService.SendVerificationEmailAsync(user.Email, verificationToken, verificationUrl, cancellationToken);
 
                 _logger.LogInformation("Đăng kí thành công: {Email}", request.Email);
-                return new Result(true,"Đăng kí thành công. Kiểm tra email để xác thực.");
+                return ApiResponse.Success("Đăng kí thành công. Vui lòng kiểm tra email để xác thực tài khoản.");
             }
             catch (Exception ex)
             {
