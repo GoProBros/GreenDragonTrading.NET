@@ -100,17 +100,17 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X_QUOTE))
                 {
                     var response = JsonSerializer.Deserialize<XQuoteResponse>(wrapperResponse.Content!);
-                    await HandleXQuote(_redis, response);
+                    //await HandleXQuote(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X_TRADE))
                 {
                     var response = JsonSerializer.Deserialize<XTradeResponse>(wrapperResponse.Content!);
-                    await HandleXTrade(_redis, response);
+                    //await HandleXTrade(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_FOREIGN))
                 {
                     var response = JsonSerializer.Deserialize<ForeignRoomResponse>(wrapperResponse.Content!);
-                    await HandleForeignRoom(_redis, response);
+                    //await HandleForeignRoom(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X))
                 {
@@ -460,41 +460,41 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             var updates = new Dictionary<string, object>();
 
             // Price data
-            AddIfChanged(updates, nameof(MarketSymbolDto.CeilingPrice), (double)response.Ceiling, existingData.CeilingPrice);
-            AddIfChanged(updates, nameof(MarketSymbolDto.FloorPrice), (double)response.Floor, existingData.FloorPrice);
-            AddIfChanged(updates, nameof(MarketSymbolDto.ReferencePrice), (double)response.RefPrice, existingData.ReferencePrice);
-            AddIfChanged(updates, nameof(MarketSymbolDto.LastPrice), (double)response.LastVal, existingData.LastPrice);
-            AddIfChanged(updates, nameof(MarketSymbolDto.LastVol), (double)response.LastVol, existingData.LastVol);
-            AddIfChanged(updates, nameof(MarketSymbolDto.AvgPrice), (double)response.Avg, existingData.AvgPrice);
-            AddIfChanged(updates, nameof(MarketSymbolDto.PriorVal), (double)response.PriorVal, existingData.PriorVal);
-            AddIfChanged(updates, nameof(MarketSymbolDto.Highest), (double)response.High, existingData.Highest);
-            AddIfChanged(updates, nameof(MarketSymbolDto.Lowest), (double)response.Low, existingData.Lowest);
-            AddIfChanged(updates, nameof(MarketSymbolDto.Change), (double)response.Change, existingData.Change);
-            AddIfChanged(updates, nameof(MarketSymbolDto.RatioChange), (double)response.RatioChange, existingData.RatioChange);
+            AddIfChanged(updates, nameof(MarketSymbolDto.CeilingPrice), response.Ceiling, existingData.CeilingPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.FloorPrice), response.Floor, existingData.FloorPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.ReferencePrice), response.RefPrice, existingData.ReferencePrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.LastPrice), response.LastVal, existingData.LastPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.LastVol), response.LastVol, existingData.LastVol);
+            //AddIfChanged(updates, nameof(MarketSymbolDto.AvgPrice), response.Avg, existingData.AvgPrice);
+            AddIfChanged(updates, nameof(MarketSymbolDto.PriorVal), response.PriorVal, existingData.PriorVal);
+            AddIfChanged(updates, nameof(MarketSymbolDto.Highest), response.High, existingData.Highest);
+            AddIfChanged(updates, nameof(MarketSymbolDto.Lowest), response.Low, existingData.Lowest);
+            AddIfChanged(updates, nameof(MarketSymbolDto.Change), response.Change, existingData.Change);
+            AddIfChanged(updates, nameof(MarketSymbolDto.RatioChange), response.RatioChange, existingData.RatioChange);
 
             // Volume data
-            AddIfChanged(updates, nameof(MarketSymbolDto.TotalVal), (double)response.TotalVal, existingData.TotalVal);
-            AddIfChanged(updates, nameof(MarketSymbolDto.TotalVol), (double)response.TotalVol, existingData.TotalVol);
+            AddIfChanged(updates, nameof(MarketSymbolDto.TotalVal), response.TotalVal, existingData.TotalVal);
+            AddIfChanged(updates, nameof(MarketSymbolDto.TotalVol), response.TotalVol, existingData.TotalVol);
 
             // Bid prices and volumes
-            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice1), (double)response.BidPrice1, existingData.BidPrice1);
-            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol1), (double)response.BidVol1, existingData.BidVol1);
-            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice2), (double)response.BidPrice2, existingData.BidPrice2);
-            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol2), (double)response.BidVol2, existingData.BidVol2);
-            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice3), (double)response.BidPrice3, existingData.BidPrice3);
-            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol3), (double)response.BidVol3, existingData.BidVol3);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice1), response.BidPrice1, existingData.BidPrice1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol1), response.BidVol1, existingData.BidVol1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice2), response.BidPrice2, existingData.BidPrice2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol2), response.BidVol2, existingData.BidVol2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidPrice3), response.BidPrice3, existingData.BidPrice3);
+            AddIfChanged(updates, nameof(MarketSymbolDto.BidVol3), response.BidVol3, existingData.BidVol3);
 
             // Ask prices and volumes
-            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice1), (double)response.AskPrice1, existingData.AskPrice1);
-            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol1), (double)response.AskVol1, existingData.AskVol1);
-            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice2), (double)response.AskPrice2, existingData.AskPrice2);
-            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol2), (double)response.AskVol2, existingData.AskVol2);
-            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice3), (double)response.AskPrice3, existingData.AskPrice3);
-            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol3), (double)response.AskVol3, existingData.AskVol3);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice1), response.AskPrice1, existingData.AskPrice1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol1), response.AskVol1, existingData.AskVol1);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice2), response.AskPrice2, existingData.AskPrice2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol2), response.AskVol2, existingData.AskVol2);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskPrice3), response.AskPrice3, existingData.AskPrice3);
+            AddIfChanged(updates, nameof(MarketSymbolDto.AskVol3), response.AskVol3, existingData.AskVol3);
 
             // Trading session and status
-            AddIfChanged(updates, nameof(MarketSymbolDto.TradingSession), response.TradingSession, existingData.TradingSession);
-            AddIfChanged(updates, nameof(MarketSymbolDto.TradingStatus), response.TradingStatus, existingData.TradingStatus);
+            AddIfChanged(updates, nameof(MarketSymbolDto.TradingSession), response.TradingSession, existingData.TradingSession ?? string.Empty);
+            AddIfChanged(updates, nameof(MarketSymbolDto.TradingStatus), response.TradingStatus, existingData.TradingStatus ?? string.Empty);
             AddIfChanged(updates, nameof(MarketSymbolDto.Side), response.Side, existingData.Side);
 
             if (updates.Count > 0)
@@ -517,31 +517,31 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             var newData = new MarketSymbolDto
             {
                 Ticker = response.Symbol!,
-                CeilingPrice = (double)response.Ceiling,
-                FloorPrice = (double)response.Floor,
-                ReferencePrice = (double)response.RefPrice,
-                LastPrice = (double)response.LastVal,
-                LastVol = (double)response.LastVol,
-                AvgPrice = (double)response.Avg,
-                PriorVal = (double)response.PriorVal,
-                Highest = (double)response.High,
-                Lowest = (double)response.Low,
-                Change = (double)response.Change,
-                RatioChange = (double)response.RatioChange,
-                TotalVal = (double)response.TotalVal,
-                TotalVol = (double)response.TotalVol,
-                BidPrice1 = (double)response.BidPrice1,
-                BidVol1 = (double)response.BidVol1,
-                BidPrice2 = (double)response.BidPrice2,
-                BidVol2 = (double)response.BidVol2,
-                BidPrice3 = (double)response.BidPrice3,
-                BidVol3 = (double)response.BidVol3,
-                AskPrice1 = (double)response.AskPrice1,
-                AskVol1 = (double)response.AskVol1,
-                AskPrice2 = (double)response.AskPrice2,
-                AskVol2 = (double)response.AskVol2,
-                AskPrice3 = (double)response.AskPrice3,
-                AskVol3 = (double)response.AskVol3,
+                CeilingPrice = response.Ceiling ?? default,
+                FloorPrice = response.Floor ?? default,
+                ReferencePrice = response.RefPrice ?? default,
+                LastPrice = response.LastVal ?? default,
+                LastVol = response.LastVol ?? default,
+                //AvgPrice = response.Avg ?? default,
+                PriorVal = response.PriorVal ?? default,
+                Highest = response.High ?? default,
+                Lowest = response.Low ?? default,
+                Change = response.Change ?? default,
+                RatioChange = response.RatioChange ?? default,
+                TotalVal = response.TotalVal ?? default,
+                TotalVol = response.TotalVol ?? default,
+                BidPrice1 = response.BidPrice1 ?? default,
+                BidVol1 = response.BidVol1 ?? default,
+                BidPrice2 = response.BidPrice2 ?? default,
+                BidVol2 = response.BidVol2 ?? default,
+                BidPrice3 = response.BidPrice3 ?? default,
+                BidVol3 = response.BidVol3 ?? default,
+                AskPrice1 = response.AskPrice1 ?? default,
+                AskVol1 = response.AskVol1 ?? default,
+                AskPrice2 = response.AskPrice2 ?? default,
+                AskVol2 = response.AskVol2 ?? default,
+                AskPrice3 = response.AskPrice3 ?? default,
+                AskVol3 = response.AskVol3 ?? default,
                 TradingSession = response.TradingSession ?? string.Empty,
                 TradingStatus = response.TradingStatus ?? string.Empty,
                 Side = response.Side ?? string.Empty

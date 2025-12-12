@@ -275,168 +275,168 @@ namespace GreenDragonTrading.Application.DTOs
     public class SecuritiesSnapshot
     {
         [JsonPropertyName("RType")]
-        public string RType { get; set; }
+        public string? RType { get; set; }
 
         [JsonPropertyName("TradingDate")]
-        public string TradingDate { get; set; }
+        public string? TradingDate { get; set; }
 
         [JsonPropertyName("Time")]
-        public string Time { get; set; }
+        public string? Time { get; set; }
 
         [JsonPropertyName("Isin")]
-        public string Isin { get; set; }
+        public string? Isin { get; set; }
 
         [JsonPropertyName("Symbol")]
-        public string Symbol { get; set; }
+        public string? Symbol { get; set; }
 
         [JsonPropertyName("Ceiling")]
-        public decimal Ceiling { get; set; }
+        public double? Ceiling { get; set; }
 
         [JsonPropertyName("Floor")]
-        public decimal Floor { get; set; }
+        public double? Floor { get; set; }
 
         [JsonPropertyName("RefPrice")]
-        public decimal RefPrice { get; set; }
+        public double? RefPrice { get; set; }
 
         [JsonPropertyName("Open")]
-        public decimal Open { get; set; }
+        public double? Open { get; set; }
 
         [JsonPropertyName("Close")]
-        public decimal Close { get; set; }
+        public double? Close { get; set; }
 
         [JsonPropertyName("High")]
-        public decimal High { get; set; }
+        public double? High { get; set; }
 
         [JsonPropertyName("Low")]
-        public decimal Low { get; set; }
+        public double? Low { get; set; }
 
-        [JsonPropertyName("AvgPrice")]
-        public decimal Avg { get; set; }
+        //[JsonPropertyName("AvgPrice")]
+        //public double? Avg { get; set; }
 
         [JsonPropertyName("PriorVal")]
-        public decimal PriorVal { get; set; }
+        public double? PriorVal { get; set; }
 
         [JsonPropertyName("LastPrice")]
-        public decimal LastVal { get; set; }
+        public double? LastVal { get; set; }
 
         [JsonPropertyName("LastVol")]
-        public decimal LastVol { get; set; }
+        public double? LastVol { get; set; }
 
         [JsonPropertyName("TotalVal")]
-        public decimal TotalVal { get; set; }
+        public double? TotalVal { get; set; }
 
         [JsonPropertyName("TotalVol")]
-        public decimal TotalVol { get; set; }
+        public double? TotalVol { get; set; }
 
         [JsonPropertyName("BidPrice1")]
-        public decimal BidPrice1 { get; set; }
+        public double? BidPrice1 { get; set; }
         [JsonPropertyName("BidPrice2")]
-        public decimal BidPrice2 { get; set; }
+        public double? BidPrice2 { get; set; }
         [JsonPropertyName("BidPrice3")]
-        public decimal BidPrice3 { get; set; }
+        public double? BidPrice3 { get; set; }
         [JsonPropertyName("BidPrice4")]
-        public decimal BidPrice4 { get; set; }
+        public double? BidPrice4 { get; set; }
         [JsonPropertyName("BidPrice5")]
-        public decimal BidPrice5 { get; set; }
+        public double? BidPrice5 { get; set; }
         [JsonPropertyName("BidPrice6")]
-        public decimal BidPrice6 { get; set; }
+        public double? BidPrice6 { get; set; }
         [JsonPropertyName("BidPrice7")]
-        public decimal BidPrice7 { get; set; }
+        public double? BidPrice7 { get; set; }
         [JsonPropertyName("BidPrice8")]
-        public decimal BidPrice8 { get; set; }
+        public double? BidPrice8 { get; set; }
         [JsonPropertyName("BidPrice9")]
-        public decimal BidPrice9 { get; set; }
+        public double? BidPrice9 { get; set; }
         [JsonPropertyName("BidPrice10")]
-        public decimal BidPrice10 { get; set; }
+        public double? BidPrice10 { get; set; }
 
         [JsonPropertyName("BidVol1")]
-        public decimal BidVol1 { get; set; }
+        public double? BidVol1 { get; set; }
         [JsonPropertyName("BidVol2")]
-        public decimal BidVol2 { get; set; }
+        public double? BidVol2 { get; set; }
         [JsonPropertyName("BidVol3")]
-        public decimal BidVol3 { get; set; }
+        public double? BidVol3 { get; set; }
         [JsonPropertyName("BidVol4")]
-        public decimal BidVol4 { get; set; }
+        public double? BidVol4 { get; set; }
         [JsonPropertyName("BidVol5")]
-        public decimal BidVol5 { get; set; }
+        public double? BidVol5 { get; set; }
         [JsonPropertyName("BidVol6")]
-        public decimal BidVol6 { get; set; }
+        public double? BidVol6 { get; set; }
         [JsonPropertyName("BidVol7")]
-        public decimal BidVol7 { get; set; }
+        public double? BidVol7 { get; set; }
         [JsonPropertyName("BidVol8")]
-        public decimal BidVol8 { get; set; }
+        public double? BidVol8 { get; set; }
         [JsonPropertyName("BidVol9")]
-        public decimal BidVol9 { get; set; }
+        public double? BidVol9 { get; set; }
         [JsonPropertyName("BidVol10")]
-        public decimal BidVol10 { get; set; }
+        public double? BidVol10 { get; set; }
 
         [JsonPropertyName("AskPrice1")]
-        public decimal AskPrice1 { get; set; }
+        public double? AskPrice1 { get; set; }
         [JsonPropertyName("AskPrice2")]
-        public decimal AskPrice2 { get; set; }
+        public double? AskPrice2 { get; set; }
         [JsonPropertyName("AskPrice3")]
-        public decimal AskPrice3 { get; set; }
+        public double? AskPrice3 { get; set; }
         [JsonPropertyName("AskPrice4")]
-        public decimal AskPrice4 { get; set; }
+        public double? AskPrice4 { get; set; }
         [JsonPropertyName("AskPrice5")]
-        public decimal AskPrice5 { get; set; }
+        public double? AskPrice5 { get; set; }
         [JsonPropertyName("AskPrice6")]
-        public decimal AskPrice6 { get; set; }
+        public double? AskPrice6 { get; set; }
         [JsonPropertyName("AskPrice7")]
-        public decimal AskPrice7 { get; set; }
+        public double? AskPrice7 { get; set; }
         [JsonPropertyName("AskPrice8")]
-        public decimal AskPrice8 { get; set; }
+        public double? AskPrice8 { get; set; }
         [JsonPropertyName("AskPrice9")]
-        public decimal AskPrice9 { get; set; }
+        public double? AskPrice9 { get; set; }
         [JsonPropertyName("AskPrice10")]
-        public decimal AskPrice10 { get; set; }
+        public double? AskPrice10 { get; set; }
 
         [JsonPropertyName("AskVol1")]
-        public decimal AskVol1 { get; set; }
+        public double? AskVol1 { get; set; }
         [JsonPropertyName("AskVol2")]
-        public decimal AskVol2 { get; set; }
+        public double? AskVol2 { get; set; }
         [JsonPropertyName("AskVol3")]
-        public decimal AskVol3 { get; set; }
+        public double? AskVol3 { get; set; }
         [JsonPropertyName("AskVol4")]
-        public decimal AskVol4 { get; set; }
+        public double? AskVol4 { get; set; }
         [JsonPropertyName("AskVol5")]
-        public decimal AskVol5 { get; set; }
+        public double? AskVol5 { get; set; }
         [JsonPropertyName("AskVol6")]
-        public decimal AskVol6 { get; set; }
+        public double? AskVol6 { get; set; }
         [JsonPropertyName("AskVol7")]
-        public decimal AskVol7 { get; set; }
+        public double? AskVol7 { get; set; }
         [JsonPropertyName("AskVol8")]
-        public decimal AskVol8 { get; set; }
+        public double? AskVol8 { get; set; }
         [JsonPropertyName("AskVol9")]
-        public decimal AskVol9 { get; set; }
+        public double? AskVol9 { get; set; }
         [JsonPropertyName("AskVol10")]
-        public decimal AskVol10 { get; set; }
+        public double? AskVol10 { get; set; }
 
         [JsonPropertyName("MarketId")]
-        public string MarketId { get; set; }
+        public string? MarketId { get; set; }
 
         [JsonPropertyName("Exchange")]
-        public string Exchange { get; set; }
+        public string? Exchange { get; set; }
 
         [JsonPropertyName("TradingSession")]
-        public string TradingSession { get; set; }
+        public string? TradingSession { get; set; }
 
         [JsonPropertyName("TradingStatus")]
-        public string TradingStatus { get; set; }
+        public string? TradingStatus { get; set; }
 
         [JsonPropertyName("Change")]
-        public decimal Change { get; set; }
+        public double? Change { get; set; }
 
         [JsonPropertyName("RatioChange")]
-        public decimal RatioChange { get; set; }
+        public double? RatioChange { get; set; }
 
         [JsonPropertyName("EstMatchedPrice")]
-        public decimal EstMatchedPrice { get; set; }
+        public double? EstMatchedPrice { get; set; }
 
         [JsonPropertyName("Side")]
-        public string Side { get; set; }
+        public string? Side { get; set; }
 
         [JsonPropertyName("CloseQtty")]
-        public decimal CloseQtty { get; set; }
+        public double? CloseQtty { get; set; }
     }
 }
