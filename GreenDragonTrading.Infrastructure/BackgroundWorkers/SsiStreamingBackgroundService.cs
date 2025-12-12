@@ -79,6 +79,9 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             // Subscribe to Foreign Room channel for all tickers
             string foreignFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_FOREIGN}:{tickersString}";
             await _streamingService.SwitchChannelsAsync(foreignFilter);
+
+            string snapshotFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_X}:{tickersString}";
+            await _streamingService.SwitchChannelsAsync(snapshotFilter);
         }
 
         /// <summary>
@@ -108,6 +111,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 {
                     var response = JsonSerializer.Deserialize<ForeignRoomResponse>(wrapperResponse.Content!);
                     await HandleForeignRoom(_redis, response);
+                }
+                else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X))
+                {
+                    var response = JsonSerializer.Deserialize<SecuritiesSnapshot>(wrapperResponse.Content!);
+                    //await HandleForeignRoom(_redis, response);
                 }
             }
             catch (Exception ex)
@@ -295,10 +303,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (updates.Count > 0)
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
-
-                updates["Ticker"] = response.Symbol!;
-                await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
             }
+
+            updates["Ticker"] = response.Symbol!;
+            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
         }
 
         /// <summary>
@@ -382,10 +390,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (updates.Count > 0)
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
-
-                updates["Ticker"] = response.Symbol!;
-                await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
             }
+
+            updates["Ticker"] = response.Symbol!;
+            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
         }
 
         /// <summary>
