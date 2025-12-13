@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -83,6 +84,50 @@ namespace GreenDragonTrading.Infrastructure.Services
                 }, out _);
 
                 return principal;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public TokenInfo? GetTokenInfo(string accessToken)
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+
+                if (!handler.CanReadToken(accessToken))
+                {
+                    return null;
+                }
+
+                var jsonToken = handler.ReadToken(accessToken) as JwtSecurityToken;
+                if (jsonToken == null)
+                {
+                    return null;
+                }
+
+                var jti = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+                var exp = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp)?.Value;
+                var sub = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value;
+                var email = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email)?.Value;
+
+                if (string.IsNullOrEmpty(jti) || string.IsNullOrEmpty(exp) || string.IsNullOrEmpty(sub) || string.IsNullOrEmpty(email))
+                {
+                    return null;
+                }
+
+                var expiresAt = DateTimeOffset.FromUnixTimeSeconds(long.Parse(exp)).UtcDateTime;
+                var userId = Guid.Parse(sub);
+
+                return new TokenInfo
+                {
+                    Jti = jti,
+                    ExpiresAt = expiresAt,
+                    UserId = userId,
+                    Email = email
+                };
             }
             catch
             {

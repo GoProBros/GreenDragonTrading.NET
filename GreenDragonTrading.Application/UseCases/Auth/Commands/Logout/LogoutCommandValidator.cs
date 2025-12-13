@@ -7,8 +7,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
         public LogoutCommandValidator()
         {
             RuleFor(x => x.RefreshToken)
-                .NotEmpty().WithMessage("Refresh token is required")
-                .MinimumLength(32).WithMessage("Invalid refresh token format");
+                .NotEmpty().WithMessage("Refresh token không được để trống")
+                .MinimumLength(32).WithMessage("Refresh token không hợp lệ");
+
+            RuleFor(x => x.AccessToken)
+                .NotEmpty().WithMessage("Access token không được để trống")
+                .MinimumLength(20).WithMessage("Access token không hợp lệ");
         }
     }
 }

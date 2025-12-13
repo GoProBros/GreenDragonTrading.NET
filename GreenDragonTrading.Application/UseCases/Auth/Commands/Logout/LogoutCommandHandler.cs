@@ -9,13 +9,19 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
     public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ApiResponse>
     {
         private readonly IRedisService _redisService;
+        private readonly ITokenBlacklistService _tokenBlacklistService;
+        private readonly IJwtService _jwtService;
         private readonly ILogger<LogoutCommandHandler> _logger;
 
         public LogoutCommandHandler(
             IRedisService redisService,
+            ITokenBlacklistService tokenBlacklistService,
+            IJwtService jwtService,
             ILogger<LogoutCommandHandler> logger)
         {
             _redisService = redisService;
+            _tokenBlacklistService = tokenBlacklistService;
+            _jwtService = jwtService;
             _logger = logger;
         }
 
@@ -23,6 +29,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
         {
             try
             {
+                // xóa refresh token khỏi redis
                 var tokenKey = $"refresh:token:{request.RefreshToken}";
                 var userId = await _redisService.GetAsync<Guid>(tokenKey);
 
@@ -32,13 +39,25 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
                 }
 
                 await _redisService.RemoveAsync(tokenKey);
+                _logger.LogInformation("Refresh token đã được thu hồi cho người dùng: {UserId}", userId);
 
-                _logger.LogInformation("Người dùng đăng xuất thành công: {UserId}", userId);
+                // cho access token vào blacklist
+                var tokenInfo = _jwtService.GetTokenInfo(request.AccessToken);
+                
+                if (tokenInfo == null)
+                {
+                    throw new BusinessRuleException("Access token không hợp lệ hoặc thiếu thông tin bắt buộc.");
+                }
+
+                await _tokenBlacklistService.BlacklistTokenAsync(tokenInfo.Jti, tokenInfo.ExpiresAt, cancellationToken);
+                
+                _logger.LogInformation("Access token {Jti} đã được blacklist cho người dùng {UserId}", tokenInfo.Jti, userId);
+
                 return ApiResponse.Success("Đăng xuất thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi hệ thống.");
+                _logger.LogError(ex, "Lỗi khi đăng xuất.");
                 throw;
             }
         }

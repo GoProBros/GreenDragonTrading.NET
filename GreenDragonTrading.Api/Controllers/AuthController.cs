@@ -5,7 +5,9 @@ using GreenDragonTrading.Application.UseCases.Auth.Commands.Logout;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Register;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail;
+using GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GreenDragonTrading.Api.Controllers
@@ -62,12 +64,23 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Logout and invalidate refresh token
+        /// Logout and invalidate both refresh token and access token
         /// </summary>
         [HttpPost("logout")]
         public async Task<ActionResult<ApiResponse>> Logout([FromBody] LogoutCommand command, CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Get current user information from access token
+        /// </summary>
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<UserDto>>> GetMe(CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new GetMeQuery(), cancellationToken);
             return result;
         }
     }
