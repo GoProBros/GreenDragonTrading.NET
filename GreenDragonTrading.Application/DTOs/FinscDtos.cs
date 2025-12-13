@@ -34,7 +34,7 @@ namespace GreenDragonTrading.Application.DTOs
     /// <summary>
     /// Response from Finsc API 
     /// </summary>
-    public class FinscStockResonse
+    public class FinscStockResponse
     {
         /// <summary>
         /// Unix timestamp (seconds)
