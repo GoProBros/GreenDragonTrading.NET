@@ -1,9 +1,11 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.Auth.Commands.ForgotPassword;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Login;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Logout;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Register;
+using GreenDragonTrading.Application.UseCases.Auth.Commands.ResetPassword;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail;
 using GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe;
 using MediatR;
@@ -81,6 +83,26 @@ namespace GreenDragonTrading.Api.Controllers
         public async Task<ActionResult<ApiResponse<UserDto>>> GetMe(CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new GetMeQuery(), cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Request password reset (send OTP to email 15p)
+        /// </summary>
+        [HttpPost("forgot-password")]
+        public async Task<ActionResult<ApiResponse>> ForgotPassword([FromBody] ForgotPasswordCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Reset password with OTP token
+        /// </summary>
+        [HttpPost("reset-password")]
+        public async Task<ActionResult<ApiResponse>> ResetPassword([FromBody] ResetPasswordCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
             return result;
         }
     }
