@@ -61,6 +61,30 @@ try
         {
             options.IncludeXmlComments(applicationXmlPath);
         }
+
+        // Configure Bearer Authentication for Swagger
+        options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Description = "Nhập JWT token theo format: Bearer {token}"
+        });
+
+        options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        {
+            {
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
     });
 
     var app = builder.Build();
@@ -80,6 +104,9 @@ try
 
     app.UseAuthentication();
     app.UseAuthorization();
+
+    // Use Token Blacklist Middleware (buộc phải sau cái authen, authen rồi mới chạy dc cái middle ware n)
+    app.UseTokenBlacklist();
 
     app.MapControllers();
 

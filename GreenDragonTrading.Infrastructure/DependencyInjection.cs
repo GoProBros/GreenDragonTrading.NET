@@ -42,6 +42,9 @@ namespace GreenDragonTrading.Infrastructure
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();
 
+            // Register Token Blacklist Service
+            services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
+
             // Register Email Service
             services.AddScoped<IEmailService, EmailService>();
 
