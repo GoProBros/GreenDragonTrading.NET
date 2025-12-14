@@ -10,7 +10,7 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
-    public class FinscService : IFinsService
+    public class FinscService : IFinscService
     {
         private readonly IHttpClientFactory _httpClientFactorry;
         private readonly ILogger<FinscService> _logger;

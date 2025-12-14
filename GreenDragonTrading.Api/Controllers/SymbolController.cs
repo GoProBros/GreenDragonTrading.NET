@@ -3,6 +3,8 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols;
+using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetOhlcv;
+using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetIntradayOhlc;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -67,20 +69,53 @@ namespace GreenDragonTrading.Api.Controllers
             return Ok(result);
         }
 
-        ///// <summary>
-        ///// Get intraday OHLC data for a specific symbol within a date range.
-        ///// </summary>
-        ///// <param name="request">Request model containing symbol and date range information.</param>
-        ///// <param name="cancellationToken">Cancellation token</param>
-        //[HttpGet("intraday-ohlc")]
-        //public async Task<ActionResult<PaginatedResponse<IntradayOhlc>>> IntradayOhlc([FromQuery] GetIntradayOhlcQuery request, CancellationToken cancellationToken = default)
-        //{
-        //    var result = await _mediator.Send(request, cancellationToken);
-        //    if (!result.IsSuccess)
-        //    {
-        //        return BadRequest(result);
-        //    }
-        //    return Ok(result);
-        //}
+        /// <summary>
+        /// Get intraday OHLC data for a specific symbol within a date range.
+        /// </summary>
+        /// <param name="request">Request model containing symbol and date range information.</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        [HttpGet("intraday-ohlc")]
+        public async Task<ActionResult<PaginatedResponse<IntradayOhlc>>> IntradayOhlc([FromQuery] GetIntradayOhlcQuery request, CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get stock chart data (OHLCV) for candlestick visualization.
+        /// Fetches OHLC data from Finsc API optimized for charting libraries (TradingView, Highcharts, etc.)
+        /// </summary>
+        /// <param name="symbol">Stock ticker (e.g., FPT, VNM, SSI)</param>
+        /// <param name="resolution">Chart timeframe: 1D (daily), 1H (hourly), 15, 5, 1 (minutes). Default: 1D</param>
+        /// <param name="fromDate">Start date in yyyy-MM-dd format (e.g., 2024-01-01). Default: 3 months ago</param>
+        /// <param name="toDate">End date in yyyy-MM-dd format (e.g., 2024-12-31). Default: today</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>OHLC data in parallel arrays format (t, o, h, l, c, v, symbol, s)</returns>
+        /// <response code="200">Returns chart data successfully</response>
+        /// <response code="400">Invalid parameters (e.g., wrong date format)</response>
+        [HttpGet("{symbol}/ohlcv")]
+        [ProducesResponseType(typeof(ApiResponse<FinscStockResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<FinscStockResponse>), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ApiResponse<FinscStockResponse>>> GetOhlcv(
+            [FromRoute] string symbol,
+            [FromQuery] string? resolution,
+            [FromQuery] string? fromDate,
+            [FromQuery] string? toDate,
+            CancellationToken cancellationToken = default)
+        {
+            var query = new GetOhlcvQuery(symbol, resolution, fromDate, toDate);
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
     }
 }

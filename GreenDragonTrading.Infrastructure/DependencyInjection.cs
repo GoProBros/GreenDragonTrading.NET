@@ -38,6 +38,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
+            services.AddScoped<IFinscService, FinscService>();
 
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();
@@ -53,6 +54,9 @@ namespace GreenDragonTrading.Infrastructure
             services.Configure<SsiApiOptionsV2>(configuration.GetSection(SsiApiOptionsV2.SectionName));
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
             services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+            services.Configure<FinscApiOptions>(configuration.GetSection(FinscApiOptions.SectionName));
+
+      
 
             // Register HttpClient
             services.AddHttpClient<ISsiServiceV1, SsiServiceV1>((sp, client) =>
