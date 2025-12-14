@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    [Migration("20251210042439_AddUserAndSeedInitialData")]
-    partial class AddUserAndSeedInitialData
+    [Migration("20251214065422_RecreateUsersTable")]
+    partial class RecreateUsersTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -232,13 +232,13 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("users", (string)null);
 
                     b.HasData(
                         new
                         {
-                            Id = new Guid("6cef9b3f-1f62-4208-b8ab-db44044d7f79"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2025, 12, 10, 4, 24, 39, 519, DateTimeKind.Unspecified).AddTicks(3469), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("a050ea7b-2c96-4108-9352-cdb997ffb8d5"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2025, 12, 14, 6, 54, 21, 839, DateTimeKind.Unspecified).AddTicks(6803), new TimeSpan(0, 0, 0, 0, 0)),
                             Email = "greendragon.trading.team@gmail.com",
                             HashedPassword = "96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e",
                             IsEmailVerified = true,

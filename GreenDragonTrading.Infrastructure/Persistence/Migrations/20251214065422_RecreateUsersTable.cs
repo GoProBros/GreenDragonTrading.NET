@@ -6,13 +6,13 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AddUserAndSeedInitialData : Migration
+    public partial class RecreateUsersTable : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Users",
+                name: "users",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
@@ -28,23 +28,23 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Users", x => x.id);
+                    table.PrimaryKey("PK_users", x => x.id);
                 });
 
             migrationBuilder.InsertData(
-                table: "Users",
+                table: "users",
                 columns: new[] { "id", "avatar_url", "created_at", "email", "hashed_password", "is_email_verified", "phone_number", "role", "status", "username" },
-                values: new object[] { new Guid("6cef9b3f-1f62-4208-b8ab-db44044d7f79"), null, new DateTimeOffset(new DateTime(2025, 12, 10, 4, 24, 39, 519, DateTimeKind.Unspecified).AddTicks(3469), new TimeSpan(0, 0, 0, 0, 0)), "greendragon.trading.team@gmail.com", "96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e", true, "0988671875", (short)3, (short)1, "admin" });
+                values: new object[] { new Guid("a050ea7b-2c96-4108-9352-cdb997ffb8d5"), null, new DateTimeOffset(new DateTime(2025, 12, 14, 6, 54, 21, 839, DateTimeKind.Unspecified).AddTicks(6803), new TimeSpan(0, 0, 0, 0, 0)), "greendragon.trading.team@gmail.com", "96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e", true, "0988671875", (short)3, (short)1, "admin" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Users_email",
-                table: "Users",
+                name: "IX_users_email",
+                table: "users",
                 column: "email",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Users_username",
-                table: "Users",
+                name: "IX_users_username",
+                table: "users",
                 column: "username",
                 unique: true);
         }
@@ -53,7 +53,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Users");
+                name: "users");
         }
     }
 }

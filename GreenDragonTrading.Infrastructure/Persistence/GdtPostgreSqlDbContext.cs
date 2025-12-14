@@ -17,6 +17,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
             modelBuilder.Entity<User>(builder =>
             {
+                builder.ToTable("users");
+
                 builder.Property(u => u.Id)
                        .HasDefaultValueSql("gen_random_uuid()");
 
@@ -27,7 +29,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                        .IsUnique();
             });
 
-            DatabaseSeeder.SeedAll(modelBuilder);
+            DatabaseSeeder.SeedAll(modelBuilder);
         }
     }
 }
