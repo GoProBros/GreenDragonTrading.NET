@@ -3,7 +3,7 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols;
-using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetOhlcv;
+using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetDailyOhlcv;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetIntradayOhlc;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -86,28 +86,27 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Get stock chart data (OHLCV) for candlestick visualization.
-        /// Fetches OHLC data from Finsc API optimized for charting libraries (TradingView, Highcharts, etc.)
+        /// Get daily OHLCV chart data for candlestick visualization.
+        /// Fetches daily OHLC data from Finsc API optimized for charting libraries (TradingView, Highcharts, etc.)
+        /// Only supports daily (1D) resolution.
         /// </summary>
         /// <param name="symbol">Stock ticker (e.g., FPT, VNM, SSI)</param>
-        /// <param name="resolution">Chart timeframe: 1D (daily), 1H (hourly), 15, 5, 1 (minutes). Default: 1D</param>
-        /// <param name="fromDate">Start date in yyyy-MM-dd format (e.g., 2024-01-01). Default: 3 months ago</param>
-        /// <param name="toDate">End date in yyyy-MM-dd format (e.g., 2024-12-31). Default: today</param>
+        /// <param name="fromDate">Start date in dd/MM/yyyy format (e.g., 01/01/2024). Default: 3 months ago</param>
+        /// <param name="toDate">End date in dd/MM/yyyy format (e.g., 31/12/2024). Default: today</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>OHLC data in parallel arrays format (t, o, h, l, c, v, symbol, s)</returns>
-        /// <response code="200">Returns chart data successfully</response>
+        /// <returns>Daily OHLC data in parallel arrays format (t, o, h, l, c, v, symbol, s)</returns>
+        /// <response code="200">Returns daily chart data successfully</response>
         /// <response code="400">Invalid parameters (e.g., wrong date format)</response>
-        [HttpGet("{symbol}/ohlcv")]
+        [HttpGet("daily-ohlcv")]
         [ProducesResponseType(typeof(ApiResponse<FinscStockResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<FinscStockResponse>), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<ApiResponse<FinscStockResponse>>> GetOhlcv(
-            [FromRoute] string symbol,
-            [FromQuery] string? resolution,
+        public async Task<ActionResult<ApiResponse<FinscStockResponse>>> GetDailyOhlcv(
+            [FromQuery] string symbol,
             [FromQuery] string? fromDate,
             [FromQuery] string? toDate,
             CancellationToken cancellationToken = default)
         {
-            var query = new GetOhlcvQuery(symbol, resolution, fromDate, toDate);
+            var query = new GetDailyOhlcvQuery(symbol, fromDate, toDate);
             var result = await _mediator.Send(query, cancellationToken);
 
             if (!result.IsSuccess)
