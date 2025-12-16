@@ -11,16 +11,10 @@ namespace GreenDragonTrading.Api.Middlewares
         {
             httpContext.Response.ContentType = "application/json";
             ApiResponse response;
-            int statusCode = StatusCodes.Status500InternalServerError;
+            int statusCode;
 
             switch (exception)
             {
-                //case FluentValidation.ValidationException validationEx:
-                //    statusCode = StatusCodes.Status400BadRequest;
-                //    var errors = validationEx.Errors.Select(e => e.ErrorMessage).ToList();
-                //    response = ApiResponse.Failure("Lỗi kiểm tra dữ liệu đầu vào.", errors);
-                //    break;
-
                 case BusinessRuleException businessEx:
                     statusCode = StatusCodes.Status400BadRequest;
                     response = ApiResponse.Failure(businessEx.Message);
