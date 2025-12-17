@@ -15,10 +15,13 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         private ISectorRepository? sectors;
 
         private IUserRepository? users;
+        
+        private IUserSubscriptionRepository? userSubscriptions;
 
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
+        public IUserSubscriptionRepository UserSubscriptions => userSubscriptions ??= new UserSubscriptionRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

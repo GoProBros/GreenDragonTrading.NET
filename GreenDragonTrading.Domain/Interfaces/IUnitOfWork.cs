@@ -5,6 +5,7 @@
         ISymbolRepository Symbols { get; }
         ISectorRepository Sectors { get; }
         IUserRepository Users { get; }
+        IUserSubscriptionRepository UserSubscriptions { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);

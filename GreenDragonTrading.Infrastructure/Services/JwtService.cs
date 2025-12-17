@@ -19,7 +19,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             _jwtOptions = jwtOptions.Value;
         }
 
-        public string GenerateAccessToken(Guid userId, string email, string? fullName, string? phone, string role)
+        public string GenerateAccessToken(Guid userId, string email, string? fullName, string? phone, string role, string subscriptionLevel)
         {
             var claims = new List<Claim>
             {
@@ -27,7 +27,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.Role, role),
-                new Claim("uid", userId.ToString())
+                new Claim("uid", userId.ToString()),
+                new Claim("subscription_level", subscriptionLevel)
             };
 
             if (!string.IsNullOrEmpty(fullName))

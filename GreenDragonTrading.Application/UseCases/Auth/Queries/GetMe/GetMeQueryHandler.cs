@@ -61,7 +61,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
                 {
                     throw new NotFoundException("Người dùng không tồn tại.");
                 }
-
+                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
                 var userDto = new UserDto
                 {
                     Id = user.Id,
@@ -69,7 +69,8 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
                     FullName = user.Username,
                     PhoneNumber = user.PhoneNumber,
                     Role = user.Role.GetDisplayName(),
-                    IsEmailVerified = user.IsEmailVerified
+                    IsEmailVerified = user.IsEmailVerified,
+                    SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
                 };
 
                 _logger.LogInformation("Lấy thông tin người dùng thành công: {UserId}", tokenInfo.UserId);

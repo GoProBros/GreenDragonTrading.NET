@@ -23,5 +23,6 @@ namespace GreenDragonTrading.Application.DTOs
         public string? PhoneNumber { get; set; }
         public string Role { get; set; } = null!;
         public bool IsEmailVerified { get; set; }
+        public string? SubscriptionLevel { get; set; }
     }
 }
