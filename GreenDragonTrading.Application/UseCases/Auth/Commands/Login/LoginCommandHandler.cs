@@ -53,12 +53,16 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                     throw new BusinessRuleException("Email chưa được xác thực");
                 }
 
+                // Get current subscription level
+                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+
                 var accessToken = _jwtService.GenerateAccessToken(
                     user.Id,
                     user.Email,
                     user.Username,
                     user.PhoneNumber,
-                    user.Role.ToString()
+                    user.Role.ToString(),
+                    subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
                 );
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
@@ -77,7 +81,8 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                         FullName = user.Username,
                         PhoneNumber = user.PhoneNumber,
                         Role = user.Role.GetDisplayName(),
-                        IsEmailVerified = user.IsEmailVerified
+                        IsEmailVerified = user.IsEmailVerified,
+                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
                     }
                 };
 

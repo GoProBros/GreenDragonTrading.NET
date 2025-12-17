@@ -1,35 +1,34 @@
-using GreenDragonTrading.Application.Common.Models;
+﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
-using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
+namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspace
 {
-    public class GetMeQueryHandler : IRequestHandler<GetMeQuery, ApiResponse<UserDto>>
+    public class GetMyWorkspaceQueryHandler : IRequestHandler<GetMyWorkspaceQuery, ApiResponse<List<WorkspaceDto>>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IJwtService _jwtService;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly ILogger<GetMeQueryHandler> _logger;
+        private readonly ILogger<GetMyWorkspaceQueryHandler> _logger;
+        private readonly IJwtService _jwtService;
 
-        public GetMeQueryHandler(
+        public GetMyWorkspaceQueryHandler(
             IUnitOfWork uow,
-            IJwtService jwtService,
             IHttpContextAccessor httpContextAccessor,
-            ILogger<GetMeQueryHandler> logger)
+            IJwtService jwtService,
+            ILogger<GetMyWorkspaceQueryHandler> logger)
         {
             _uow = uow;
-            _jwtService = jwtService;
             _httpContextAccessor = httpContextAccessor;
+            _jwtService = jwtService;
             _logger = logger;
         }
 
-        public async Task<ApiResponse<UserDto>> Handle(GetMeQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<List<WorkspaceDto>>> Handle(GetMyWorkspaceQuery request, CancellationToken cancellationToken)
         {
             try
             {
@@ -61,24 +60,23 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
                 {
                     throw new NotFoundException("Người dùng không tồn tại.");
                 }
-                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
-                var userDto = new UserDto
+                var workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(user.Id, cancellationToken);
+                var result = workspaces.Select(w => new WorkspaceDto
                 {
-                    Id = user.Id,
-                    Email = user.Email,
-                    FullName = user.Username,
-                    PhoneNumber = user.PhoneNumber,
-                    Role = user.Role.GetDisplayName(),
-                    IsEmailVerified = user.IsEmailVerified,
-                    SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
-                };
+                    Id = w.Id,
+                    WorkspaceName = w.WorkspaceName,
+                    LayoutJson = w.LayoutJson,
+                    IsDefault = w.IsDefault,
+                    ShareCode = w.ShareCode
+                }).ToList();
 
-                _logger.LogInformation("Lấy thông tin người dùng thành công: {UserId}", tokenInfo.UserId);
-                return ApiResponse<UserDto>.Success(userDto, "Lấy thông tin người dùng thành công.");
+                _logger.LogInformation("Lấy thành công danh sách workspace của người dùng: {UserId}", tokenInfo.UserId);
+                return ApiResponse<List<WorkspaceDto>>.Success(result, "Lấy thành công danh sách workspace của người dùng.");
             }
+
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi lấy thông tin người dùng.");
+                _logger.LogError(ex, "Lỗi khi lấy workspace của người dùng.");
                 throw;
             }
         }

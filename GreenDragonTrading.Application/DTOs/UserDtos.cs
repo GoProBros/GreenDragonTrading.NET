@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace GreenDragonTrading.Application.DTOs
+﻿namespace GreenDragonTrading.Application.DTOs
 {
     public class AuthResponse
     {
@@ -23,5 +16,6 @@ namespace GreenDragonTrading.Application.DTOs
         public string? PhoneNumber { get; set; }
         public string Role { get; set; } = null!;
         public bool IsEmailVerified { get; set; }
+        public string? SubscriptionLevel { get; set; }
     }
 }
