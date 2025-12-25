@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -18,7 +19,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             _jwtOptions = jwtOptions.Value;
         }
 
-        public string GenerateAccessToken(Guid userId, string email, string? fullName, string? phone, string role)
+        public string GenerateAccessToken(Guid userId, string email, string? fullName, string? phone, string role, string subscriptionLevel)
         {
             var claims = new List<Claim>
             {
@@ -26,7 +27,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.Role, role),
-                new Claim("uid", userId.ToString())
+                new Claim("uid", userId.ToString()),
+                new Claim("subscription_level", subscriptionLevel)
             };
 
             if (!string.IsNullOrEmpty(fullName))
@@ -83,6 +85,50 @@ namespace GreenDragonTrading.Infrastructure.Services
                 }, out _);
 
                 return principal;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public TokenInfo? GetTokenInfo(string accessToken)
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+
+                if (!handler.CanReadToken(accessToken))
+                {
+                    return null;
+                }
+
+                var jsonToken = handler.ReadToken(accessToken) as JwtSecurityToken;
+                if (jsonToken == null)
+                {
+                    return null;
+                }
+
+                var jti = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+                var exp = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp)?.Value;
+                var sub = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value;
+                var email = jsonToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email)?.Value;
+
+                if (string.IsNullOrEmpty(jti) || string.IsNullOrEmpty(exp) || string.IsNullOrEmpty(sub) || string.IsNullOrEmpty(email))
+                {
+                    return null;
+                }
+
+                var expiresAt = DateTimeOffset.FromUnixTimeSeconds(long.Parse(exp)).UtcDateTime;
+                var userId = Guid.Parse(sub);
+
+                return new TokenInfo
+                {
+                    Jti = jti,
+                    ExpiresAt = expiresAt,
+                    UserId = userId,
+                    Email = email
+                };
             }
             catch
             {

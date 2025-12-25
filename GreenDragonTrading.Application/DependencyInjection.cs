@@ -16,6 +16,9 @@ namespace GreenDragonTrading.Application
 
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
 
+
+            services.AddHttpContextAccessor();
+
             return services;
         }
     }

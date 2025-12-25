@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GreenDragonTrading.Domain.Entities
 {
+    [Table("users")]
     public class User
     {
         [Key]
@@ -50,5 +51,9 @@ namespace GreenDragonTrading.Domain.Entities
         [Required]
         [Column("is_email_verified", TypeName = "boolean")]
         public bool IsEmailVerified { get; set; } = false;
+
+        // Navigation Properties
+        public ICollection<Workspace> Workspaces { get; set; } = new List<Workspace>();
+        public ICollection<UserSubscription> UserSubscriptions { get; set; } = new List<UserSubscription>();
     }
 }

@@ -57,12 +57,16 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                     throw new UnauthenticatedException("Refresh token không hợp lệ cho người dùng này.");
                 }
 
+                // Get current subscription level
+                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+
                 var accessToken = _jwtService.GenerateAccessToken(
                     user.Id,
                     user.Email,
                     user.Username,
                     user.PhoneNumber,
-                    user.Role.ToString()
+                    user.Role.ToString(),
+                    subscriptionLevel?.Subscription.LevelOrder.ToString() ?? SubscriptionLevel.Free.ToString()
                 );
                 var newRefreshToken = _jwtService.GenerateRefreshToken();
           
@@ -83,7 +87,8 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                         FullName = user.Username,
                         PhoneNumber = user.PhoneNumber,
                         Role = user.Role.GetDisplayName(),
-                        IsEmailVerified = user.IsEmailVerified
+                        IsEmailVerified = user.IsEmailVerified,
+                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
                     }
                 };
 

@@ -53,6 +53,36 @@ namespace GreenDragonTrading.Infrastructure.Services
             await SendEmailAsync(toEmail, subject, body, cancellationToken);
         }
 
+        public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken cancellationToken = default)
+        {
+            var subject = "Reset Your Password - Green Dragon Trading";
+
+            var body = $@"
+                <html>
+                <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+                    <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+                        <h2 style='color: #2c5f2d;'>Password Reset Request</h2>
+                        <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+                        <p>Sử dụng mã OTP bên dưới để đặt lại mật khẩu:</p>
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <div style='background-color: #f5f5f5; 
+                                        padding: 20px; 
+                                        border-radius: 5px; 
+                                        display: inline-block;'>
+                                <h1 style='margin: 0; color: #2c5f2d; letter-spacing: 5px;'>{resetToken}</h1>
+                            </div>
+                        </div>
+                        <p style='color: #666;'>Mã này sẽ hết hạn sau <strong>15 phút</strong>.</p>
+                        <p style='color: #999; font-size: 12px; margin-top: 30px;'>
+                            Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+                        </p>
+                    </div>
+                </body>
+                </html>";
+
+            await SendEmailAsync(toEmail, subject, body, cancellationToken);
+        }
+
         private async Task SendEmailAsync(string toEmail, string subject, string body, CancellationToken cancellationToken)
         {
             try

@@ -21,7 +21,7 @@ namespace GreenDragonTrading.Domain.Enums
         {
             return enumValue.GetType()
                             .GetMember(enumValue.ToString())
-                            .First()
+                            .FirstOrDefault()?
                             .GetCustomAttribute<DisplayAttribute>()
                             ?.GetName() ?? enumValue.ToString();
         }

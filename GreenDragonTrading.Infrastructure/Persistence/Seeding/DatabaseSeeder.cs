@@ -11,6 +11,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
         {
             ExchangeSeeder.Seed(modelBuilder);
             UserSeeder.Seed(modelBuilder);
+            WorkspaceSeeder.Seed(modelBuilder);
         }
     }
 }
