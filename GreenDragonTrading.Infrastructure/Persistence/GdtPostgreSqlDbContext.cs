@@ -10,6 +10,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<Sector> Sectors => Set<Sector>();
         public DbSet<Symbol> Symbols => Set<Symbol>();
         public DbSet<User> Users => Set<User>();
+        public DbSet<FinancialReport> FinancialReports => Set<FinancialReport>();
         public DbSet<Subscription> Subscriptions => Set<Subscription>();
         public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
         public DbSet<Workspace> Workspaces => Set<Workspace>();
@@ -115,6 +116,30 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                        .WithMany() 
                        .HasForeignKey(w => w.UserId)
                        .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<FinancialReport>(builder =>
+            {
+                builder.ToTable("financial_reports");
+
+                builder.Property(f => f.Id)
+                       .HasDefaultValueSql("gen_random_uuid()");
+
+                builder.Property(f => f.KeyMetrics)
+                       .HasColumnType("jsonb");
+
+                builder.HasOne(f => f.Symbol)
+                       .WithMany()
+                       .HasForeignKey(f => f.Ticker)
+                       .IsRequired()
+                       .OnDelete(DeleteBehavior.Restrict);
+
+                builder.HasIndex(f => new { f.Ticker, f.Year, f.Period })
+                       .IsUnique();
+
+                builder.HasIndex(f => f.Status);
+                
+                builder.HasIndex(f => f.FilePath);
             });
 
             DatabaseSeeder.SeedAll(modelBuilder);

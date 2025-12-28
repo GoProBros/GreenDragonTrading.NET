@@ -1,7 +1,7 @@
 # GreenDragonTrading.NET - AI Agent Instructions
 
 ## Project Overview
-Real-time stock trading platform integrating with SSI (Securities Services Inc.) APIs. The system fetches market data, manages symbols/sectors, streams live prices via SignalR, and caches data in Redis for performance.
+Real-time stock trading platform integrating with SSI (Securities Services Inc.) APIs. The system manages user authentication, fetches market data, handles user workspaces/subscriptions, streams live prices via SignalR, and caches data in Redis for performance.
 
 ## Architecture (Clean Architecture + DDD)
 
@@ -15,34 +15,45 @@ Infrastructure → Application + Domain
 **Never reference Infrastructure or Api from Application/Domain layers.**
 
 ### Core Components
-- **Domain**: Entities (`Symbol`, `Sector`, `Exchange`), Enums (`SymbolType`, `SymbolStatus`), Constants, Interfaces
-- **Application**: Use cases (CQRS with MediatR), DTOs, FluentValidation, Service interfaces
-- **Infrastructure**: DbContext (PostgreSQL/EF Core), Repositories, External services (SSI V1/V2/Streaming), Redis caching, SignalR Hub, Background workers
-- **Api**: ASP.NET Core controllers, Swagger configuration, Serilog logging
+- **Domain**: Entities (`Symbol`, `Sector`, `Exchange`, `User`, `Workspace`, `Subscription`, `UserSubscription`), Enums (`SymbolType`, `SymbolStatus`, `UserRole`, `CommonStatus`), Constants, Interfaces
+- **Application**: Use cases (CQRS with MediatR), DTOs, FluentValidation with `ValidationBehavior<,>`, Service interfaces
+- **Infrastructure**: DbContext (PostgreSQL/EF Core), Repositories, External services (SSI V1/V2/Streaming), Redis caching, SignalR Hub, Background workers (`SsiStreamingBackgroundService`)
+- **Api**: ASP.NET Core controllers, JWT authentication, Swagger configuration, Serilog logging, Custom middlewares
 
 ### Key Patterns
 1. **CQRS with MediatR**: All use cases are `IRequest<TResult>` with separate handlers
-   - Commands: `GreenDragonTrading.Application/UseCases/*/Commands/`
-   - Queries: `GreenDragonTrading.Application/UseCases/*/Queries/`
-   - Example: `ImportSymbolsFromSsiCommandV1` + `ImportSymbolsFromSsiCommandHandlerV1`
+   - Commands: `GreenDragonTrading.Application/UseCases/*/Commands/` (e.g., `Auth/Commands/Login/`, `Workspace/Commands/CreateWorkspace/`)
+   - Queries: `GreenDragonTrading.Application/UseCases/*/Queries/` (e.g., `Symbols/Queries/GetSymbols/`, `Auth/Queries/GetMe/`)
+   - Example: `LoginCommand` + `LoginCommandHandler` in `Auth/Commands/Login/`
 
-2. **Unit of Work + Repository**: Access DB via `IUnitOfWork` with scoped repositories
+2. **Validation Pipeline**: FluentValidation with MediatR behavior
+   ```csharp
+   // In Application/DependencyInjection.cs
+   cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+   services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+   ```
+   - Validators in same folder as commands/queries
+   - Auto-validated before handler execution
+
+3. **Unit of Work + Repository**: Access DB via `IUnitOfWork` with scoped repositories
    ```csharp
    await _uow.Symbols.AddRangeAsync(symbols);
    await _uow.SaveChangesAsync();
    ```
 
-3. **Dependency Injection Extensions**: Configure layers via `AddInfrastructure()` / `AddApplication()`
+4. **Dependency Injection Extensions**: Configure layers via `AddInfrastructure()` / `AddApplication()`
    - Located in `DependencyInjection.cs` in each project
+   - Infrastructure registers: DbContext, UoW, Repositories, External services, HttpClients, JWT auth, Hosted services
+   - Application registers: MediatR, FluentValidation, HttpContextAccessor
 
-4. **Standard API Response**: Wrap all controller responses in `ApiResponse<T>`
+5. **Standard API Response**: Wrap all controller responses in `ApiResponse<T>`
    ```csharp
    // For simple responses
    return Ok(ApiResponse<TData>.Success(data, "Success message"));
    
-   // For paginated responses
-   var paginatedResponse = PaginatedResponse<TData>.Create(items, totalCount, pageIndex, pageSize);
-   return Ok(ApiResponse<PaginatedResponse<TData>>.Success(paginatedResponse, "Success message"));
+   // For paginated responses (inherit PaginationQuery in query)
+   var paginatedResponse = PaginatedResponse<TDto>.Create(items, totalCount, pageIndex, pageSize);
+   return Ok(ApiResponse<PaginatedResponse<TDto>>.Success(paginatedResponse, "Success message"));
    
    // For non-generic responses
    return Ok(ApiResponse.Success("Success message"));
@@ -52,6 +63,26 @@ Infrastructure → Application + Domain
    return BadRequest(ApiResponse<TData>.Failure("Error message", errorList));
    ```
 
+
+## Authentication & Authorization
+
+### JWT Authentication
+- Configured in `Infrastructure/DependencyInjection.cs` with JWT Bearer scheme
+- Token validation: Issuer, Audience, Lifetime, IssuerSigningKey (symmetric)
+- ClockSkew set to `TimeSpan.Zero` for strict expiration
+- JWT options in `appsettings.json` → `JwtOptions` section
+
+### Token Blacklist Middleware
+- Custom middleware `TokenBlacklistMiddleware` checks if access tokens are blacklisted
+- **MUST run after authentication**: `app.UseAuthentication()` → `app.UseTokenBlacklist()` → `app.UseAuthorization()`
+- Extracts JTI from JWT claims and validates against `ITokenBlacklistService` (Redis-backed)
+- Returns 401 if token is blacklisted
+
+### Protected Endpoints
+- Use `[Authorize]` attribute on controllers/actions requiring authentication
+- Examples: `WorkspaceController.CreateWorkspace`, `AuthController.Logout`
+- User claims accessible via `HttpContext.User`
+
 ## External Integrations
 
 ### SSI API Versions
@@ -59,10 +90,17 @@ Infrastructure → Application + Domain
 - **V2** (`ISsiServiceV2`): Modern REST API with RSA encryption, requires OAuth via `ISsiAuthService`
 - **Streaming** (`ISsiStreamingService`): Real-time SignalR client connecting to `https://fc-datahub.ssi.com.vn`
 
+### HttpClient Configuration
+All SSI services use typed HttpClients registered in `Infrastructure/DependencyInjection.cs`:
+- `ISsiServiceV1`: Timeout from options, `Accept: application/json`
+- `ISsiServiceV2`: `Accept: application/x-www-form-urlencoded`
+- `ISsiAuthService`: For OAuth token retrieval
+
 ### Data Flow
 1. **Import**: Controllers trigger MediatR commands → Services fetch from SSI → Bulk insert/update PostgreSQL
 2. **Streaming**: `SsiStreamingBackgroundService` (hosted service) subscribes to SSI → Publishes to `IMarketDataBroadcaster` → SignalR broadcasts to clients
 3. **Caching**: Market data stored in Redis with key pattern `MarketData:Symbol:{ticker}`
+
 
 ## Database & Persistence
 
@@ -96,15 +134,34 @@ dotnet run --project GreenDragonTrading.Api
 # https://localhost:7148/swagger (default HTTPS port)
 ```
 
+### Quick Start Script
+Use `run-server-and-client.ps1` to launch both API and SignalR test client simultaneously.
+
 ### Project Structure
 - `.sln` file at root: Reference this for builds
 - `appsettings.Development.json`: Local config (NOT committed with real credentials)
 - `Logs/`: Serilog file outputs (rolling daily, 7-day retention)
+- `GreenDragonTrading.SignalRClient/`: Standalone console app for testing SignalR hub
 
 ### Key Configuration Sections
 - `SsiApiV1`: IBoard API endpoints
 - `SsiApiV2`: FastConnect credentials (ConsumerID, ConsumerSecret, RSA keys)
+- `JwtOptions`: JWT secret, issuer, audience, token lifetimes
+- `EmailOptions`: SMTP configuration for email verification/password reset
+- `Cors:AllowedOrigins`: Array of allowed CORS origins
 - `Serilog`: Console + File sinks with structured logging
+
+### Middleware Order (Critical)
+```csharp
+// In Program.cs
+app.UseExceptionHandler(options => { });
+app.UseCors("AppCorsPolicy");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseTokenBlacklist();  // MUST be after authentication
+app.MapControllers();
+app.MapHub<MarketDataHub>("/hubs/marketdata");
+```
 
 ## Real-Time Features
 
