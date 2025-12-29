@@ -7,6 +7,7 @@
         IUserRepository Users { get; }
         IUserSubscriptionRepository UserSubscriptions { get; }
         IWorkspaceRepository Workspaces { get; }
+        IModuleLayoutRepository ModuleLayouts { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);

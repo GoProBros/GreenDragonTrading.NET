@@ -73,12 +73,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
                     SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
                 };
 
-                _logger.LogInformation("Lấy thông tin người dùng thành công: {UserId}", tokenInfo.UserId);
+                _logger.LogInformation("Successfully retrieved user information: {UserId}", tokenInfo.UserId);
                 return ApiResponse<UserDto>.Success(userDto, "Lấy thông tin người dùng thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi lấy thông tin người dùng.");
+                _logger.LogError(ex, "Error retrieving user information.");
                 throw;
             }
         }

@@ -43,7 +43,7 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new GetWorkspaceByShareCodeQuery(shareCode), cancellationToken);
-            return Ok(result);
+            return result;
         }
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
-            return Ok(result);
+            return result;
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
-            return Ok(result);
+            return result;
         }
     }
 }

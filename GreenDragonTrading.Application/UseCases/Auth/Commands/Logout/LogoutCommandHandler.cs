@@ -39,7 +39,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
                 }
 
                 await _redisService.RemoveAsync(tokenKey);
-                _logger.LogInformation("Refresh token đã được thu hồi cho người dùng: {UserId}", userId);
+                _logger.LogInformation("Refresh token revoked for user: {UserId}", userId);
 
                 // cho access token vào blacklist
                 var tokenInfo = _jwtService.GetTokenInfo(request.AccessToken);
@@ -51,13 +51,13 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
 
                 await _tokenBlacklistService.BlacklistTokenAsync(tokenInfo.Jti, tokenInfo.ExpiresAt, cancellationToken);
                 
-                _logger.LogInformation("Access token {Jti} đã được blacklist cho người dùng {UserId}", tokenInfo.Jti, userId);
+                _logger.LogInformation("Access token {Jti} blacklisted for user {UserId}", tokenInfo.Jti, userId);
 
                 return ApiResponse.Success("Đăng xuất thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi đăng xuất.");
+                _logger.LogError(ex, "Error during logout.");
                 throw;
             }
         }

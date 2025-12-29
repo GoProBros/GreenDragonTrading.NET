@@ -9,8 +9,12 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<Exchange> Exchanges => Set<Exchange>();
         public DbSet<Sector> Sectors => Set<Sector>();
         public DbSet<Symbol> Symbols => Set<Symbol>();
-
         public DbSet<User> Users => Set<User>();
+        public DbSet<Subscription> Subscriptions => Set<Subscription>();
+        public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
+        public DbSet<Workspace> Workspaces => Set<Workspace>();
+        public DbSet<ModuleLayout> ModuleLayouts => Set<ModuleLayout>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -72,7 +76,28 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
                 builder.HasIndex(w => w.ShareCode)
                        .IsUnique()
-                       .HasFilter("\"share_code\" IS NOT NULL"); 
+                       .HasFilter("\"share_code\" IS NOT NULL");
+
+                builder.HasIndex(w => new { w.UserId, w.IsDefault })
+           .HasFilter("\"is_default\" = true");
+            });
+
+            modelBuilder.Entity<ModuleLayout>(builder =>
+            {
+                builder.ToTable("module_layouts");
+
+                builder.HasIndex(m => new { m.UserId, m.ModuleType });
+
+                builder.HasIndex(m => m.IsSystemDefault)
+                       .HasFilter("\"is_system_default\" = true");
+
+                builder.Property(m => m.ConfigJson)
+                       .HasColumnType("jsonb");
+
+                builder.HasOne(m => m.User)
+                       .WithMany() 
+                       .HasForeignKey(m => m.UserId)
+                       .OnDelete(DeleteBehavior.Cascade);
             });
 
             DatabaseSeeder.SeedAll(modelBuilder);

@@ -35,7 +35,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.ForgotPassword
                 
                 if (user == null)
                 {
-                    _logger.LogWarning("Yêu cầu reset password cho email không tồn tại: {Email}", request.Email);
+                    _logger.LogWarning("Password reset request for non-existent email: {Email}", request.Email);
                     throw new NotFoundException("Không tìm thấy người dùng với email đã cung cấp.");
                 }
 
@@ -46,12 +46,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.ForgotPassword
 
                 await _emailService.SendPasswordResetEmailAsync(user.Email, resetToken, cancellationToken);
 
-                _logger.LogInformation("Đã gửi OTP reset password cho email: {Email}", request.Email);
+                _logger.LogInformation("Password reset OTP sent to email: {Email}", request.Email);
                 return ApiResponse.Success("Chúng tôi đã gửi link reset password đến email của bạn.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi xử lý forgot password cho email: {Email}", request.Email);
+                _logger.LogError(ex, "Error processing forgot password for email: {Email}", request.Email);
                 throw;
             }
         }
