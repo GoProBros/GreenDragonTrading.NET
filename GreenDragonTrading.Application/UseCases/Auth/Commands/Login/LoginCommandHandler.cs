@@ -86,12 +86,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                     }
                 };
 
-                _logger.LogInformation("Người dùng đăng nhập thành công: {Email}", request.Email);
+                _logger.LogInformation("User logged in successfully: {Email}", request.Email);
                 return ApiResponse<AuthResponse>.Success(response,"Đăng nhập thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi hệ thống khi đăng nhập: {Email}", request.Email);
+                _logger.LogError(ex, "System error during login: {Email}", request.Email);
                 throw;
             }
         }

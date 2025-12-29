@@ -40,12 +40,12 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspace
                     ShareCode = workspace.ShareCode
                 };
 
-                _logger.LogInformation("Lấy workspace thành công với share code: {ShareCode}", request.ShareCode);
+                _logger.LogInformation("Workspace retrieved successfully with share code: {ShareCode}", request.ShareCode);
                 return ApiResponse<WorkspaceDto>.Success(workspaceDto, "Lấy workspace thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi lấy workspace với share code: {ShareCode}", request.ShareCode);
+                _logger.LogError(ex, "Error retrieving workspace with share code: {ShareCode}", request.ShareCode);
                 throw;
             }
         }

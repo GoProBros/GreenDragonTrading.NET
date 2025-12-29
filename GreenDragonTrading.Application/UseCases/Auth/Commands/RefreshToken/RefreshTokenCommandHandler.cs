@@ -92,12 +92,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                     }
                 };
 
-                _logger.LogInformation("Update refresh token thành công: {UserId}", userId);
+                _logger.LogInformation("Refresh token updated successfully: {UserId}", userId);
                 return ApiResponse<AuthResponse>.Success(response, "Làm mới token thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi hệ thống.");
+                _logger.LogError(ex, "System error.");
                 throw;
             }
         }

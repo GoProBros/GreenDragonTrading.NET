@@ -54,12 +54,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.ResetPassword
 
                 await _redisService.RemoveAsync(redisKey);
 
-                _logger.LogInformation("Đã reset password thành công cho user: {UserId}", user.Id);
+                _logger.LogInformation("Password reset successfully for user: {UserId}", user.Id);
                 return ApiResponse.Success("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi reset password cho email: {Email}", request.Email);
+                _logger.LogError(ex, "Error resetting password for email: {Email}", request.Email);
                 throw;
             }
         }

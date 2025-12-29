@@ -62,7 +62,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
                     workspace.IsDefault = request.IsDefault.Value;
                 }
 
-                workspace.UpdateAt = DateTimeOffset.UtcNow;
+                workspace.UpdatedAt = DateTimeOffset.UtcNow;
 
                 _uow.Workspaces.Update(workspace);
                 await _uow.SaveChangesAsync(cancellationToken);
@@ -76,12 +76,12 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
                     ShareCode = workspace.ShareCode
                 };
 
-                _logger.LogInformation("Cập nhật workspace thành công: {WorkspaceId} bởi user: {UserId}", workspace.Id, userId);
+                _logger.LogInformation("Workspace updated successfully: {WorkspaceId} by user: {UserId}", workspace.Id, userId);
                 return ApiResponse<WorkspaceDto>.Success(workspaceDto, "Cập nhật workspace thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi cập nhật workspace {WorkspaceId}", request.WorkspaceId);
+                _logger.LogError(ex, "Error updating workspace {WorkspaceId}", request.WorkspaceId);
                 throw;
             }
         }

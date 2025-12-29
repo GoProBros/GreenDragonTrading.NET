@@ -43,12 +43,12 @@ namespace GreenDragonTrading.Domain.Entities
 
         [Required]
         [Column("updated_at", TypeName = "timestamp with time zone")]
-        public DateTimeOffset UpdateAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset? UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
 
 
         // Navigation Property
         [ForeignKey("UserId")]
-        public User User { get; set; } = default!;
+        public User? User { get; set; } = default!;
     }
 }

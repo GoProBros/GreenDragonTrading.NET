@@ -70,13 +70,13 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                     ShareCode = w.ShareCode
                 }).ToList();
 
-                _logger.LogInformation("Lấy thành công danh sách workspace của người dùng: {UserId}", tokenInfo.UserId);
+                _logger.LogInformation("User workspaces retrieved successfully: {UserId}", tokenInfo.UserId);
                 return ApiResponse<List<WorkspaceDto>>.Success(result, "Lấy thành công danh sách workspace của người dùng.");
             }
 
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi lấy workspace của người dùng.");
+                _logger.LogError(ex, "Error retrieving user workspaces.");
                 throw;
             }
         }

@@ -5,16 +5,18 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
 {
     public static class WorkspaceSeeder
     {
-        // ID cố định cho Layout Master (sử dụng ID số nguyên 1)
         public const int SystemDefaultLayoutId = 1;
 
-        // Dữ liệu JSON mẫu cho Layout mặc định (Thay thế bằng JSON thực tế của bạn)
         private const string DefaultLayoutJson = @"
         {
           ""modules"": [
-            { ""id"": ""watchList"", ""position"": { ""x"": 0, ""y"": 0, ""w"": 6, ""h"": 4 } },
-            { ""id"": ""chart"", ""position"": { ""x"": 6, ""y"": 0, ""w"": 6, ""h"": 8 } },
-            { ""id"": ""orderBook"", ""position"": { ""x"": 0, ""y"": 4, ""w"": 6, ""h"": 4 } }
+            {
+              ""i"": ""stock-screener-default"",
+              ""type"": ""stock-screener"",
+              ""title"": ""Bộ lọc cổ phiếu"",
+              ""x"": 0, ""y"": 36, ""w"": 96, ""h"": 20,
+              ""activeLayoutId"": 1  
+            }
           ]
         }";
 
@@ -30,7 +32,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
                     IsDefault = true, 
                     ShareCode = null,
                     CreatedAt = DateTimeOffset.UtcNow,
-                    UpdateAt = DateTimeOffset.UtcNow
+                    UpdatedAt = DateTimeOffset.UtcNow
                 }
             );
         }
