@@ -51,12 +51,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail
 
                 await _redisService.RemoveAsync(redisKey);
 
-                _logger.LogInformation("Xác thực email thành công: {Email}", user.Email);
+                _logger.LogInformation("Email verified successfully: {Email}", user.Email);
                 return ApiResponse.Success("Xác thực email thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi hệ thống.");
+                _logger.LogError(ex, "System error.");
                 throw;
             }
         }

@@ -53,7 +53,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
                     IsDefault = request.IsDefault,
                     ShareCode = shareCode,
                     CreatedAt = DateTimeOffset.UtcNow,
-                    UpdateAt = DateTimeOffset.UtcNow
+                    UpdatedAt = DateTimeOffset.UtcNow
                 };
 
                 await _uow.Workspaces.AddAsync(workspace, cancellationToken);
@@ -68,12 +68,12 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
                     ShareCode = workspace.ShareCode
                 };
 
-                _logger.LogInformation("Tạo workspace thành công: {WorkspaceId} cho user: {UserId}", workspace.Id, userId);
+                _logger.LogInformation("Workspace created successfully: {WorkspaceId} for user: {UserId}", workspace.Id, userId);
                 return ApiResponse<WorkspaceDto>.Success(workspaceDto, "Tạo workspace thành công.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi tạo workspace");
+                _logger.LogError(ex, "Error creating workspace");
                 throw;
             }
         }

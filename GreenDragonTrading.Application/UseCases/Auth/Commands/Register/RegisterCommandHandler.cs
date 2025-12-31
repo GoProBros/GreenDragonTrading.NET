@@ -69,12 +69,12 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
 
                 await _emailService.SendVerificationEmailAsync(user.Email, verificationToken, verificationUrl, cancellationToken);
 
-                _logger.LogInformation("Đăng kí thành công: {Email}", request.Email);
+                _logger.LogInformation("Registration successful: {Email}", request.Email);
                 return ApiResponse.Success("Đăng kí thành công. Vui lòng kiểm tra email để xác thực tài khoản.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi này do hệ thống, chưa handle.");
+                _logger.LogError(ex, "System error during registration.");
                 throw;
             }
         }
