@@ -29,6 +29,13 @@ namespace GreenDragonTrading.Infrastructure
                 options.UseNpgsql(
                     configuration.GetConnectionString("GdtPostgreSqlConnection"),
                     b => b.MigrationsAssembly(typeof(GdtPostgreSqlDbContext).Assembly.FullName)));
+            
+            // Register OhlcvTimescaleDbContext
+            services.AddDbContext<OhlcvTimescaleDbContext>(options =>
+                options.UseNpgsql(
+                    configuration.GetConnectionString("OhlcvTimescaleDbConnection"),
+                    b => b.MigrationsAssembly(typeof(OhlcvTimescaleDbContext).Assembly.FullName)));
+            
             string redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
 
             // Register Unit of Work and Repositories here if needed
