@@ -41,6 +41,8 @@ namespace GreenDragonTrading.Infrastructure
             // Register Unit of Work and Repositories here if needed
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped(typeof(IPostgreSqlGenericRepository<>), typeof(PostgreSqlGenericRepository<>));
+            services.AddScoped<IOhlcvUnitOfWork, OhlcvUnitOfWork>();
+            services.AddScoped<IOhlcvRepository, OhlcvRepository>();
             services.AddSingleton<ISsiStreamingService, SsiStreamingService>();
             services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<IRedisService, RedisService>();
