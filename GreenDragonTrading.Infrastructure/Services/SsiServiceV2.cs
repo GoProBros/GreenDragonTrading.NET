@@ -9,6 +9,7 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
+    /// <inheritdoc/>
     public class SsiServiceV2(
         HttpClient httpClient,
         ILogger<SsiServiceV2> logger,
@@ -24,7 +25,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             PropertyNameCaseInsensitive = true
         };
 
-        public async Task<(SecuritiesDetailsResponse result, int count)> FetchSecuritiesDetails(
+        /// <inheritdoc/>
+        public async Task<(SecuritiesDetailsResponse result, int count)> FetchSecuritiesDetailsAsync(
             SecuritiesDetailsRequest requestQuery,
             CancellationToken cancellationToken = default)
         {
@@ -41,6 +43,38 @@ namespace GreenDragonTrading.Infrastructure.Services
             return (result, actualCount);
         }
 
+        /// <inheritdoc/>
+        public async Task<(IntradayOhlcResponse result, int count)> FetchIntradayOhlcAsync(
+            IntradayOhlcRequest requestQuery,
+            CancellationToken cancellationToken = default)
+        {
+            string url = $"{_ssiApiOptions.FastConnectUrl}{SsiApiDefineV2.GetIntradayOhlc}";
+
+            string urlWithQuery = url + requestQuery.ToQueryString();
+
+            _logger.LogInformation("Fetching SSI Intraday OHLC from URL: {Url}", urlWithQuery);
+
+            IntradayOhlcResponse result = await HandlerRequest<IntradayOhlcResponse>(urlWithQuery, cancellationToken);
+            
+            // Check for null data
+            if (result?.Data == null)
+            {
+                _logger.LogWarning("SSI API returned null or empty data for Intraday OHLC");
+                return (result ?? new IntradayOhlcResponse(), 0);
+            }
+            
+            int actualCount = result.Data.Count;
+            _logger.LogInformation("Fetch successfully {Count} SSI Intraday OHLC records.", actualCount);
+
+            return (result, actualCount);
+        }
+
+        /// <summary>
+        /// Handle the HTTP request to SSI API and deserialize the response.
+        /// </summary>
+        /// <typeparam name="TResponse">Response type for each API</typeparam>
+        /// <param name="urlWithQuery">Query string for the API request</param>
+        /// <param name="cancellationToken">Cancellation token for the operation</param>
         private async Task<TResponse> HandlerRequest<TResponse>(string urlWithQuery, CancellationToken cancellationToken)
             where TResponse : class, new()
         {

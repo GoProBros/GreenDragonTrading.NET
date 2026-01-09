@@ -11,11 +11,20 @@ namespace GreenDragonTrading.Infrastructure.Services
     /// Service for real-time streaming market data from SSI using SignalR.
     /// Handles connection management, reconnection, and message broadcasting.
     /// </summary>
-    public class SsiStreamingService : ISsiStreamingService, IDisposable
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="SsiStreamingService"/> class.
+    /// </remarks>
+    /// <param name="logger">Logger instance for logging.</param>
+    /// <param name="authService">Auth service for obtaining access tokens.</param>
+    /// <param name="ssiApiOptionsV2">SSI API configuration options.</param>
+    public class SsiStreamingService(
+        ILogger<SsiStreamingService> logger,
+        ISsiAuthService authService,
+        IOptions<SsiApiOptionsV2> ssiApiOptionsV2) : ISsiStreamingService, IDisposable
     {
-        private readonly ILogger<SsiStreamingService> _logger;
-        private readonly ISsiAuthService _authService;
-        private readonly SsiApiOptionsV2 _options;
+        private readonly ILogger<SsiStreamingService> _logger = logger;
+        private readonly ISsiAuthService _authService = authService;
+        private readonly SsiApiOptionsV2 _options = ssiApiOptionsV2.Value;
 
         private HubConnection? _hubConnection;
         private IHubProxy? _hubProxy;
@@ -35,22 +44,6 @@ namespace GreenDragonTrading.Infrastructure.Services
 
         /// <inheritdoc/>
         public event Action<string, string>? OnStateChanged;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SsiStreamingService"/> class.
-        /// </summary>
-        /// <param name="logger">Logger instance for logging.</param>
-        /// <param name="authService">Auth service for obtaining access tokens.</param>
-        /// <param name="ssiApiOptionsV2">SSI API configuration options.</param>
-        public SsiStreamingService(
-            ILogger<SsiStreamingService> logger,
-            ISsiAuthService authService,
-            IOptions<SsiApiOptionsV2> ssiApiOptionsV2)
-        {
-            _logger = logger;
-            _authService = authService;
-            _options = ssiApiOptionsV2.Value;
-        }
 
         /// <inheritdoc/>
         public async Task StartAsync(CancellationToken cancellationToken = default)

@@ -271,4 +271,172 @@ namespace GreenDragonTrading.Application.DTOs
         public string? Exchange { get; set; }
 
     }
+
+    public class SecuritiesSnapshot
+    {
+        [JsonPropertyName("RType")]
+        public string? RType { get; set; }
+
+        [JsonPropertyName("TradingDate")]
+        public string? TradingDate { get; set; }
+
+        [JsonPropertyName("Time")]
+        public string? Time { get; set; }
+
+        [JsonPropertyName("Isin")]
+        public string? Isin { get; set; }
+
+        [JsonPropertyName("Symbol")]
+        public string? Symbol { get; set; }
+
+        [JsonPropertyName("Ceiling")]
+        public double? Ceiling { get; set; }
+
+        [JsonPropertyName("Floor")]
+        public double? Floor { get; set; }
+
+        [JsonPropertyName("RefPrice")]
+        public double? RefPrice { get; set; }
+
+        [JsonPropertyName("Open")]
+        public double? Open { get; set; }
+
+        [JsonPropertyName("Close")]
+        public double? Close { get; set; }
+
+        [JsonPropertyName("High")]
+        public double? High { get; set; }
+
+        [JsonPropertyName("Low")]
+        public double? Low { get; set; }
+
+        //[JsonPropertyName("AvgPrice")]
+        //public double? Avg { get; set; }
+
+        [JsonPropertyName("PriorVal")]
+        public double? PriorVal { get; set; }
+
+        [JsonPropertyName("LastPrice")]
+        public double? LastVal { get; set; }
+
+        [JsonPropertyName("LastVol")]
+        public double? LastVol { get; set; }
+
+        [JsonPropertyName("TotalVal")]
+        public double? TotalVal { get; set; }
+
+        [JsonPropertyName("TotalVol")]
+        public double? TotalVol { get; set; }
+
+        [JsonPropertyName("BidPrice1")]
+        public double? BidPrice1 { get; set; }
+        [JsonPropertyName("BidPrice2")]
+        public double? BidPrice2 { get; set; }
+        [JsonPropertyName("BidPrice3")]
+        public double? BidPrice3 { get; set; }
+        [JsonPropertyName("BidPrice4")]
+        public double? BidPrice4 { get; set; }
+        [JsonPropertyName("BidPrice5")]
+        public double? BidPrice5 { get; set; }
+        [JsonPropertyName("BidPrice6")]
+        public double? BidPrice6 { get; set; }
+        [JsonPropertyName("BidPrice7")]
+        public double? BidPrice7 { get; set; }
+        [JsonPropertyName("BidPrice8")]
+        public double? BidPrice8 { get; set; }
+        [JsonPropertyName("BidPrice9")]
+        public double? BidPrice9 { get; set; }
+        [JsonPropertyName("BidPrice10")]
+        public double? BidPrice10 { get; set; }
+
+        [JsonPropertyName("BidVol1")]
+        public double? BidVol1 { get; set; }
+        [JsonPropertyName("BidVol2")]
+        public double? BidVol2 { get; set; }
+        [JsonPropertyName("BidVol3")]
+        public double? BidVol3 { get; set; }
+        [JsonPropertyName("BidVol4")]
+        public double? BidVol4 { get; set; }
+        [JsonPropertyName("BidVol5")]
+        public double? BidVol5 { get; set; }
+        [JsonPropertyName("BidVol6")]
+        public double? BidVol6 { get; set; }
+        [JsonPropertyName("BidVol7")]
+        public double? BidVol7 { get; set; }
+        [JsonPropertyName("BidVol8")]
+        public double? BidVol8 { get; set; }
+        [JsonPropertyName("BidVol9")]
+        public double? BidVol9 { get; set; }
+        [JsonPropertyName("BidVol10")]
+        public double? BidVol10 { get; set; }
+
+        [JsonPropertyName("AskPrice1")]
+        public double? AskPrice1 { get; set; }
+        [JsonPropertyName("AskPrice2")]
+        public double? AskPrice2 { get; set; }
+        [JsonPropertyName("AskPrice3")]
+        public double? AskPrice3 { get; set; }
+        [JsonPropertyName("AskPrice4")]
+        public double? AskPrice4 { get; set; }
+        [JsonPropertyName("AskPrice5")]
+        public double? AskPrice5 { get; set; }
+        [JsonPropertyName("AskPrice6")]
+        public double? AskPrice6 { get; set; }
+        [JsonPropertyName("AskPrice7")]
+        public double? AskPrice7 { get; set; }
+        [JsonPropertyName("AskPrice8")]
+        public double? AskPrice8 { get; set; }
+        [JsonPropertyName("AskPrice9")]
+        public double? AskPrice9 { get; set; }
+        [JsonPropertyName("AskPrice10")]
+        public double? AskPrice10 { get; set; }
+
+        [JsonPropertyName("AskVol1")]
+        public double? AskVol1 { get; set; }
+        [JsonPropertyName("AskVol2")]
+        public double? AskVol2 { get; set; }
+        [JsonPropertyName("AskVol3")]
+        public double? AskVol3 { get; set; }
+        [JsonPropertyName("AskVol4")]
+        public double? AskVol4 { get; set; }
+        [JsonPropertyName("AskVol5")]
+        public double? AskVol5 { get; set; }
+        [JsonPropertyName("AskVol6")]
+        public double? AskVol6 { get; set; }
+        [JsonPropertyName("AskVol7")]
+        public double? AskVol7 { get; set; }
+        [JsonPropertyName("AskVol8")]
+        public double? AskVol8 { get; set; }
+        [JsonPropertyName("AskVol9")]
+        public double? AskVol9 { get; set; }
+        [JsonPropertyName("AskVol10")]
+        public double? AskVol10 { get; set; }
+
+        [JsonPropertyName("MarketId")]
+        public string? MarketId { get; set; }
+
+        [JsonPropertyName("Exchange")]
+        public string? Exchange { get; set; }
+
+        [JsonPropertyName("TradingSession")]
+        public string? TradingSession { get; set; }
+
+        [JsonPropertyName("TradingStatus")]
+        public string? TradingStatus { get; set; }
+
+        [JsonPropertyName("Change")]
+        public double? Change { get; set; }
+
+        [JsonPropertyName("RatioChange")]
+        public double? RatioChange { get; set; }
+
+        [JsonPropertyName("EstMatchedPrice")]
+        public double? EstMatchedPrice { get; set; }
+
+        [JsonPropertyName("Side")]
+        public string? Side { get; set; }
+
+        [JsonPropertyName("CloseQtty")]
+        public double? CloseQtty { get; set; }
+    }
 }

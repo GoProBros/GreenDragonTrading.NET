@@ -10,6 +10,9 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
         public static void SeedAll(ModelBuilder modelBuilder)
         {
             ExchangeSeeder.Seed(modelBuilder);
+            UserSeeder.Seed(modelBuilder);
+            ModuleLayoutSeeder.Seed(modelBuilder);
+            WorkspaceSeeder.Seed(modelBuilder);
         }
     }
 }

@@ -152,6 +152,11 @@
         /// SSI Streaming Channel: Foreign room
         /// </summary>
         public const string SSI_STREAMING_CHANNEL_FOREIGN = "R";
+
+        /// <summary>
+        /// SSI Streaming Channel: Securities snapshot
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_X = "X";
         #endregion SSI Streaming
     }
 }

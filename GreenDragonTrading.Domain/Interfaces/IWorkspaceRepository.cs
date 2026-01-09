@@ -1,0 +1,22 @@
+﻿using GreenDragonTrading.Domain.Entities;
+
+namespace GreenDragonTrading.Domain.Interfaces
+{
+    public interface IWorkspaceRepository : IPostgreSqlGenericRepository<Workspace>
+    {
+        /// <summary>
+        /// Get workspaces by user ID
+        /// </summary>
+        Task<List<Workspace>> GetWorkspaceByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Get workspace by share code
+        /// </summary>
+        Task<Workspace?> GetByShareCodeAsync(string shareCode, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Check if share code exists
+        /// </summary>
+        Task<bool> ShareCodeExistsAsync(string shareCode, CancellationToken cancellationToken = default);
+    }
+}

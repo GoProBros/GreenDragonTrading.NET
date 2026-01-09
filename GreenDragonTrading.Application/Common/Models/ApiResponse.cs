@@ -1,74 +1,71 @@
-﻿namespace GreenDragonTrading.Application.Common.Models
+﻿using System.Text.Json.Serialization;
+
+namespace GreenDragonTrading.Application.Common.Models
 {
-    public class ApiResponse<T>
+    public record ApiResponse
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public T? Data { get; set; }
-        public List<string>? Errors { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public bool IsSuccess { get; init; }
+        public string Message { get; init; } = string.Empty;
 
-        public static ApiResponse<T> SuccessResponse(T data, string message = "Success")
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IDictionary<string, string[]>? ValidationErrors { get; init; }
+
+        public DateTime ResponseTime { get; init; } = DateTime.Now;
+
+        protected ApiResponse(
+            bool isSuccess,
+            string message,
+            IDictionary<string, string[]>? validationErrors = null)
         {
-            return new ApiResponse<T>
-            {
-                Success = true,
-                Message = message,
-                Data = data
-            };
+            IsSuccess = isSuccess;
+            Message = message;
+            ValidationErrors = validationErrors;
         }
 
-        public static ApiResponse<T> FailResponse(string message, List<string>? errors = null)
-        {
-            return new ApiResponse<T>
-            {
-                Success = false,
-                Message = message,
-                Errors = errors
-            };
-        }
+        #region Factory Methods (Non-Generic)
 
-        public static ApiResponse<T> FailResponse(string message, string error)
-        {
-            return new ApiResponse<T>
-            {
-                Success = false,
-                Message = message,
-                Errors = [error]
-            };
-        }
+        public static ApiResponse Success(string message = "Thành công")
+            => new(true, message);
+
+        public static ApiResponse Failure(
+            string message,
+            IDictionary<string, string[]>? validationErrors = null)
+            => new(false, message, validationErrors);
+
+        public static ApiResponse Failure(string message)
+            => new(false, message);
+
+
+        #endregion
     }
 
-    public class ApiResponse : ApiResponse<object>
+    public record ApiResponse<T> : ApiResponse
     {
-        public static ApiResponse SuccessResponse(string message = "Success")
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public T? Data { get; init; }
+
+        private ApiResponse(
+            bool isSuccess,
+            string message,
+            T? data,
+            IDictionary<string, string[]>? validationErrors = null)
+            : base(isSuccess, message, validationErrors)
         {
-            return new ApiResponse
-            {
-                Success = true,
-                Message = message
-            };
+            Data = data;
         }
 
-        public new static ApiResponse FailResponse(string message, List<string>? errors = null)
-        {
-            return new ApiResponse
-            {
-                Success = false,
-                Message = message,
-                Errors = errors
-            };
-        }
+        #region Factory Methods (Generic)
 
-        public new static ApiResponse FailResponse(string message, string error)
-        {
-            return new ApiResponse
-            {
-                Success = false,
-                Message = message,
-                Errors = [error]
-            };
-        }
+        public static ApiResponse<T> Success(T data, string message = "Thành công")
+            => new(true, message, data);
+
+        public new static ApiResponse<T> Failure(
+            string message,
+            IDictionary<string, string[]>? validationErrors = null)
+            => new(false, message, default, validationErrors);
+
+        public new static ApiResponse<T> Failure(string message)
+            => new(false, message, default);
+        #endregion
     }
-
 }

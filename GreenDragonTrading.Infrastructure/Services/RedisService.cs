@@ -4,6 +4,7 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
+    /// <inheritdoc/>
     public class RedisService(IConnectionMultiplexer redis) : IRedisService
     {
         private readonly IDatabase _db = redis.GetDatabase();
@@ -12,6 +13,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             PropertyNameCaseInsensitive = true
         };
 
+        /// <inheritdoc/>
         public async Task<bool> SetAsync<T>(string key, T value, TimeSpan? expiry = null)
         {
             var jsonValue = JsonSerializer.Serialize(value);
@@ -19,6 +21,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             return await _db.StringSetAsync(key, jsonValue);
         }
 
+        /// <inheritdoc/>
         public async Task SetHashAsync<T>(string key, T value)
         {
             var entries = ConvertToHashEntries(value);
@@ -26,6 +29,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             await _db.HashSetAsync(key, entries);
         }
 
+        /// <inheritdoc/>
         public async Task<T?> GetAsync<T> (string key)
         {
             var redisValue = await _db.StringGetAsync(key);
@@ -37,6 +41,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             return JsonSerializer.Deserialize<T>(redisValue!);
         }
 
+        /// <inheritdoc/>
         public async Task<T?> GetHashAsync<T>(string key)
         {
             var entries = await _db.HashGetAllAsync(key);
@@ -46,6 +51,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             return ConvertFromHashEntries<T>(entries);
         }
 
+        /// <inheritdoc/>
         public async Task SetHashFieldAsync<T>(string key, string fieldName, T value)
         {
             string stringValue = value is string s ? s : JsonSerializer.Serialize(value, _jsonOptions);
@@ -53,6 +59,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             await _db.HashSetAsync(key, fieldName, stringValue);
         }
 
+        /// <inheritdoc/>
         public async Task SetHashFieldsAsync(string key, Dictionary<string, object> fieldValues)
         {
             if (fieldValues == null || fieldValues.Count == 0)
@@ -69,6 +76,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             await _db.HashSetAsync(key, hashEntries);
         }
 
+        /// <inheritdoc/>
         public async Task<T?> GetHashFieldAsync<T>(string key, string fieldName)
         {
             var value = await _db.HashGetAsync(key, fieldName);

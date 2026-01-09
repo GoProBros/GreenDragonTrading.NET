@@ -2,6 +2,9 @@
 
 namespace GreenDragonTrading.Application.Interfaces
 {
+    /// <summary>
+    /// Service for fetching symbols/sectors from SSI V1 REST API.
+    /// </summary>
     public interface ISsiServiceV1
     {
         /// <summary>
@@ -24,7 +27,8 @@ namespace GreenDragonTrading.Application.Interfaces
         /// Fetches the list of all industry sectors from SSI API.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
+        /// <param name="level">The industry level to filter by (e.g., 1, 2, 3). If null, fetches all levels.</param>
         /// <returns>A list of <see cref="SsiIndustryDto"/> containing industry/sector information from SSI.</returns>
-        Task<List<SsiIndustryDto>> FetchIndustryListAsync(CancellationToken cancellationToken = default);
+        Task<List<SsiIndustryDto>> FetchIndustryListAsync(int? level, CancellationToken cancellationToken = default);
     }
 }

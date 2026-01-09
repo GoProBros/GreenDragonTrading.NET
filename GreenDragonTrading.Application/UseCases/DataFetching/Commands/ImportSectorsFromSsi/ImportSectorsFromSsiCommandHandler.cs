@@ -62,7 +62,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSe
         /// <returns>A list of <see cref="SsiIndustryDto"/> containing industry data from SSI.</returns>
         private async Task<List<SsiIndustryDto>> FetchIndustryListAsync(CancellationToken cancellationToken)
         {
-            return await _ssiService.FetchIndustryListAsync(cancellationToken);
+            return await _ssiService.FetchIndustryListAsync(null, cancellationToken);
         }
 
         private async Task<(int added, int updated)> ProcessSectorsForLevel(List<SsiIndustryDto> industryList, int level, CancellationToken cancellationToken)

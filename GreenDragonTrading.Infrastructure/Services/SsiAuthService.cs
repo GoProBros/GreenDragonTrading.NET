@@ -11,10 +11,7 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
-    /// <summary>
-    /// Service for handling authentication with SSI via caching mechanism.
-    /// Registered as Transient (via AddHttpClient), but state is preserved in Singleton IMemoryCache.
-    /// </summary>
+    /// <inheritdoc/>
     public class SsiAuthService(
         HttpClient httpClient,
         ILogger<SsiAuthService> logger,
@@ -34,13 +31,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             PropertyNameCaseInsensitive = true
         };
 
-        /// <summary>
-        /// Get valid access token. If token is cached and valid, return it.
-        /// If not, fetch new token from SSI, cache it, and return.
-        /// Handles thread-safety automatically via Cache.GetOrCreateAsync.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token for the request.</param>
-        /// <returns>Valid Access Token string.</returns>
+        /// <inheritdoc/>
         public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default)
         {
             var token = await _cache.GetOrCreateAsync(CacheKey, async entry =>

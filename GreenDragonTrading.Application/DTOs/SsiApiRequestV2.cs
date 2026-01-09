@@ -13,4 +13,15 @@
         public int PageIndex { get; set; } = 1;
         public int PageSize { get; set; } = 1000;
     }
+
+    public class IntradayOhlcRequest
+    {
+        public string Symbol { get; set; } = null!;
+        public string FromDate { get; set; } = null!;
+        public string ToDate { get; set; } = null!;
+        public int PageIndex { get; set; }
+        public int PageSize { get; set; }
+        public bool? Ascending { get; set; }
+        public int? Resollution { get; set; }
+    }
 }
