@@ -60,7 +60,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             DateTime toTime,
             CancellationToken cancellationToken = default)
         {
-            return await _context.Ohlcv
+            var data = await _context.Ohlcv
                 .Where(o => o.Ticker == ticker &&
                            o.Timeframe == timeframe &&
                            o.Time >= fromTime &&
@@ -68,6 +68,17 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .OrderBy(o => o.Time)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
+
+            // Ensure all DateTime have Kind=UTC
+            foreach (var item in data)
+            {
+                if (item.Time.Kind != DateTimeKind.Utc)
+                {
+                    item.Time = DateTime.SpecifyKind(item.Time, DateTimeKind.Utc);
+                }
+            }
+
+            return data;
         }
 
         public async Task<Ohlcv?> GetLatestAsync(
@@ -75,11 +86,19 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             string timeframe,
             CancellationToken cancellationToken = default)
         {
-            return await _context.Ohlcv
+            var data = await _context.Ohlcv
                 .Where(o => o.Ticker == ticker && o.Timeframe == timeframe)
                 .OrderByDescending(o => o.Time)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(cancellationToken);
+
+            // Ensure DateTime has Kind=UTC
+            if (data != null && data.Time.Kind != DateTimeKind.Utc)
+            {
+                data.Time = DateTime.SpecifyKind(data.Time, DateTimeKind.Utc);
+            }
+
+            return data;
         }
 
         public async Task<List<Ohlcv>> GetLatestCandlesAsync(
@@ -88,12 +107,23 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             int limit,
             CancellationToken cancellationToken = default)
         {
-            return await _context.Ohlcv
+            var data = await _context.Ohlcv
                 .Where(o => o.Ticker == ticker && o.Timeframe == timeframe)
                 .OrderByDescending(o => o.Time)
                 .Take(limit)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
+
+            // Ensure all DateTime have Kind=UTC
+            foreach (var item in data)
+            {
+                if (item.Time.Kind != DateTimeKind.Utc)
+                {
+                    item.Time = DateTime.SpecifyKind(item.Time, DateTimeKind.Utc);
+                }
+            }
+
+            return data;
         }
 
         public async Task<bool> ExistsAsync(

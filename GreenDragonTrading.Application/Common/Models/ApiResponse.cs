@@ -35,7 +35,6 @@ namespace GreenDragonTrading.Application.Common.Models
         public static ApiResponse Failure(string message)
             => new(false, message);
 
-
         #endregion
     }
 

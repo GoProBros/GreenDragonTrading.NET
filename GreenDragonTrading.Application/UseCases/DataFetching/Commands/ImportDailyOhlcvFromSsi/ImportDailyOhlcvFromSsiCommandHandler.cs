@@ -63,15 +63,13 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportDa
                 }
 
                 // Convert SSI response sang Entity
-                var ohlcvEntities = new List<Ohlcv>();
+                var ohlcvEntities = new List<Domain.Entities.Ohlcv>();
 
-                foreach (var item in ssiResponse.Data)
+                foreach (var dailyData in ssiResponse.Data)
                 {
-                    if (item.Data == null) continue;
-
                     try
                     {
-                        var entity = ConvertToEntity(item.Data);
+                        var entity = ConvertToEntity(dailyData);
                         if (entity != null)
                         {
                             // Check xem đã tồn tại chưa
@@ -91,7 +89,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportDa
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to parse Daily OHLCV data: {Data}", item.Data);
+                        _logger.LogWarning(ex, "Failed to parse Daily OHLCV data");
                         result.RecordsSkipped++;
                     }
                 }
@@ -116,13 +114,12 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportDa
                 _logger.LogError(ex, "Error importing Daily OHLCV for {Ticker}", request.Ticker);
                 
                 return ApiResponse<ImportOhlcvResultDto>.Failure(
-                    "Lỗi khi import Daily OHLCV từ SSI",
-                    ex.Message
+                    $"Lỗi khi import Daily OHLCV từ SSI: {ex.Message}"
                 );
             }
         }
 
-        private Ohlcv? ConvertToEntity(DailyOhlcResponseModel ssiData)
+        private Domain.Entities.Ohlcv? ConvertToEntity(DailyOhlcResponseModel ssiData)
         {
             // Parse TradingDate từ SSI (format: dd/MM/yyyy)
             if (!DateTime.TryParseExact(ssiData.TradingDate, "dd/MM/yyyy", 
@@ -140,7 +137,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportDa
             if (!string.IsNullOrEmpty(ssiData.Value) && decimal.TryParse(ssiData.Value, out var v))
                 value = v;
 
-            return new Ohlcv
+            return new Domain.Entities.Ohlcv
             {
                 Time = DateTime.SpecifyKind(tradingDate, DateTimeKind.Utc),
                 Ticker = ssiData.Symbol!.ToUpper(),
