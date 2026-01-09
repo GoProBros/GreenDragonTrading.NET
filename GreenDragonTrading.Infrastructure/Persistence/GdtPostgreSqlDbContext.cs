@@ -14,7 +14,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
         public DbSet<Workspace> Workspaces => Set<Workspace>();
         public DbSet<ModuleLayout> ModuleLayouts => Set<ModuleLayout>();
-
+        public DbSet<WatchList> WatchLists => Set<WatchList>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -97,6 +97,23 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.HasOne(m => m.User)
                        .WithMany() 
                        .HasForeignKey(m => m.UserId)
+                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<WatchList>(builder =>
+            {
+                builder.ToTable("watch_lists");
+
+                builder.Property(w => w.Tickers)
+                       .HasColumnType("jsonb");
+
+                builder.HasIndex(w => w.UserId);
+
+                builder.HasIndex(w => new { w.UserId, w.Name });
+
+                builder.HasOne(w => w.User)
+                       .WithMany() 
+                       .HasForeignKey(w => w.UserId)
                        .OnDelete(DeleteBehavior.Cascade);
             });
 
