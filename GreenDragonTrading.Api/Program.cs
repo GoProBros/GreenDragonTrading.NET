@@ -1,8 +1,13 @@
+using GreenDragonTrading.Api.Configuration;
 using GreenDragonTrading.Api.Middlewares;
 using GreenDragonTrading.Application;
 using GreenDragonTrading.Infrastructure;
 using GreenDragonTrading.Infrastructure.Hubs;
 using Serilog;
+using DotNetEnv;
+
+// Load environment variables from .env file
+Env.Load();
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -13,6 +18,9 @@ try
     Log.Information("Starting GreenDragonTrading .Net API");
 
     var builder = WebApplication.CreateBuilder(args);
+
+    // Add environment variables from .env file to configuration
+    EnvironmentConfiguration.AddEnvironmentVariables(builder.Configuration);
 
     // Configure Serilog
     builder.Host.UseSerilog((context, services, configuration) => configuration
