@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260111052529_UpdateFinancialReportWithDetailedFields")]
+    partial class UpdateFinancialReportWithDetailedFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -97,10 +100,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("beginning_cash");
 
-                    b.Property<decimal?>("CashAndCashExchangeable")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("cash_and_cash_equivalents");
-
                     b.Property<decimal?>("CashFromFinancing")
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("cash_from_financing");
@@ -126,6 +125,26 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<decimal?>("CurrentAssets")
+                        .HasColumnType("decimal(20,2)")
+                        .HasColumnName("current_assets");
+
+                    b.Property<decimal?>("CurrentLiabilities")
+                        .HasColumnType("decimal(20,2)")
+                        .HasColumnName("current_liabilities");
+
+                    b.Property<decimal?>("CurrentRatio")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("current_ratio");
+
+                    b.Property<decimal?>("DebtToEquity")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("debt_to_equity");
+
+                    b.Property<decimal?>("EPS")
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("eps");
+
                     b.Property<decimal?>("EndingCash")
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("ending_cash");
@@ -139,77 +158,49 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("file_size");
 
-                    b.Property<decimal?>("FinancialExpenses")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("financial_expenses");
-
-                    b.Property<decimal?>("FixedAssets")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("fixed_assets");
-
-                    b.Property<decimal?>("GeneralAndAdministrationExpenses")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("general_and_administration_expenses");
+                    b.Property<decimal?>("GrossMargin")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("gross_margin");
 
                     b.Property<decimal?>("GrossProfit")
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("gross_profit");
 
-                    b.Property<decimal?>("IncomeTaxExpense")
+                    b.Property<decimal?>("Inventory")
                         .HasColumnType("decimal(20,2)")
-                        .HasColumnName("income_tax_expense");
-
-                    b.Property<decimal?>("Inventories")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("inventories");
-
-                    b.Property<decimal?>("Liabilities")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("liabilities");
+                        .HasColumnName("inventory");
 
                     b.Property<decimal?>("LongTermAssets")
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("long_term_assets");
 
-                    b.Property<decimal?>("LongTermLiabilities")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("long_term_liabilities");
-
-                    b.Property<decimal?>("LongTermReceivables")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("long_term_receivables");
-
                     b.Property<decimal?>("NetCashFlow")
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("net_cash_flow");
 
-                    b.Property<decimal?>("NetProfit")
+                    b.Property<decimal?>("NetIncome")
                         .HasColumnType("decimal(20,2)")
-                        .HasColumnName("net_profit");
+                        .HasColumnName("net_income");
 
-                    b.Property<decimal?>("NetRevenue")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("net_revenue");
+                    b.Property<decimal?>("NetMargin")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("net_margin");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
-                    b.Property<decimal?>("OtherExpense")
+                    b.Property<decimal?>("OperatingExpenses")
                         .HasColumnType("decimal(20,2)")
-                        .HasColumnName("other_expense");
+                        .HasColumnName("operating_expenses");
 
-                    b.Property<decimal?>("OtherFunds")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("other_funds");
+                    b.Property<decimal?>("OperatingMargin")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("operating_margin");
 
-                    b.Property<decimal?>("OtherIncome")
+                    b.Property<decimal?>("OperatingProfit")
                         .HasColumnType("decimal(20,2)")
-                        .HasColumnName("other_income");
-
-                    b.Property<decimal?>("OtherProfit")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("other_profit");
+                        .HasColumnName("operating_profit");
 
                     b.Property<decimal?>("OwnerEquity")
                         .HasColumnType("decimal(20,2)")
@@ -227,37 +218,25 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("profit_before_tax");
 
-                    b.Property<decimal?>("ProvisionForDeclineInInventory")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("provision_for_decline_in_inventory");
+                    b.Property<decimal?>("QuickRatio")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("quick_ratio");
+
+                    b.Property<decimal?>("ROA")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("roa");
+
+                    b.Property<decimal?>("ROE")
+                        .HasColumnType("decimal(10,4)")
+                        .HasColumnName("roe");
 
                     b.Property<decimal?>("Revenue")
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("revenue");
 
-                    b.Property<decimal?>("RevenueDeductions")
+                    b.Property<decimal?>("ShortTermInvestments")
                         .HasColumnType("decimal(20,2)")
-                        .HasColumnName("revenue_deductions");
-
-                    b.Property<decimal?>("RevenueFromFinancialActivities")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("revenue_from_financial_activities");
-
-                    b.Property<decimal?>("ShortTermAssets")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("short_term_assets");
-
-                    b.Property<decimal?>("ShortTermFinancialInvestments")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("short_term_financial_investments");
-
-                    b.Property<decimal?>("ShortTermLiabilities")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("short_term_liabilities");
-
-                    b.Property<decimal?>("ShortTermReceivables")
-                        .HasColumnType("decimal(20,2)")
-                        .HasColumnName("short_term_receivables");
+                        .HasColumnName("short_term_investments");
 
                     b.Property<short>("Status")
                         .HasColumnType("smallint")
@@ -273,9 +252,9 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(20,2)")
                         .HasColumnName("total_assets");
 
-                    b.Property<decimal?>("TotalResources")
+                    b.Property<decimal?>("TotalLiabilities")
                         .HasColumnType("decimal(20,2)")
-                        .HasColumnName("total_resources");
+                        .HasColumnName("total_liabilities");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -295,111 +274,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("financial_reports", (string)null);
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReportItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<short>("Category")
-                        .HasColumnType("smallint")
-                        .HasColumnName("category");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("code");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("display_order");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("NameEn")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)")
-                        .HasColumnName("name_en");
-
-                    b.Property<string>("Unit")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)")
-                        .HasColumnName("unit");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Category");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("financial_report_items", (string)null);
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReportValue", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<int>("ItemId")
-                        .HasColumnType("integer")
-                        .HasColumnName("item_id");
-
-                    b.Property<Guid>("ReportId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("report_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<decimal?>("Value")
-                        .HasColumnType("decimal(20,4)")
-                        .HasColumnName("value");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ItemId");
-
-                    b.HasIndex("ReportId");
-
-                    b.HasIndex("ReportId", "ItemId")
-                        .IsUnique();
-
-                    b.ToTable("financial_report_values", (string)null);
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ModuleLayout", b =>
@@ -458,11 +332,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         {
                             Id = 1L,
                             ConfigJson = "\r\n        {\r\n          \"state\": {\r\n            \"columns\": {\r\n              \"ticker\": { \"field\": \"ticker\", \"visible\": true, \"width\": 80, \"order\": 0 },\r\n              \"lastPrice\": { \"field\": \"lastPrice\", \"visible\": true, \"width\": 95, \"order\": 10 },\r\n              \"change\": { \"field\": \"change\", \"visible\": true, \"width\": 80, \"order\": 12 },\r\n              \"ratioChange\": { \"field\": \"ratioChange\", \"visible\": true, \"width\": 90, \"order\": 13 },\r\n              \"totalVol\": { \"field\": \"totalVol\", \"visible\": true, \"width\": 120, \"order\": 20 },\r\n              \"PE\": { \"field\": \"PE\", \"visible\": false, \"width\": 80, \"order\": 48 },\r\n              \"ROE\": { \"field\": \"ROE\", \"visible\": false, \"width\": 80, \"order\": 49 }\r\n            }\r\n          }\r\n        }",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 13, 28, 14, 806, DateTimeKind.Unspecified).AddTicks(8825), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 5, 25, 28, 660, DateTimeKind.Unspecified).AddTicks(7957), new TimeSpan(0, 0, 0, 0, 0)),
                             IsSystemDefault = true,
                             LayoutName = "Giao diện bộ lọc mặc định",
                             ModuleType = (short)1,
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 13, 28, 14, 806, DateTimeKind.Unspecified).AddTicks(8826), new TimeSpan(0, 0, 0, 0, 0))
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 5, 25, 28, 660, DateTimeKind.Unspecified).AddTicks(7958), new TimeSpan(0, 0, 0, 0, 0))
                         });
                 });
 
@@ -651,8 +525,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("e6f64f2f-a0e2-4f87-8285-ad0da90a0124"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 5, 25, 28, 660, DateTimeKind.Unspecified).AddTicks(7812), new TimeSpan(0, 0, 0, 0, 0)),
                             Email = "greendragon.trading.team@gmail.com",
                             HashedPassword = "96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e",
                             IsEmailVerified = true,
@@ -806,10 +680,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 13, 28, 14, 806, DateTimeKind.Unspecified).AddTicks(8883), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 5, 25, 28, 660, DateTimeKind.Unspecified).AddTicks(8061), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             LayoutJson = "{\r\n          \"modules\": [\r\n            {\r\n              \"i\": \"stock-screener-default\",\r\n              \"type\": \"stock-screener\",\r\n              \"title\": \"Bộ lọc cổ phiếu\",\r\n              \"x\": 0, \"y\": 36, \"w\": 96, \"h\": 20,\r\n              \"activeLayoutId\": 1  \r\n            }\r\n          ]\r\n        }",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 13, 28, 14, 806, DateTimeKind.Unspecified).AddTicks(8883), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 11, 5, 25, 28, 660, DateTimeKind.Unspecified).AddTicks(8062), new TimeSpan(0, 0, 0, 0, 0)),
                             WorkspaceName = "SYSTEM_DEFAULT_LAYOUT"
                         });
                 });
@@ -823,25 +697,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Symbol");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReportValue", b =>
-                {
-                    b.HasOne("GreenDragonTrading.Domain.Entities.FinancialReportItem", "Item")
-                        .WithMany("Values")
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GreenDragonTrading.Domain.Entities.FinancialReport", "Report")
-                        .WithMany("Values")
-                        .HasForeignKey("ReportId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Item");
-
-                    b.Navigation("Report");
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ModuleLayout", b =>
@@ -923,16 +778,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Exchange", b =>
                 {
                     b.Navigation("Symbols");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReport", b =>
-                {
-                    b.Navigation("Values");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReportItem", b =>
-                {
-                    b.Navigation("Values");
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Sector", b =>

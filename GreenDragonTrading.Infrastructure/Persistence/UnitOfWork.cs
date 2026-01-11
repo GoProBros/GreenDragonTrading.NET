@@ -20,11 +20,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private IWorkspaceRepository? workspaces;
 
-        private IFinancialReportRepository? financialReports;
-
         private IModuleLayoutRepository? moduleLayouts;
 
         private IWatchListRepository? watchLists;
+
+        private IFinancialReportRepository? financialReports;
 
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);

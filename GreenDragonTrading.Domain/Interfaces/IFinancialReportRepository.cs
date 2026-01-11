@@ -30,5 +30,18 @@ namespace GreenDragonTrading.Domain.Interfaces
             int pageIndex,
             int pageSize,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get paginated financial reports with filters
+        /// </summary>
+        Task<(List<FinancialReport>, int)> GetPaginatedAsync(
+            int pageIndex,
+            int pageSize,
+            string? ticker = null,
+            int? year = null,
+            int? period = null,
+            int? status = null,
+            CancellationToken cancellationToken = default);
     }
 }
+

@@ -17,7 +17,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
 
         public static void Seed(ModelBuilder modelBuilder)
         {
-            var adminId = Guid.NewGuid();
+            var adminId = new Guid("11111111-1111-1111-1111-111111111111");
             var hashedPassword = HashPassword("123123");
 
             modelBuilder.Entity<User>().HasData(
@@ -29,7 +29,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
                     PhoneNumber = "0988671875",
                     HashedPassword = hashedPassword,
                     Role = UserRole.Admin,
-                    CreatedAt = DateTimeOffset.UtcNow,
+                    CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
                     Status = CommonStatus.Active,
                     IsEmailVerified = true
                 }

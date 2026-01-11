@@ -125,9 +125,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.Property(f => f.Id)
                        .HasDefaultValueSql("gen_random_uuid()");
 
-                builder.Property(f => f.KeyMetrics)
-                       .HasColumnType("jsonb");
-
                 builder.HasOne(f => f.Symbol)
                        .WithMany()
                        .HasForeignKey(f => f.Ticker)
