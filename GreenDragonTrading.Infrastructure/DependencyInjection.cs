@@ -84,6 +84,7 @@ namespace GreenDragonTrading.Infrastructure
             {
                 var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
 
+                client.BaseAddress = new Uri(options.FastConnectUrl);
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/x-www-form-urlencoded");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
@@ -92,6 +93,7 @@ namespace GreenDragonTrading.Infrastructure
             {
                 var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
 
+                client.BaseAddress = new Uri(options.FastConnectUrl);
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
