@@ -65,7 +65,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
                 await _redisService.SetAsync(redisKey, user.Id, TimeSpan.FromHours(1));
 
                 var baseUrl = _configuration["AppSettings:BaseUrl"];
-                var verificationUrl = $"{baseUrl}/api/auth/verify-email";
+                var verificationUrl = $"{baseUrl}/api/v1/auth/verify-email";
 
                 await _emailService.SendVerificationEmailAsync(user.Email, verificationToken, verificationUrl, cancellationToken);
 

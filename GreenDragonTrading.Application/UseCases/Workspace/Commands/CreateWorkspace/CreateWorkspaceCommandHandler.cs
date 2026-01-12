@@ -6,6 +6,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorkspace
 {
@@ -45,11 +46,13 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
 
                 var shareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
 
+                var layoutJsonString = JsonSerializer.Serialize(request.LayoutJson);
+
                 var workspace = new Domain.Entities.Workspace
                 {
                     UserId = userId,
                     WorkspaceName = request.WorkspaceName,
-                    LayoutJson = request.LayoutJson,
+                    LayoutJson = layoutJsonString,
                     IsDefault = request.IsDefault,
                     ShareCode = shareCode,
                     CreatedAt = DateTimeOffset.UtcNow,
@@ -63,7 +66,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
                 {
                     Id = workspace.Id,
                     WorkspaceName = workspace.WorkspaceName,
-                    LayoutJson = workspace.LayoutJson,
+                    LayoutJson = request.LayoutJson,
                     IsDefault = workspace.IsDefault,
                     ShareCode = workspace.ShareCode
                 };

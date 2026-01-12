@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using MediatR;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorkspace
 {
@@ -8,9 +9,9 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
     /// Command to update an existing workspace layout
     /// </summary>
     public record UpdateWorkspaceCommand(
-        Guid WorkspaceId,
+        int WorkspaceId,
         string? WorkspaceName = null,
-        string? LayoutJson = null,
+        JsonElement? LayoutJson = null,
         bool? IsDefault = null
     ) : IRequest<ApiResponse<WorkspaceDto>>;
 }
