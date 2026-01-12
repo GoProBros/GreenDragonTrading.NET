@@ -6,6 +6,7 @@ using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspace
 {
@@ -61,13 +62,21 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                     throw new NotFoundException("Người dùng không tồn tại.");
                 }
                 var workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(user.Id, cancellationToken);
-                var result = workspaces.Select(w => new WorkspaceDto
-                {
-                    Id = w.Id,
-                    WorkspaceName = w.WorkspaceName,
-                    LayoutJson = w.LayoutJson,
-                    IsDefault = w.IsDefault,
-                    ShareCode = w.ShareCode
+                var result = workspaces.Select(w => {
+                    JsonElement? layoutJson = null;
+                    if (!string.IsNullOrEmpty(w.LayoutJson))
+                    {
+                        using var doc = JsonDocument.Parse(w.LayoutJson);
+                        layoutJson = doc.RootElement.Clone();
+                    }
+                    return new WorkspaceDto
+                    {
+                        Id = w.Id,
+                        WorkspaceName = w.WorkspaceName,
+                        LayoutJson = layoutJson,
+                        IsDefault = w.IsDefault,
+                        ShareCode = w.ShareCode
+                    };
                 }).ToList();
 
                 _logger.LogInformation("User workspaces retrieved successfully: {UserId}", tokenInfo.UserId);

@@ -6,6 +6,7 @@ using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorkspace
 {
@@ -54,8 +55,15 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
                     throw new UnauthenticatedException("Bạn không có quyền cập nhật workspace này.");
                 }
 
-                workspace.WorkspaceName = request.WorkspaceName!;
-                workspace.LayoutJson = request.LayoutJson!;
+                if (!string.IsNullOrEmpty(request.WorkspaceName))
+                {
+                    workspace.WorkspaceName = request.WorkspaceName;
+                }
+
+                if (request.LayoutJson.HasValue)
+                {
+                    workspace.LayoutJson = JsonSerializer.Serialize(request.LayoutJson.Value);
+                }
 
                 if (request.IsDefault.HasValue)
                 {
@@ -67,11 +75,19 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
                 _uow.Workspaces.Update(workspace);
                 await _uow.SaveChangesAsync(cancellationToken);
 
+                // Parse LayoutJson string back to JsonElement for response
+                JsonElement? layoutJsonElement = null;
+                if (!string.IsNullOrEmpty(workspace.LayoutJson))
+                {
+                    using var doc = JsonDocument.Parse(workspace.LayoutJson);
+                    layoutJsonElement = doc.RootElement.Clone();
+                }
+
                 var workspaceDto = new WorkspaceDto
                 {
                     Id = workspace.Id,
                     WorkspaceName = workspace.WorkspaceName,
-                    LayoutJson = workspace.LayoutJson,
+                    LayoutJson = layoutJsonElement,
                     IsDefault = workspace.IsDefault,
                     ShareCode = workspace.ShareCode
                 };

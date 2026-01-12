@@ -70,10 +70,14 @@ namespace GreenDragonTrading.Api.Controllers
         [HttpPut("{id}")]
         [Authorize]
         public async Task<ActionResult<ApiResponse<WorkspaceDto>>> UpdateWorkspace(
-            [FromRoute] Guid id,
+            [FromRoute] int id,
             [FromBody] UpdateWorkspaceCommand command,
             CancellationToken cancellationToken)
         {
+            if(id != command.WorkspaceId)
+            {
+                return BadRequest(ApiResponse<WorkspaceDto>.Failure("ID không khớp."));
+            }
             var result = await _mediator.Send(command, cancellationToken);
             return result;
         }
