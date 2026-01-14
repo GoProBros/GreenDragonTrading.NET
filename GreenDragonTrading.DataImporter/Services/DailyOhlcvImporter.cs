@@ -61,15 +61,7 @@ public class DailyOhlcvImporter
                 try
                 {
                     var entity = ConvertToEntity(dailyData);
-                    
-                    // Check if already exists
-                    var exists = await _ohlcvUow.Ohlcv.ExistsAsync(
-                        entity.Ticker, entity.Timeframe, entity.Time, cancellationToken);
-                    
-                    if (!exists)
-                    {
-                        entities.Add(entity);
-                    }
+                    entities.Add(entity);
                 }
                 catch (Exception ex)
                 {
@@ -81,10 +73,10 @@ public class DailyOhlcvImporter
 
             if (entities.Count > 0)
             {
-                await _ohlcvUow.Ohlcv.AddRangeAsync(entities, cancellationToken);
-                await _ohlcvUow.SaveChangesAsync(cancellationToken);
-                result.SuccessCount = entities.Count;
-                _logger.LogInformation("Imported {Count} D1 records for {Ticker}", entities.Count, ticker);
+                var inserted = await _ohlcvUow.Ohlcv.BulkUpsertAsync(entities, cancellationToken);
+                result.SuccessCount = inserted;
+                _logger.LogInformation("Upserted {Inserted}/{Total} D1 records for {Ticker} ({Skipped} duplicates skipped)", 
+                    inserted, entities.Count, ticker, entities.Count - inserted);
             }
             else
             {
@@ -141,16 +133,24 @@ public class DailyOhlcvImporter
                 if (progress != null)
                 {
                     progress.ProcessedSymbols++;
+                    
                     if (result.SuccessCount > 0)
                     {
                         progress.SuccessSymbols++;
                         progress.CompletedTickers.Add(ticker);
                     }
-                    if (!string.IsNullOrEmpty(result.ErrorMessage))
+                    else if (!string.IsNullOrEmpty(result.ErrorMessage))
                     {
                         progress.FailedSymbols++;
                         progress.FailedTickers.Add(ticker);
                     }
+                    else
+                    {
+                        // Xử lý thành công nhưng không có data mới (all duplicates hoặc no data từ SSI)
+                        progress.NoDataSymbols++;
+                        progress.NoDataTickers.Add(ticker);
+                    }
+                    
                     progress.RemainingTickers.Remove(ticker);
                     progress.Save();
                 }

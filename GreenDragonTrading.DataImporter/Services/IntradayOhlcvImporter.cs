@@ -67,24 +67,15 @@ public class IntradayOhlcvImporter
                         try
                         {
                             var entity = ConvertToEntity(intradayData);
-                            
-                            // Check if already exists
-                            var exists = await _ohlcvUow.Ohlcv.ExistsAsync(
-                                entity.Ticker, entity.Timeframe, entity.Time, cancellationToken);
-                            
-                            if (!exists)
-                            {
-                                allEntities.Add(entity);
-                            }
+                            allEntities.Add(entity);
                         }
                         catch (Exception ex)
                         {
                             _logger.LogWarning(ex, "Failed to convert data for {Ticker} on {Date} {Time}", 
                                 ticker, intradayData.TradingDate, intradayData.Time);
                             result.FailedCount++;
-                }
-            }
-
+                        }
+                    }
                 }
 
                 // Delay giữa các batch để tránh rate limit
@@ -96,10 +87,10 @@ public class IntradayOhlcvImporter
 
             if (allEntities.Count > 0)
             {
-                await _ohlcvUow.Ohlcv.AddRangeAsync(allEntities, cancellationToken);
-                await _ohlcvUow.SaveChangesAsync(cancellationToken);
-                result.SuccessCount = allEntities.Count;
-                _logger.LogInformation("Imported {Count} M1 records for {Ticker}", allEntities.Count, ticker);
+                var inserted = await _ohlcvUow.Ohlcv.BulkUpsertAsync(allEntities, cancellationToken);
+                result.SuccessCount = inserted;
+                _logger.LogInformation("Upserted {Inserted}/{Total} M1 records for {Ticker} ({Skipped} duplicates skipped)", 
+                    inserted, allEntities.Count, ticker, allEntities.Count - inserted);
             }
             else
             {
@@ -174,16 +165,24 @@ public class IntradayOhlcvImporter
                 if (progress != null)
                 {
                     progress.ProcessedSymbols++;
+                    
                     if (result.SuccessCount > 0)
                     {
                         progress.SuccessSymbols++;
                         progress.CompletedTickers.Add(ticker);
                     }
-                    if (!string.IsNullOrEmpty(result.ErrorMessage))
+                    else if (!string.IsNullOrEmpty(result.ErrorMessage))
                     {
                         progress.FailedSymbols++;
                         progress.FailedTickers.Add(ticker);
                     }
+                    else
+                    {
+                        // Xử lý thành công nhưng không có data mới (all duplicates hoặc no data từ SSI)
+                        progress.NoDataSymbols++;
+                        progress.NoDataTickers.Add(ticker);
+                    }
+                    
                     progress.RemainingTickers.Remove(ticker);
                     progress.Save();
                 }

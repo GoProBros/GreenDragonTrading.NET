@@ -579,6 +579,8 @@ static async Task ImportAllIntradaySymbolsAsync(IHost host)
     Console.WriteLine($"📊 Symbols Processed: {batchResult.Results.Count}");
     Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
     Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
+    Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
+    Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
 }
 
 static async Task ImportIntradaySymbolRangeAsync(IHost host)
@@ -685,6 +687,65 @@ static async Task ResumeIntradayImportAsync(IHost host, ImportProgress progress)
     Console.WriteLine($"📊 Overall Progress: {progress.ProcessedSymbols}/{progress.TotalSymbols} symbols");
     Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
     Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
+    Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
+}
+
+static async Task ResumeMissingSymbolsImportAsync(IServiceScope scope, ImportProgress progress, string timeframe)
+{
+    try
+    {
+        Console.WriteLine($"\n⏳ Resuming {timeframe} import for {progress.RemainingTickers.Count} remaining symbols...");
+        Console.WriteLine($"📅 Date range: {progress.FromDate:dd/MM/yyyy} to {progress.ToDate:dd/MM/yyyy}");
+        Console.WriteLine("💡 Press Ctrl+C to stop gracefully and save progress");
+
+        var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (s, e) =>
+        {
+            e.Cancel = true;
+            Console.WriteLine("\n⚠️  Cancellation requested. Finishing current symbol...");
+            cts.Cancel();
+        };
+
+        if (timeframe == "D1")
+        {
+            var importer = scope.ServiceProvider.GetRequiredService<DailyOhlcvImporter>();
+            var result = await importer.ImportBatchAsync(progress.RemainingTickers, progress.FromDate, progress.ToDate, progress, cts.Token);
+
+            progress.Complete();
+
+            Console.WriteLine("\n════════════════════════════════════════");
+            Console.WriteLine("Resume Import Summary");
+            Console.WriteLine("════════════════════════════════════════");
+            Console.WriteLine($"✅ Total Success: {result.TotalSuccess} records");
+            Console.WriteLine($"❌ Total Failed: {result.TotalFailed} records");
+            Console.WriteLine($"📊 Symbols Processed: {result.Results.Count}");
+            Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
+            Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
+            Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
+        }
+        else // M1
+        {
+            var importer = scope.ServiceProvider.GetRequiredService<IntradayOhlcvImporter>();
+            var result = await importer.ImportBatchAsync(progress.RemainingTickers, progress.FromDate, progress.ToDate, progress, cts.Token);
+
+            progress.Complete();
+
+            Console.WriteLine("\n════════════════════════════════════════");
+            Console.WriteLine("Resume Import Summary");
+            Console.WriteLine("════════════════════════════════════════");
+            Console.WriteLine($"✅ Total Success: {result.TotalSuccess} records");
+            Console.WriteLine($"❌ Total Failed: {result.TotalFailed} records");
+            Console.WriteLine($"📊 Symbols Processed: {result.Results.Count}");
+            Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
+            Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
+            Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Error resuming missing symbols import");
+        Console.WriteLine($"\n❌ Error: {ex.Message}");
+    }
 }
 
 static async Task ViewStatisticsAsync(IHost host)
@@ -831,7 +892,33 @@ static async Task CheckAndImportMissingSymbolsAsync(IHost host, string timeframe
         }
         Console.WriteLine("\n─────────────────────────────────────────────");
 
-        // 5. Confirm import
+        // 5. Check for existing progress
+        var existingProgress = ImportProgress.LoadCurrent();
+        if (existingProgress != null && 
+            (existingProgress.Status == "InProgress" || existingProgress.Status == "Cancelled") &&
+            existingProgress.Timeframe == timeframe)
+        {
+            Console.WriteLine($"\n⚠️  Found existing import progress:");
+            Console.WriteLine($"   Status: {existingProgress.Status}");
+            Console.WriteLine($"   Total: {existingProgress.TotalSymbols} symbols");
+            Console.WriteLine($"   Processed: {existingProgress.ProcessedSymbols} symbols");
+            Console.WriteLine($"   Remaining: {existingProgress.RemainingTickers.Count} symbols");
+            Console.WriteLine($"   From: {existingProgress.FromDate:dd/MM/yyyy} To: {existingProgress.ToDate:dd/MM/yyyy}");
+            Console.WriteLine($"   Started: {existingProgress.StartTime:dd/MM/yyyy HH:mm:ss}");
+            
+            Console.Write("\n📥 Resume existing import? (y/n): ");
+            if (Console.ReadLine()?.Trim().ToLower() == "y")
+            {
+                await ResumeMissingSymbolsImportAsync(scope, existingProgress, timeframe);
+                return;
+            }
+            else
+            {
+                Console.WriteLine("Starting new import...");
+            }
+        }
+
+        // 6. Confirm import
         Console.WriteLine($"\n📥 Import {timeframe} data for these {missingTickers.Count} missing symbols?");
         Console.Write("Continue? (y/n): ");
         
@@ -841,7 +928,7 @@ static async Task CheckAndImportMissingSymbolsAsync(IHost host, string timeframe
             return;
         }
 
-        // 6. Get date range
+        // 7. Get date range
         DateTime fromDate, toDate;
         
         if (timeframe == "D1")
@@ -906,6 +993,7 @@ static async Task CheckAndImportMissingSymbolsAsync(IHost host, string timeframe
             Console.WriteLine($"📊 Symbols Processed: {result.Results.Count}");
             Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
             Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
+            Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
         }
         else // M1
         {
@@ -934,6 +1022,7 @@ static async Task CheckAndImportMissingSymbolsAsync(IHost host, string timeframe
             Console.WriteLine($"📊 Symbols Processed: {result.Results.Count}");
             Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
             Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
+            Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
         }
     }
     catch (Exception ex)

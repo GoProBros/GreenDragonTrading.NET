@@ -18,6 +18,12 @@ namespace GreenDragonTrading.Domain.Interfaces
         Task AddRangeAsync(IEnumerable<Ohlcv> ohlcvList, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Bulk upsert với ON CONFLICT DO NOTHING - Insert nhiều records, bỏ qua duplicates
+        /// Returns số records đã insert thành công (không tính duplicates)
+        /// </summary>
+        Task<int> BulkUpsertAsync(IEnumerable<Ohlcv> ohlcvList, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Update hoặc Insert (upsert) - dùng cho cập nhật nến chưa đóng
         /// </summary>
         Task UpsertAsync(Ohlcv ohlcv, CancellationToken cancellationToken = default);

@@ -1,14 +1,14 @@
 {
   "JobId": "d72bcd55-12ec-4c0e-9f2e-8f49557fb43c",
   "StartTime": "2026-01-12T08:57:58.7695792+07:00",
-  "LastUpdateTime": "2026-01-12T09:03:11.1081202+07:00",
-  "CompletedTime": null,
-  "Status": "InProgress",
+  "LastUpdateTime": "2026-01-12T09:03:13.9978729+07:00",
+  "CompletedTime": "2026-01-12T09:03:13.9978626+07:00",
+  "Status": "Completed",
   "TotalSymbols": 106,
-  "ProcessedSymbols": 105,
+  "ProcessedSymbols": 106,
   "SuccessSymbols": 0,
   "FailedSymbols": 0,
-  "NoDataSymbols": 105,
+  "NoDataSymbols": 106,
   "CompletedTickers": [],
   "FailedTickers": [],
   "NoDataTickers": [
@@ -116,11 +116,10 @@
     "VT8",
     "VTM",
     "WTN",
-    "X18"
-  ],
-  "RemainingTickers": [
+    "X18",
     "X77"
   ],
+  "RemainingTickers": [],
   "FromDate": "2021-01-12T08:57:58.579294+07:00",
   "ToDate": "2026-01-12T08:57:58.7689739+07:00",
   "Timeframe": "D1"

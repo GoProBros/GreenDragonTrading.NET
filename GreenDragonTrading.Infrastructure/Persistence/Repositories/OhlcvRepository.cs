@@ -23,6 +23,49 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             await _context.Ohlcv.AddRangeAsync(ohlcvList, cancellationToken);
         }
 
+        public async Task<int> BulkUpsertAsync(IEnumerable<Ohlcv> ohlcvList, CancellationToken cancellationToken = default)
+        {
+            var entities = ohlcvList.ToList();
+            if (entities.Count == 0) return 0;
+
+            // Track the count before attempting insert
+            var countBefore = await _context.Ohlcv.CountAsync(cancellationToken);
+
+            // Try to add all entities - duplicates will be silently skipped by DB constraint
+            await _context.Ohlcv.AddRangeAsync(entities, cancellationToken);
+            
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+                // All entities were inserted successfully
+                return entities.Count;
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx 
+                && pgEx.SqlState == "23505") // Unique constraint violation
+            {
+                // Some duplicates exist - need to save individually to get exact count
+                _context.ChangeTracker.Clear(); // Clear failed state
+                
+                var insertedCount = 0;
+                foreach (var entity in entities)
+                {
+                    try
+                    {
+                        _context.Ohlcv.Add(entity);
+                        await _context.SaveChangesAsync(cancellationToken);
+                        insertedCount++;
+                    }
+                    catch (DbUpdateException)
+                    {
+                        // Duplicate - skip and continue
+                        _context.ChangeTracker.Clear();
+                    }
+                }
+                
+                return insertedCount;
+            }
+        }
+
         public async Task UpsertAsync(Ohlcv ohlcv, CancellationToken cancellationToken = default)
         {
             // Check if exists

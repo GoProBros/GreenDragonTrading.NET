@@ -14,9 +14,11 @@ public class ImportProgress
     public int ProcessedSymbols { get; set; }
     public int SuccessSymbols { get; set; }
     public int FailedSymbols { get; set; }
+    public int NoDataSymbols { get; set; }        // Số mã xử lý xong nhưng không có data mới
     
     public List<string> CompletedTickers { get; set; } = new();
     public List<string> FailedTickers { get; set; } = new();
+    public List<string> NoDataTickers { get; set; } = new();    // Danh sách mã không có data
     public List<string> RemainingTickers { get; set; } = new();
     
     public DateTime FromDate { get; set; }

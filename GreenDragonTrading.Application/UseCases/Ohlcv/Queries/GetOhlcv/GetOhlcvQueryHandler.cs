@@ -45,13 +45,15 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
                 _logger.LogInformation("Querying OHLCV for {Ticker}, Timeframe: {Timeframe}, From: {From}, To: {To}",
                     request.Ticker, request.Timeframe, request.FromTime, request.ToTime);
 
-                // 1. Check cache nếu enabled
-                if (request.UseCache)
+                // 1. Check cache chỉ cho computed timeframes (không cache M1/D1 raw data)
+                // Lý do: M1/D1 query từ TimescaleDB rất nhanh, computed timeframes tốn CPU
+                var isComputedTimeframe = !OhlcvConstants.Timeframes.IsStored(request.Timeframe);
+                if (request.UseCache && isComputedTimeframe)
                 {
                     var cachedResult = await GetFromCache(request, cancellationToken);
                     if (cachedResult != null)
                     {
-                        _logger.LogInformation("OHLCV data found in cache for {Ticker}", request.Ticker);
+                        _logger.LogInformation("OHLCV data found in cache for {Ticker} (computed timeframe)", request.Ticker);
                         return ApiResponse<OhlcvResponseDto>.Success(cachedResult, "Lấy data từ cache");
                     }
                 }
@@ -89,8 +91,9 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
                     response.LastTime = ohlcvData.Last().Time;
                 }
 
-                // 4. Cache kết quả
-                if (request.UseCache && ohlcvData.Any())
+                // 4. Cache kết quả chỉ cho computed timeframes
+                // M1/D1 không cache vì query nhanh và có thể bị outdated khi import
+                if (request.UseCache && isComputedTimeframe && ohlcvData.Any())
                 {
                     await SaveToCache(request, response, cancellationToken);
                 }

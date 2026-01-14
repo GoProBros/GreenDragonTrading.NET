@@ -38,8 +38,8 @@ namespace GreenDragonTrading.Api.Controllers
         public async Task<IActionResult> GetOhlcv(
             string ticker,
             [FromQuery] string timeframe = "D1",
-            [FromQuery] DateTime? from = null,
-            [FromQuery] DateTime? to = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null,
             [FromQuery] int? limit = null,
             [FromQuery] bool useCache = true,
             CancellationToken cancellationToken = default)
@@ -48,8 +48,8 @@ namespace GreenDragonTrading.Api.Controllers
             {
                 Ticker = ticker.ToUpper(),
                 Timeframe = timeframe.ToUpper(),
-                FromTime = from ?? DateTime.UtcNow.AddMonths(-1),
-                ToTime = to ?? DateTime.UtcNow,
+                FromTime = fromDate?.ToUniversalTime() ?? DateTime.UtcNow.AddMonths(-1),
+                ToTime = toDate?.ToUniversalTime() ?? DateTime.UtcNow,
                 Limit = limit,
                 UseCache = useCache
             };

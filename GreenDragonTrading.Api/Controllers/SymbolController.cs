@@ -6,6 +6,7 @@ using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetDailyOhlcv;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetIntradayOhlc;
+using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetAllTickers;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,6 +34,22 @@ namespace GreenDragonTrading.Api.Controllers
             if (!result.IsSuccess) 
             { 
                 return NotFound(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Retrieves all stock ticker symbols
+        /// </summary>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>List of all ticker symbols</returns>
+        [HttpGet("tickers")]
+        public async Task<ActionResult<ApiResponse<List<string>>>> GetAllTickers(CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new GetAllTickersQuery(), cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
             }
             return Ok(result);
         }
