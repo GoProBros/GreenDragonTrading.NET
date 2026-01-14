@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplySharedWorkspace;
 using GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorkspace;
 using GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorkspace;
 using GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspace;
@@ -70,11 +71,32 @@ namespace GreenDragonTrading.Api.Controllers
         [HttpPut("{id}")]
         [Authorize]
         public async Task<ActionResult<ApiResponse<WorkspaceDto>>> UpdateWorkspace(
-            [FromRoute] Guid id,
+            [FromRoute] int id,
             [FromBody] UpdateWorkspaceCommand command,
             CancellationToken cancellationToken)
         {
+            if(id != command.WorkspaceId)
+            {
+                return BadRequest(ApiResponse<WorkspaceDto>.Failure("ID không khớp."));
+            }
             var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Apply a shared workspace using share code
+        /// Creates a copy of the shared workspace for the current user, including duplicating all module layouts
+        /// </summary>
+        /// <param name="shareCode">The share code of the workspace to apply</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>The newly created workspace</returns>
+        [HttpPost("apply/{shareCode}")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<WorkspaceDto>>> ApplySharedWorkspace(
+            [FromRoute] string shareCode,
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new ApplySharedWorkspaceCommand(shareCode), cancellationToken);
             return result;
         }
     }

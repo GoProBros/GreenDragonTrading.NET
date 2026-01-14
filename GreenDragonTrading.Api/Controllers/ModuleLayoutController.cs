@@ -16,7 +16,7 @@ namespace GreenDragonTrading.Api.Controllers;
 /// Controller quản lý module layouts
 /// </summary>
 [ApiController]
-[Route("api/module-layouts")]
+[Route("api/v1/module-layouts")]
 [Authorize]
 public class ModuleLayoutController : ControllerBase
 {

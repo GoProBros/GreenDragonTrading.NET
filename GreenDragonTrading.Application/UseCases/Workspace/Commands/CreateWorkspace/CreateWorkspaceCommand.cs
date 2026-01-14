@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using MediatR;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorkspace
 {
@@ -9,7 +10,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
     /// </summary>
     public record CreateWorkspaceCommand(
         string WorkspaceName,
-        string LayoutJson,
+        JsonElement LayoutJson,
         bool IsDefault = false
     ) : IRequest<ApiResponse<WorkspaceDto>>;
 }

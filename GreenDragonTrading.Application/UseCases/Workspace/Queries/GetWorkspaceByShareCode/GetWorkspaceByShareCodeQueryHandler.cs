@@ -4,6 +4,7 @@ using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspaceByShareCode
 {
@@ -31,11 +32,19 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspace
                     throw new NotFoundException($"Không tìm thấy workspace với share code: {request.ShareCode}");
                 }
 
+                // Parse LayoutJson string thành JsonElement
+                JsonElement? layoutJson = null;
+                if (!string.IsNullOrEmpty(workspace.LayoutJson))
+                {
+                    using var doc = JsonDocument.Parse(workspace.LayoutJson);
+                    layoutJson = doc.RootElement.Clone();
+                }
+
                 var workspaceDto = new WorkspaceDto
                 {
                     Id = workspace.Id,
                     WorkspaceName = workspace.WorkspaceName,
-                    LayoutJson = workspace.LayoutJson,
+                    LayoutJson = layoutJson,
                     IsDefault = workspace.IsDefault,
                     ShareCode = workspace.ShareCode
                 };
