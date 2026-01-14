@@ -1,57 +1,70 @@
 # Financial Report API Documentation
 
-## Tổng quan
+## Overview
+Bộ API quản lý báo cáo tài chính (Financial Reports) cho hệ thống GreenDragonTrading. API hỗ trợ:
+- **CRUD operations** đầy đủ
+- **Phân trang** và **lọc dữ liệu** linh hoạt
+- **Upload file** đính kèm (PDF, Excel, Word)
+- **Nhập dữ liệu tài chính** chi tiết (Balance Sheet, Income Statement, Cash Flow)
+- Lưu trữ dữ liệu có cấu trúc trong PostgreSQL
+- File storage trên S3/R2/Azure Blob
 
-API Financial Report đã được cải tiến để cho phép người dùng nhập tay từng trường dữ liệu tài chính thay vì chỉ upload file. Hệ thống lưu trữ dữ liệu có cấu trúc cụ thể trong database PostgreSQL.
+## Base URL
+```
+/api/v1/financial-reports
+```
 
-## Cấu trúc dữ liệu
+## Authentication
+- **GET endpoints** (đọc dữ liệu): **Public** - không cần authentication
+- **POST/PUT/DELETE endpoints** (ghi dữ liệu): **Yêu cầu JWT token**
+  ```
+  Authorization: Bearer <your_jwt_token>
+  ```
+
+---
+
+## Cấu trúc dữ liệu tài chính
 
 ### Balance Sheet (Bảng cân đối kế toán)
-- `totalAssets`: Tổng tài sản
-- `totalLiabilities`: Tổng nợ phải trả
-- `ownerEquity`: Vốn chủ sở hữu
-- `currentAssets`: Tài sản ngắn hạn
-- `currentLiabilities`: Nợ ngắn hạn
-- `shortTermInvestments`: Đầu tư ngắn hạn
+- `shortTermAssets`: Tài sản ngắn hạn
+- `cashAndCashEquivalents`: Tiền và các khoản tương đương tiền
+- `shortTermFinancialInvestments`: Đầu tư tài chính ngắn hạn
+- `shortTermReceivables`: Các khoản phải thu ngắn hạn
+- `inventories`: Hàng tồn kho
 - `longTermAssets`: Tài sản dài hạn
-- `inventory`: Hàng tồn kho
+- `longTermReceivables`: Các khoản phải thu dài hạn
+- `fixedAssets`: Tài sản cố định
+- `totalAssets`: Tổng tài sản
+- `liabilities`: Nợ phải trả
+- `shortTermLiabilities`: Nợ ngắn hạn
+- `longTermLiabilities`: Nợ dài hạn
+- `ownerEquity`: Vốn chủ sở hữu
+- `totalResources`: Tổng nguồn vốn
 
 ### Income Statement (Báo cáo kết quả kinh doanh)
 - `revenue`: Doanh thu
-- `grossProfit`: Lợi nhuận gộp
-- `operatingProfit`: Lợi nhuận hoạt động
-- `profitBeforeTax`: Lợi nhuận trước thuế
-- `profitAfterTax`: Lợi nhuận sau thuế
-- `netIncome`: Thu nhập ròng
+- `netRevenue`: Doanh thu thuần
 - `costOfGoodsSold`: Giá vốn hàng bán
-- `operatingExpenses`: Chi phí hoạt động
+- `grossProfit`: Lợi nhuận gộp
+- `netProfit`: Lợi nhuận thuần
+- `profitBeforeTax`: Lợi nhuận trước thuế
+- `incomeTaxExpense`: Thuế TNDN
+- `profitAfterTax`: Lợi nhuận sau thuế
 
 ### Cash Flow Statement (Báo cáo lưu chuyển tiền tệ)
 - `cashFromOperating`: Tiền từ hoạt động kinh doanh
 - `cashFromInvesting`: Tiền từ hoạt động đầu tư
 - `cashFromFinancing`: Tiền từ hoạt động tài chính
-- `netCashFlow`: Lưu chuyển tiền thuần
+- `netCashFlow`: Lưu chuyển tiền thuần trong kỳ
 - `beginningCash`: Tiền đầu kỳ
 - `endingCash`: Tiền cuối kỳ
 
-### Financial Ratios (Các chỉ số tài chính)
-- `eps`: Thu nhập trên mỗi cổ phiếu (Earnings Per Share)
-- `roe`: Tỷ suất sinh lời trên vốn chủ sở hữu (Return on Equity)
-- `roa`: Tỷ suất sinh lời trên tổng tài sản (Return on Assets)
-- `debtToEquity`: Tỷ lệ nợ trên vốn chủ sở hữu
-- `currentRatio`: Tỷ số thanh toán hiện hành
-- `quickRatio`: Tỷ số thanh toán nhanh
-- `grossMargin`: Biên lợi nhuận gộp
-- `operatingMargin`: Biên lợi nhuận hoạt động
-- `netMargin`: Biên lợi nhuận ròng
+---
 
-### Metadata
-- `notes`: Ghi chú bổ sung
-- `file`: File đính kèm (PDF, Excel, hoặc hình ảnh - tùy chọn)
+## Endpoints
 
-## API Endpoints
-
-### 1. Tạo báo cáo tài chính mới (Create)
+### 1. Get All Financial Reports (Paginated)
+Lấy danh sách báo cáo tài chính có phân trang và lọc.
 
 **Endpoint:** `POST /api/v1/financial-reports`
 

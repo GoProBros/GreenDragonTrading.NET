@@ -91,6 +91,10 @@ namespace GreenDragonTrading.Infrastructure
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
             services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
             services.Configure<R2Options>(configuration.GetSection(R2Options.SectionName));
+            services.Configure<GoogleDriveOptions>(configuration.GetSection(GoogleDriveOptions.SectionName));
+
+            // Register Google Drive Service
+            services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 
             // Register HttpClient
             services.AddHttpClient<ISsiServiceV1, SsiServiceV1>((sp, client) =>

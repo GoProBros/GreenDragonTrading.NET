@@ -1,17 +1,12 @@
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
-using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
-    public class FinancialReportRepository : PostgreSqlGenericRepository<FinancialReport>, IFinancialReportRepository
+    public class FinancialReportRepository(GdtPostgreSqlDbContext context) : PostgreSqlGenericRepository<FinancialReport>(context), IFinancialReportRepository
     {
-        public FinancialReportRepository(GdtPostgreSqlDbContext context) : base(context)
-        {
-        }
-
         public async Task<FinancialReport?> GetByTickerYearPeriodAsync(
             string ticker, 
             int year, 

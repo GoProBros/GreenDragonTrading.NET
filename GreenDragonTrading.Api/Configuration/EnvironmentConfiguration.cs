@@ -51,19 +51,11 @@ public static class EnvironmentConfiguration
             ["Email:Password"] = Environment.GetEnvironmentVariable("EMAIL_PASSWORD"),
             ["Email:EnableSsl"] = Environment.GetEnvironmentVariable("EMAIL_ENABLE_SSL"),
 
-            // File Storage R2
-            ["FileStorage:R2:AccountId"] = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID"),
-            ["FileStorage:R2:BucketName"] = Environment.GetEnvironmentVariable("R2_BUCKET_NAME"),
-
-            // AWS
-            ["AWS:Region"] = Environment.GetEnvironmentVariable("AWS_REGION"),
-            ["AWS:Credentials:AccessKeyId"] = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"),
-            ["AWS:Credentials:SecretAccessKey"] = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY"),
-
-            // R2 Options
-            ["R2Options:AccountId"] = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID"),
-            ["R2Options:BucketName"] = Environment.GetEnvironmentVariable("R2_BUCKET_NAME"),
-            ["R2Options:PublicUrl"] = Environment.GetEnvironmentVariable("R2_PUBLIC_URL"),
+            // Google Drive Configuration
+            ["GoogleDrive:JsonCredentials"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CREDENTIALS"),
+            ["GoogleDrive:RootFolderId"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_ROOT_FOLDER_ID"),
+            ["GoogleDrive:AutoCreateFolders"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_AUTO_CREATE_FOLDERS"),
+            ["GoogleDrive:Enabled"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_ENABLED"),
         };
 
         // Add CORS allowed origins (split by comma)

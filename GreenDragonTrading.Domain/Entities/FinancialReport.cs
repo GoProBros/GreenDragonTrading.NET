@@ -47,7 +47,7 @@ namespace GreenDragonTrading.Domain.Entities
         /// Tiền và các khoản tương đương tiền
         /// </summary>
         [Column("cash_and_cash_equivalents", TypeName = "decimal(20,2)")]
-        public decimal? CashAndCashExchangeable { get; set; }
+        public decimal? CashAndCashEquivalents { get; set; }
 
         /// <summary>
         /// Đầu tư tài chính ngắn hạn
