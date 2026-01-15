@@ -24,6 +24,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private IWatchListRepository? watchLists;
 
+        private IFinancialReportRepository? financialReports;
+
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
@@ -31,6 +33,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IWorkspaceRepository Workspaces => workspaces ??= new WorkspaceRepository(_context);
         public IModuleLayoutRepository ModuleLayouts => moduleLayouts ??= new ModuleLayoutRepository(_context);
         public IWatchListRepository WatchLists => watchLists ??= new WatchListRepository(_context);
+        public IFinancialReportRepository FinancialReports => financialReports ??= new FinancialReportRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

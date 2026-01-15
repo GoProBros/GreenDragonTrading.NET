@@ -9,6 +9,7 @@
         IWorkspaceRepository Workspaces { get; }
         IModuleLayoutRepository ModuleLayouts { get; }
         IWatchListRepository WatchLists { get; }
+        IFinancialReportRepository FinancialReports { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);

@@ -23,4 +23,8 @@
     <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="UseCases\FinancialReports\Commands\" />
+  </ItemGroup>
+
 </Project>
