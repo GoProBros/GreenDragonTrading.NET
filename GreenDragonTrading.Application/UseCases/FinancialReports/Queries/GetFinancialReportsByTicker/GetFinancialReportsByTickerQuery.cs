@@ -9,5 +9,5 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFi
     /// </summary>
     public record GetFinancialReportsByTickerQuery(
         string Ticker
-    ) : PaginationQuery, IRequest<ApiResponse<PaginatedResponse<SimpleFinancialReportDto>>>;
+    ) : PaginationQuery, IRequest<ApiResponse<PaginatedResponse<FinancialReportDto>>>;
 }

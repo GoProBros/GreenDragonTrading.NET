@@ -1,29 +1,25 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
-using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReports
 {
-    public class GetFinancialReportsQueryHandler : IRequestHandler<GetFinancialReportsQuery, ApiResponse<PaginatedResponse<SimpleFinancialReportDto>>>
+    public class GetFinancialReportsQueryHandler : IRequestHandler<GetFinancialReportsQuery, ApiResponse<PaginatedResponse<FinancialReportDto>>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IFileStorageService _fileStorageService;
         private readonly ILogger<GetFinancialReportsQueryHandler> _logger;
 
         public GetFinancialReportsQueryHandler(
             IUnitOfWork uow,
-            IFileStorageService fileStorageService,
             ILogger<GetFinancialReportsQueryHandler> logger)
         {
             _uow = uow;
-            _fileStorageService = fileStorageService;
             _logger = logger;
         }
 
-        public async Task<ApiResponse<PaginatedResponse<SimpleFinancialReportDto>>> Handle(GetFinancialReportsQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<PaginatedResponse<FinancialReportDto>>> Handle(GetFinancialReportsQuery request, CancellationToken cancellationToken)
         {
             try
             {
@@ -36,29 +32,27 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFi
                     request.Status.HasValue ? (int)request.Status.Value : null,
                     cancellationToken);
 
-                var dtos = reports.Select(r => new SimpleFinancialReportDto
+                var dtos = reports.Select(r => new FinancialReportDto
                 {
                     Id = r.Id,
                     Ticker = r.Ticker,
                     Year = r.Year,
+                    Quarter = r.Quarter,
                     Period = r.Period,
-                    FileUrl = r.FilePath != null ? _fileStorageService.GetFileUrl(r.FilePath) : null,
+                    FileUrl = r.FilePath,
                     FileSize = r.FileSize,
-                    Revenue = r.Revenue,
-                    NetProfit = r.NetProfit,
-                    ProfitAfterTax = r.ProfitAfterTax,
-                    TotalAssets = r.TotalAssets,
+                    ReportData = r.ReportData,
                     Status = r.Status,
                     CreatedAt = r.CreatedAt
                 }).ToList();
 
-                var paginatedResponse = PaginatedResponse<SimpleFinancialReportDto>.Create(
+                var paginatedResponse = PaginatedResponse<FinancialReportDto>.Create(
                     dtos,
                     totalCount,
                     request.PageIndex,
                     request.PageSize);
 
-                return ApiResponse<PaginatedResponse<SimpleFinancialReportDto>>.Success(
+                return ApiResponse<PaginatedResponse<FinancialReportDto>>.Success(
                     paginatedResponse,
                     "Lấy danh sách báo cáo tài chính thành công.");
             }

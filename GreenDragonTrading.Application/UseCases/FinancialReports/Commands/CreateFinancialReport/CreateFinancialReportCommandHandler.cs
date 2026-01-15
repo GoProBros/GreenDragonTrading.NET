@@ -1,6 +1,5 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
-using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
@@ -12,16 +11,13 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
     public class CreateFinancialReportCommandHandler : IRequestHandler<CreateFinancialReportCommand, ApiResponse<FinancialReportDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IFileStorageService _fileStorageService;
         private readonly ILogger<CreateFinancialReportCommandHandler> _logger;
 
         public CreateFinancialReportCommandHandler(
             IUnitOfWork uow,
-            IFileStorageService fileStorageService,
             ILogger<CreateFinancialReportCommandHandler> logger)
         {
             _uow = uow;
-            _fileStorageService = fileStorageService;
             _logger = logger;
         }
 
@@ -49,53 +45,15 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
                         $"Báo cáo tài chính cho {request.Ticker} - {request.Year} - {request.Period} đã tồn tại.");
                 }
 
-                string? filePath = null;
-                long? fileSize = null;
-
                 // Create financial report entity
                 var financialReport = new FinancialReport
                 {
                     Id = Guid.NewGuid(),
                     Ticker = request.Ticker,
                     Year = request.Year,
+                    Quarter = request.Quarter,
                     Period = request.Period,
-                    FilePath = filePath,
-                    FileSize = fileSize,
-                    
-                    // Balance Sheet
-                    ShortTermAssets = request.ShortTermAssets,
-                    CashAndCashEquivalents = request.CashAndCashEquivalents,
-                    ShortTermFinancialInvestments = request.ShortTermFinancialInvestments,
-                    ShortTermReceivables = request.ShortTermReceivables,
-                    Inventories = request.Inventories,
-                    LongTermAssets = request.LongTermAssets,
-                    LongTermReceivables = request.LongTermReceivables,
-                    FixedAssets = request.FixedAssets,
-                    TotalAssets = request.TotalAssets,
-                    Liabilities = request.Liabilities,
-                    ShortTermLiabilities = request.ShortTermLiabilities,
-                    LongTermLiabilities = request.LongTermLiabilities,
-                    OwnerEquity = request.OwnerEquity,
-                    TotalResources = request.TotalResources,
-                    
-                    // Income Statement
-                    Revenue = request.Revenue,
-                    NetRevenue = request.NetRevenue,
-                    CostOfGoodsSold = request.CostOfGoodsSold,
-                    GrossProfit = request.GrossProfit,
-                    NetProfit = request.NetProfit,
-                    ProfitBeforeTax = request.ProfitBeforeTax,
-                    IncomeTaxExpense = request.IncomeTaxExpense,
-                    ProfitAfterTax = request.ProfitAfterTax,
-                    
-                    // Cash Flow
-                    CashFromOperating = request.CashFromOperating,
-                    CashFromInvesting = request.CashFromInvesting,
-                    CashFromFinancing = request.CashFromFinancing,
-                    NetCashFlow = request.NetCashFlow,
-                    BeginningCash = request.BeginningCash,
-                    EndingCash = request.EndingCash,
-                    
+                    ReportData = request.ReportData,
                     Status = FinancialReportStatus.Completed,
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
@@ -123,45 +81,12 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
                 Id = report.Id,
                 Ticker = report.Ticker,
                 Year = report.Year,
+                Quarter = report.Quarter,
                 Period = report.Period,
+                ReportData = report.ReportData,
                 FilePath = report.FilePath,
-                FileUrl = report.FilePath != null ? _fileStorageService.GetFileUrl(report.FilePath) : null,
+                FileUrl = report.FilePath,
                 FileSize = report.FileSize,
-                
-                // Balance Sheet
-                ShortTermAssets = report.ShortTermAssets,
-                CashAndCashEquivalents = report.CashAndCashEquivalents,
-                ShortTermFinancialInvestments = report.ShortTermFinancialInvestments,
-                ShortTermReceivables = report.ShortTermReceivables,
-                Inventories = report.Inventories,
-                LongTermAssets = report.LongTermAssets,
-                LongTermReceivables = report.LongTermReceivables,
-                FixedAssets = report.FixedAssets,
-                TotalAssets = report.TotalAssets,
-                Liabilities = report.Liabilities,
-                ShortTermLiabilities = report.ShortTermLiabilities,
-                LongTermLiabilities = report.LongTermLiabilities,
-                OwnerEquity = report.OwnerEquity,
-                TotalResources = report.TotalResources,
-                
-                // Income Statement
-                Revenue = report.Revenue,
-                NetRevenue = report.NetRevenue,
-                CostOfGoodsSold = report.CostOfGoodsSold,
-                GrossProfit = report.GrossProfit,
-                NetProfit = report.NetProfit,
-                ProfitBeforeTax = report.ProfitBeforeTax,
-                IncomeTaxExpense = report.IncomeTaxExpense,
-                ProfitAfterTax = report.ProfitAfterTax,
-                
-                // Cash Flow
-                CashFromOperating = report.CashFromOperating,
-                CashFromInvesting = report.CashFromInvesting,
-                CashFromFinancing = report.CashFromFinancing,
-                NetCashFlow = report.NetCashFlow,
-                BeginningCash = report.BeginningCash,
-                EndingCash = report.EndingCash,
-                
                 Status = report.Status,
                 CreatedAt = report.CreatedAt,
                 UpdatedAt = report.UpdatedAt

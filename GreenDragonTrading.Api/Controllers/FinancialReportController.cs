@@ -3,8 +3,6 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.CreateFinancialReport;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.DeleteFinancialReport;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.UpdateFinancialReport;
-using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.UploadFile;
-using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.DownloadFile;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportById;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReports;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportsByTicker;
@@ -30,7 +28,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
         /// <returns>A paginated list of financial reports.</returns>
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<PaginatedResponse<SimpleFinancialReportDto>>>> GetFinancialReports(
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<FinancialReportDto>>>> GetFinancialReports(
             [FromQuery] GetFinancialReportsQuery query,
             CancellationToken cancellationToken = default)
         {
@@ -68,19 +66,15 @@ namespace GreenDragonTrading.Api.Controllers
         /// <summary>
         /// Retrieves all financial reports for a specific ticker symbol.
         /// </summary>
-        /// <param name="ticker">The ticker symbol to retrieve reports for.</param>
         /// <param name="query">Query parameters for pagination.</param>
         /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
         /// <returns>A paginated list of financial reports for the specified ticker.</returns>
-        [HttpGet("ticker/{ticker}")]
-        public async Task<ActionResult<ApiResponse<PaginatedResponse<SimpleFinancialReportDto>>>> GetFinancialReportsByTicker(
-            [FromRoute] string ticker,
+        [HttpGet("ticker")]
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<FinancialReportDto>>>> GetFinancialReportsByTicker(
             [FromQuery] GetFinancialReportsByTickerQuery query,
             CancellationToken cancellationToken = default)
         {
-            // Override ticker from route
-            var queryWithTicker = query with { Ticker = ticker };
-            var result = await _mediator.Send(queryWithTicker, cancellationToken);
+            var result = await _mediator.Send(query, cancellationToken);
             
             if (!result.IsSuccess)
             {
@@ -100,41 +94,15 @@ namespace GreenDragonTrading.Api.Controllers
         [Consumes("application/json")]
         [Authorize]
         public async Task<ActionResult<ApiResponse<FinancialReportDto>>> CreateFinancialReport(
-            [FromForm] CreateFinancialReportRequest request,
+            [FromBody] CreateFinancialReportRequest request,
             CancellationToken cancellationToken = default)
         {
             var command = new CreateFinancialReportCommand(
                 request.Ticker,
                 request.Year,
+                request.Quarter,
                 request.Period,
-                request.ShortTermAssets,
-                request.CashAndCashEquivalents,
-                request.ShortTermFinancialInvestments,
-                request.ShortTermReceivables,
-                request.Inventories,
-                request.LongTermAssets,
-                request.LongTermReceivables,
-                request.FixedAssets,
-                request.TotalAssets,
-                request.Liabilities,
-                request.ShortTermLiabilities,
-                request.LongTermLiabilities,
-                request.OwnerEquity,
-                request.TotalResources,
-                request.Revenue,
-                request.NetRevenue,
-                request.CostOfGoodsSold,
-                request.GrossProfit,
-                request.NetProfit,
-                request.ProfitBeforeTax,
-                request.IncomeTaxExpense,
-                request.ProfitAfterTax,
-                request.CashFromOperating,
-                request.CashFromInvesting,
-                request.CashFromFinancing,
-                request.NetCashFlow,
-                request.BeginningCash,
-                request.EndingCash
+                request.ReportData
             );
 
             var result = await _mediator.Send(command, cancellationToken);
@@ -166,34 +134,7 @@ namespace GreenDragonTrading.Api.Controllers
         {
             var command = new UpdateFinancialReportCommand(
                 id,
-                request.ShortTermAssets,
-                request.CashAndCashEquivalents,
-                request.ShortTermFinancialInvestments,
-                request.ShortTermReceivables,
-                request.Inventories,
-                request.LongTermAssets,
-                request.LongTermReceivables,
-                request.FixedAssets,
-                request.TotalAssets,
-                request.Liabilities,
-                request.ShortTermLiabilities,
-                request.LongTermLiabilities,
-                request.OwnerEquity,
-                request.TotalResources,
-                request.Revenue,
-                request.NetRevenue,
-                request.CostOfGoodsSold,
-                request.GrossProfit,
-                request.NetProfit,
-                request.ProfitBeforeTax,
-                request.IncomeTaxExpense,
-                request.ProfitAfterTax,
-                request.CashFromOperating,
-                request.CashFromInvesting,
-                request.CashFromFinancing,
-                request.NetCashFlow,
-                request.BeginningCash,
-                request.EndingCash,
+                request.ReportData,
                 request.Status
             );
 
@@ -227,69 +168,6 @@ namespace GreenDragonTrading.Api.Controllers
             }
             
             return Ok(result);
-        }
-
-        /// <summary>
-        /// Uploads or replaces a file for an existing financial report.
-        /// </summary>
-        /// <param name="id">The ID of the financial report to upload file for.</param>
-        /// <param name="file">The file to upload.</param>
-        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
-        /// <returns>The updated financial report with new file information.</returns>
-        [HttpPost("{id}/upload-file")]
-        [Consumes("multipart/form-data")]
-        [Authorize]
-        public async Task<ActionResult<ApiResponse<FinancialReportDto>>> UploadFile(
-            [FromRoute] Guid id,
-            IFormFile file,
-            CancellationToken cancellationToken = default)
-        {
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest(ApiResponse<FinancialReportDto>.Failure("File không được để trống."));
-            }
-
-            var command = new UploadFileCommand(id, file);
-            var result = await _mediator.Send(command, cancellationToken);
-            
-            if (!result.IsSuccess)
-            {
-                return BadRequest(result);
-            }
-            
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Downloads a file from Google Drive for a financial report.
-        /// </summary>
-        /// <param name="id">The ID of the financial report.</param>
-        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
-        /// <returns>File stream with the financial report file.</returns>
-        [HttpGet("{id}/download-file")]
-        public async Task<IActionResult> DownloadFile(
-            [FromRoute] Guid id,
-            CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                var query = new DownloadFileQuery(id);
-                var (fileStream, fileName, contentType) = await _mediator.Send(query, cancellationToken);
-
-                return File(fileStream, contentType, fileName);
-            }
-            catch (FileNotFoundException ex)
-            {
-                return NotFound(ApiResponse.Failure(ex.Message));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ApiResponse.Failure(ex.Message));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ApiResponse.Failure(ex.Message));
-            }
         }
     }
 }

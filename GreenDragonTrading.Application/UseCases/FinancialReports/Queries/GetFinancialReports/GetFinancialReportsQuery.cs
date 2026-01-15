@@ -13,5 +13,5 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFi
         int? Year,
         ReportPeriod? Period,
         FinancialReportStatus? Status
-    ) : PaginationQuery, IRequest<ApiResponse<PaginatedResponse<SimpleFinancialReportDto>>>;
+    ) : PaginationQuery, IRequest<ApiResponse<PaginatedResponse<FinancialReportDto>>>;
 }

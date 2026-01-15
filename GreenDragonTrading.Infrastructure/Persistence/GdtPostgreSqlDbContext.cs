@@ -1,6 +1,8 @@
 ﻿using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Infrastructure.Persistence.Seeding;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Persistence
 {
@@ -137,6 +139,20 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.HasIndex(f => f.Status);
                 
                 builder.HasIndex(f => f.FilePath);
+
+                // Configure ReportData as JSONB column with proper serialization
+                builder.Property(f => f.ReportData)
+                       .HasColumnName("report_data")
+                       .HasColumnType("jsonb")
+                       .HasConversion(
+                           v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                           v => JsonSerializer.Deserialize<FinancialReportData>(v, (JsonSerializerOptions?)null) ?? new FinancialReportData(),
+                           new ValueComparer<FinancialReportData>(
+                               (c1, c2) => JsonSerializer.Serialize(c1, (JsonSerializerOptions?)null) == JsonSerializer.Serialize(c2, (JsonSerializerOptions?)null),
+                               c => JsonSerializer.Serialize(c, (JsonSerializerOptions?)null).GetHashCode(),
+                               c => JsonSerializer.Deserialize<FinancialReportData>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null) ?? new FinancialReportData()
+                           )
+                       );
             });
 
             DatabaseSeeder.SeedAll(modelBuilder);

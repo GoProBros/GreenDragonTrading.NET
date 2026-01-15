@@ -1,5 +1,4 @@
 using FluentValidation;
-using GreenDragonTrading.Domain.Enums;
 
 namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.CreateFinancialReport
 {

@@ -10,16 +10,13 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFi
     public class GetFinancialReportByIdQueryHandler : IRequestHandler<GetFinancialReportByIdQuery, ApiResponse<FinancialReportDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IFileStorageService _fileStorageService;
         private readonly ILogger<GetFinancialReportByIdQueryHandler> _logger;
 
         public GetFinancialReportByIdQueryHandler(
             IUnitOfWork uow,
-            IFileStorageService fileStorageService,
             ILogger<GetFinancialReportByIdQueryHandler> logger)
         {
             _uow = uow;
-            _fileStorageService = fileStorageService;
             _logger = logger;
         }
 
@@ -39,38 +36,12 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFi
                     Id = financialReport.Id,
                     Ticker = financialReport.Ticker,
                     Year = financialReport.Year,
+                    Quarter = financialReport.Quarter,
                     Period = financialReport.Period,
+                    ReportData = financialReport.ReportData,
                     FilePath = financialReport.FilePath,
-                    FileUrl = financialReport.FilePath != null ? _fileStorageService.GetFileUrl(financialReport.FilePath) : null,
+                    FileUrl = financialReport.FilePath,
                     FileSize = financialReport.FileSize,
-                    ShortTermAssets = financialReport.ShortTermAssets,
-                    CashAndCashEquivalents = financialReport.CashAndCashEquivalents,
-                    ShortTermFinancialInvestments = financialReport.ShortTermFinancialInvestments,
-                    ShortTermReceivables = financialReport.ShortTermReceivables,
-                    Inventories = financialReport.Inventories,
-                    LongTermAssets = financialReport.LongTermAssets,
-                    LongTermReceivables = financialReport.LongTermReceivables,
-                    FixedAssets = financialReport.FixedAssets,
-                    TotalAssets = financialReport.TotalAssets,
-                    Liabilities = financialReport.Liabilities,
-                    ShortTermLiabilities = financialReport.ShortTermLiabilities,
-                    LongTermLiabilities = financialReport.LongTermLiabilities,
-                    OwnerEquity = financialReport.OwnerEquity,
-                    TotalResources = financialReport.TotalResources,
-                    Revenue = financialReport.Revenue,
-                    NetRevenue = financialReport.NetRevenue,
-                    CostOfGoodsSold = financialReport.CostOfGoodsSold,
-                    GrossProfit = financialReport.GrossProfit,
-                    NetProfit = financialReport.NetProfit,
-                    ProfitBeforeTax = financialReport.ProfitBeforeTax,
-                    IncomeTaxExpense = financialReport.IncomeTaxExpense,
-                    ProfitAfterTax = financialReport.ProfitAfterTax,
-                    CashFromOperating = financialReport.CashFromOperating,
-                    CashFromInvesting = financialReport.CashFromInvesting,
-                    CashFromFinancing = financialReport.CashFromFinancing,
-                    NetCashFlow = financialReport.NetCashFlow,
-                    BeginningCash = financialReport.BeginningCash,
-                    EndingCash = financialReport.EndingCash,
                     Status = financialReport.Status,
                     CreatedAt = financialReport.CreatedAt,
                     UpdatedAt = financialReport.UpdatedAt
