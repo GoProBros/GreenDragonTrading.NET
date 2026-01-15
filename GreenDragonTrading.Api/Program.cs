@@ -22,14 +22,6 @@ try
     // Add environment variables from .env file to configuration
     EnvironmentConfiguration.AddEnvironmentVariables(builder.Configuration);
 
-    // Inject Google Drive credentials from environment variable if available
-    var googleDriveCredentials = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CREDENTIALS");
-    if (!string.IsNullOrEmpty(googleDriveCredentials))
-    {
-        builder.Configuration["GoogleDrive:JsonCredentials"] = googleDriveCredentials;
-        Log.Information("Google Drive credentials loaded from environment variable");
-    }
-
     // Configure Serilog
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)

@@ -50,12 +50,6 @@ public static class EnvironmentConfiguration
             ["Email:Username"] = Environment.GetEnvironmentVariable("EMAIL_USERNAME"),
             ["Email:Password"] = Environment.GetEnvironmentVariable("EMAIL_PASSWORD"),
             ["Email:EnableSsl"] = Environment.GetEnvironmentVariable("EMAIL_ENABLE_SSL"),
-
-            // Google Drive Configuration
-            ["GoogleDrive:JsonCredentials"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CREDENTIALS"),
-            ["GoogleDrive:RootFolderId"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_ROOT_FOLDER_ID"),
-            ["GoogleDrive:AutoCreateFolders"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_AUTO_CREATE_FOLDERS"),
-            ["GoogleDrive:Enabled"] = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_ENABLED"),
         };
 
         // Add CORS allowed origins (split by comma)
