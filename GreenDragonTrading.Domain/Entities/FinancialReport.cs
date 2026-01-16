@@ -27,10 +27,6 @@ namespace GreenDragonTrading.Domain.Entities
         public int Year { get; set; }
 
         [Required]
-        [Column("quarter", TypeName = "integer")]
-        public int Quarter { get; set; }
-
-        [Required]
         [Column("period", TypeName = "smallint")]
         public ReportPeriod Period { get; set; }
 

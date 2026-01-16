@@ -1,9 +1,13 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSpecificPeriodFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV2;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.MapSymbolSector;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GreenDragonTrading.Api.Controllers
@@ -12,7 +16,7 @@ namespace GreenDragonTrading.Api.Controllers
     /// Fetches data from external APIs and imports into the system.
     /// </summary>
     /// <param name="mediator">Mediator service</param>
-    [Route("api/data-fetching")]
+    [Route("api/v1/data-fetching")]
     [ApiController]
     public class DataFetchingController(IMediator mediator) : ControllerBase
     {
@@ -24,7 +28,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of imported and updated sectors.</returns>
-        [HttpPost("v1/import-sectors-from-ssi")]
+        [HttpPost("import-sectors-from-ssi")]
         public async Task<ActionResult<ApiResponse<ImportSectorsFromSsiResult>>> ImportSectorsFromSsi(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new ImportSectorsFromSsiCommand(), cancellationToken);
@@ -37,7 +41,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of imported and updated symbols.</returns>
-        [HttpPost("v1/import-symbols-from-ssi")]
+        [HttpPost("import-symbols-from-ssi")]
         public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiV1Result>>> ImportSymbolsFromSsi(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new ImportSymbolsFromSsiCommandV1(), cancellationToken);
@@ -50,7 +54,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of imported and updated symbols.</returns>
-        [HttpPost("v2/import-symbols-from-ssi")]
+        [HttpPost("~/api/v2/data-fetching/import-symbols-from-ssi")]
         public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiV2Result>>> ImportSymbolsFromSsiV2(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new ImportSymbolsFromSsiCommandV2(), cancellationToken);
@@ -62,11 +66,56 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of mapped symbols.</returns>
-        [HttpPost("v1/map-symbols-sector-from-ssi")]
+        [HttpPost("map-symbols-sector-from-ssi")]
         public async Task<ActionResult<ApiResponse<MapSymbolSectorCommandResult>>> MapSymbolSectorFromSsi(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new MapSymbolSectorCommand(), cancellationToken);
             return Ok(ApiResponse<MapSymbolSectorCommandResult>.Success(result, result.Message));
+        }
+
+        /// <summary>
+        /// Import bulk financial reports from DNSE API.
+        /// Imports data for multiple tickers and multiple periods (5 or 10 cycles).
+        /// </summary>
+        /// <param name="request">Import request containing tickers, cycle type, and cycle number.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Import result with success/failure statistics.</returns>
+        [HttpPost("financial-reports/bulk")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<DnseImportResult>>> ImportBulkFromDnse(
+            [FromBody] ImportBulkFromDnseCommand request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get financial report for a specific period from DNSE API but not import to database.
+        /// </summary>
+        /// <param name="request">Import request containing ticker, year, and optional quarter.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>The imported financial report.</returns>
+        [HttpPost("financial-reports/specific")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<FinancialReportDto>>> ImportSpecificPeriodFromDnse(
+            [FromBody] ImportSpecificPeriodFromDnseCommand request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
         }
     }
 }

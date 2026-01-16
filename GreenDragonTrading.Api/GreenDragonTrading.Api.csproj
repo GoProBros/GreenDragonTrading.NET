@@ -31,4 +31,8 @@
     <ProjectReference Include="..\GreenDragonTrading.Infrastructure\GreenDragonTrading.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Logs\" />
+  </ItemGroup>
+
 </Project>
