@@ -12,7 +12,6 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
     public record CreateFinancialReportCommand(
         string Ticker,
         int Year,
-        int Quarter,
         ReportPeriod Period,
         FinancialReportData ReportData
     ) : IRequest<ApiResponse<FinancialReportDto>>;

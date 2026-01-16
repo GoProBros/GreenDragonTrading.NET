@@ -119,7 +119,7 @@ namespace GreenDragonTrading.Domain.Entities
         /// 15. Lợi nhuận sau thuế và AFS - PROFIT_AFTER_TAX_AND_AFS
         /// </summary>
         [JsonPropertyName("profitAfterTaxAndAFS")]
-        public ProfitAfterTaxAndAFSDto? ProfitAfterTaxAndAFS { get; set; }
+        public ProfitAfterTaxAndAfsDto? ProfitAfterTaxAndAfs { get; set; }
 
         /// <summary>
         /// 16. LNST công ty mẹ - PROFIT_AFTER_TAX_PARENT_COMPANY
@@ -144,6 +144,9 @@ namespace GreenDragonTrading.Domain.Entities
         [JsonPropertyName("receivables")]
         public decimal? Receivables { get; set; }
 
+        [JsonPropertyName("inventories")]
+        public decimal? Inventories { get; set; }
+
         [JsonPropertyName("otherAssets")]
         public decimal? OtherAssets { get; set; }
     }
@@ -153,6 +156,18 @@ namespace GreenDragonTrading.Domain.Entities
     /// </summary>
     public class LongTermAssetsDto
     {
+        [JsonPropertyName("receivables")]
+        public decimal? Receivables { get; set; }
+
+        [JsonPropertyName("fixedAssets")]
+        public decimal? FixedAssets { get; set; }
+
+        [JsonPropertyName("investmentProperty")]
+        public decimal? InvestmentProperty { get; set; }
+
+        [JsonPropertyName("longTermAssetsInProgress")]
+        public decimal? LongTermAssetsInProgress { get; set; }
+
         [JsonPropertyName("financialInvestments")]
         public decimal? FinancialInvestments { get; set; }
 
@@ -331,6 +346,15 @@ namespace GreenDragonTrading.Domain.Entities
     /// </summary>
     public class ExpensesDto
     {
+        [JsonPropertyName("costOfGoodsSold")]
+        public decimal? CostOfGoodsSold { get; set; }
+
+        [JsonPropertyName("interestExpenses")]
+        public decimal? InterestExpenses { get; set; }
+
+        [JsonPropertyName("sellingExpenses")]
+        public decimal? SellingExpenses { get; set; }
+
         [JsonPropertyName("financialExpenses")]
         public decimal? FinancialExpenses { get; set; }
 
@@ -352,6 +376,9 @@ namespace GreenDragonTrading.Domain.Entities
         [JsonPropertyName("financialProfit")]
         public decimal? FinancialProfit { get; set; }
 
+        [JsonPropertyName("shareProfitOfAssociatesAndJoint")]
+        public decimal? ShareProfitOfAssociatesAndJoint { get; set; }
+
         [JsonPropertyName("otherProfit")]
         public decimal? OtherProfit { get; set; }
 
@@ -362,10 +389,13 @@ namespace GreenDragonTrading.Domain.Entities
     /// <summary>
     /// 15. Lợi nhuận sau thuế và AFS
     /// </summary>
-    public class ProfitAfterTaxAndAFSDto
+    public class ProfitAfterTaxAndAfsDto
     {
-        [JsonPropertyName("netProfitAndOCI")]
-        public decimal? NetProfitAndOCI { get; set; }
+        [JsonPropertyName("profitAfterTaxAndAfs")]
+        public decimal? ProfitAfterTaxAndAfs { get; set; }
+
+        [JsonPropertyName("parentCompanyNetProfit")]
+        public decimal? ParentCompanyNetProfit { get; set; }
 
         [JsonPropertyName("afsGains")]
         public decimal? AfsGains { get; set; }

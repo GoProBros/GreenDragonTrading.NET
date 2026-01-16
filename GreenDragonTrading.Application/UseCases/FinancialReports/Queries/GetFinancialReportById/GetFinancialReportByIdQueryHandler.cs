@@ -36,7 +36,6 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFi
                     Id = financialReport.Id,
                     Ticker = financialReport.Ticker,
                     Year = financialReport.Year,
-                    Quarter = financialReport.Quarter,
                     Period = financialReport.Period,
                     ReportData = financialReport.ReportData,
                     FilePath = financialReport.FilePath,

@@ -100,7 +100,6 @@ namespace GreenDragonTrading.Api.Controllers
             var command = new CreateFinancialReportCommand(
                 request.Ticker,
                 request.Year,
-                request.Quarter,
                 request.Period,
                 request.ReportData
             );

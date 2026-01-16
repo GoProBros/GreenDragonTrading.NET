@@ -118,6 +118,18 @@ namespace GreenDragonTrading.Infrastructure
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
             });
 
+            // Register DNSE Service
+            services.AddHttpClient<IDnseService, DnseService>((sp, client) =>
+            {
+                client.BaseAddress = new Uri(Domain.Constants.DNSE.DnseConstants.API_BASE_URL);
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+            
+            // Register DNSE Data Mapper
+            services.AddScoped<IDnseDataMapper, DnseDataMapper>();
+
             // Add JWT Authentication
             var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
             if (jwtOptions != null)

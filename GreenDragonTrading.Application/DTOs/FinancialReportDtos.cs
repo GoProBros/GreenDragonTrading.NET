@@ -12,7 +12,7 @@ namespace GreenDragonTrading.Application.DTOs
         public Guid Id { get; init; }
         public string Ticker { get; init; } = null!;
         public int Year { get; init; }
-        public int Quarter { get; init; }
+
         public ReportPeriod Period { get; init; }
         
         /// <summary>

@@ -42,7 +42,6 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFi
                     Id = r.Id,
                     Ticker = r.Ticker,
                     Year = r.Year,
-                    Quarter = r.Quarter,
                     Period = r.Period,
                     FileUrl = r.FilePath,
                     FileSize = r.FileSize,
