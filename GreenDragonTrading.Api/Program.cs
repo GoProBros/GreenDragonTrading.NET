@@ -1,10 +1,11 @@
+using DotNetEnv;
 using GreenDragonTrading.Api.Configuration;
 using GreenDragonTrading.Api.Middlewares;
 using GreenDragonTrading.Application;
 using GreenDragonTrading.Infrastructure;
 using GreenDragonTrading.Infrastructure.Hubs;
+using Org.BouncyCastle.Asn1.Ocsp;
 using Serilog;
-using DotNetEnv;
 
 // Load environment variables from .env file
 Env.Load();
@@ -120,7 +121,6 @@ try
 
     // Map SignalR Hub
     app.MapHub<MarketDataHub>("/hubs/marketdata");
-
     await app.RunAsync();
 }
 catch (Exception ex)
