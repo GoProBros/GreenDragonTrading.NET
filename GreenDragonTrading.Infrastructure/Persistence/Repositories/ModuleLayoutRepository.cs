@@ -22,7 +22,6 @@ public class ModuleLayoutRepository : PostgreSqlGenericRepository<ModuleLayout>,
     {
         var query = _dbSet.AsQueryable();
 
-        // Lấy layout hệ thống hoặc layout cá nhân của user
         query = query.Where(l => 
             l.ModuleType == moduleType && 
             (l.IsSystemDefault || (userId.HasValue && l.UserId == userId.Value))
@@ -30,7 +29,7 @@ public class ModuleLayoutRepository : PostgreSqlGenericRepository<ModuleLayout>,
 
         return await query
             .OrderByDescending(l => l.IsSystemDefault)
-            .ThenByDescending(l => l.UpdatedAt)
+            .ThenByDescending(l => l.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 

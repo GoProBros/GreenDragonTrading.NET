@@ -1,32 +1,33 @@
 ﻿using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography; 
-using System.Text;
+using BCrypt.Net; // Đảm bảo đã cài package BCrypt.Net-Next
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
 {
     public static class UserSeeder
     {
-        private static string HashPassword(string password)
-        {
-            using var sha256 = SHA256.Create();
-            var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
-        }
+        public static readonly Guid AdminId = new Guid("4c0aa1c2-bece-4999-a020-7cb8dc638cef");
 
         public static void Seed(ModelBuilder modelBuilder)
         {
-            var adminId = new Guid("11111111-1111-1111-1111-111111111111");
-            var hashedPassword = HashPassword("123123");
+            string adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL")
+                                ?? "greendragon.trading.team@gmail.com";
+            string adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD")
+                                   ?? "Admin123";
+            string phoneNumber = Environment.GetEnvironmentVariable("ADMIN_PHONE_NUMBER")
+                                 ?? "0988671875";
+            string name = Environment.GetEnvironmentVariable("Name")
+                                 ?? "Admin";   
+            var hashedPassword = BCrypt.Net.BCrypt.HashPassword(adminPassword);
 
             modelBuilder.Entity<User>().HasData(
                 new User
                 {
-                    Id = adminId,
-                    Username = "admin",
-                    Email = "greendragon.trading.team@gmail.com",
-                    PhoneNumber = "0988671875",
+                    Id = AdminId,
+                    Username = name,
+                    Email = adminEmail,
+                    PhoneNumber = phoneNumber,
                     HashedPassword = hashedPassword,
                     Role = UserRole.Admin,
                     CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
