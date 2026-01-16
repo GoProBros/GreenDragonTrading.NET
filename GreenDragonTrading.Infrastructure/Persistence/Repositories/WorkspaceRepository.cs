@@ -21,7 +21,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                     w.UserId == userId ||         
                     (w.UserId == null && w.IsDefault)
                 )
-                .OrderByDescending(w => w.CreatedAt)
+                .OrderByDescending(w => w.IsDefault)
+                .ThenByDescending(w => w.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
 
