@@ -59,9 +59,32 @@ Infrastructure → Application + Domain
    return Ok(ApiResponse.Success("Success message"));
    
    // For error responses
-   return BadRequest(ApiResponse.Failure("Error message", "Error detail"));
-   return BadRequest(ApiResponse<TData>.Failure("Error message", errorList));
+   return BadRequest(ApiResponse.Failure("Error message", validationErrors));
+   return BadRequest(ApiResponse<TData>.Failure("Error message", validationErrors));
    ```
+
+## Exception Handling
+
+### Custom Exception Handler
+- Centralized exception handling via `CustomExceptionHandler` (IExceptionHandler)
+- Registered in Program.cs: `builder.Services.AddExceptionHandler<CustomExceptionHandler>()`
+- Automatically converts domain exceptions to appropriate HTTP status codes and `ApiResponse`
+
+### Domain Exceptions (in `Domain/Exceptions/`)
+- **`BusinessRuleException`** → 400 Bad Request: Business logic violations
+- **`ValidationException`** → 400 Bad Request: FluentValidation failures with `IDictionary<string, string[]>` errors
+- **`NotFoundException`** → 404 Not Found: Entity not found
+- **`ConflictException`** → 409 Conflict: Duplicate/conflict errors
+- **`AccessDeniedException`** → 403 Forbidden: Authorization failures
+- **`UnauthenticatedException`** → 401 Unauthorized: Authentication failures
+- **All others** → 500 Internal Server Error: Unexpected errors
+
+**Usage in handlers:**
+```csharp
+throw new NotFoundException("User not found");
+throw new ConflictException("Email already exists");
+throw new BusinessRuleException("Cannot delete active workspace");
+```
 
 
 ## Authentication & Authorization
@@ -90,11 +113,25 @@ Infrastructure → Application + Domain
 - **V2** (`ISsiServiceV2`): Modern REST API with RSA encryption, requires OAuth via `ISsiAuthService`
 - **Streaming** (`ISsiStreamingService`): Real-time SignalR client connecting to `https://fc-datahub.ssi.com.vn`
 
+### DNSE Integration
+- **Service** (`IDnseService`): Financial report data provider
+- **Mapper** (`IDnseDataMapper`): Maps DNSE API responses to domain entities
+- Base URL: `Domain.Constants.DNSE.DnseConstants.API_BASE_URL`
+- Registered as typed HttpClient with 30s timeout
+
 ### HttpClient Configuration
-All SSI services use typed HttpClients registered in `Infrastructure/DependencyInjection.cs`:
+All external services use typed HttpClients registered in `Infrastructure/DependencyInjection.cs`:
 - `ISsiServiceV1`: Timeout from options, `Accept: application/json`
 - `ISsiServiceV2`: `Accept: application/x-www-form-urlencoded`
 - `ISsiAuthService`: For OAuth token retrieval
+- `IDnseService`: Base URL configured, 30s timeout
+
+### File Storage (Cloudflare R2 / AWS S3)
+- **Service** (`IFileStorageService`): Implemented by `S3FileStorageService`
+- S3-compatible storage for Cloudflare R2 or AWS S3
+- Configuration via `R2Options` and `AWS:Credentials` sections
+- Requires `ServiceURL`, `AccessKeyId`, `SecretAccessKey`, `BucketName`
+- Set `ForcePathStyle = true` for R2 compatibility
 
 ### Data Flow
 1. **Import**: Controllers trigger MediatR commands → Services fetch from SSI → Bulk insert/update PostgreSQL
@@ -123,6 +160,25 @@ dotnet ef database update --project GreenDragonTrading.Infrastructure --startup-
 - Columns: `[Column("column_name")]` with explicit `TypeName` for PostgreSQL types
 - Navigation: Use `ExchangeCode`/`SectorId` foreign keys (explicit relationships in `OnModelCreating`)
 
+### Sector Hierarchy Pattern
+- **Structure**: Sectors have 4 levels (1-4) in a tree hierarchy with `ParentId` relationships
+- **Symbol Association**: Symbols only link to level 4 sectors (leaf nodes)
+- **Querying Pattern**: When retrieving sectors at levels < 4:
+  1. Find all descendant level 4 sectors using recursive traversal
+  2. Collect symbols from all level 4 descendants
+  3. Return aggregated symbol list with the parent sector
+- **Implementation**: 
+  - Repository method: `GetAllChildLevel4SectorIdsAsync()` uses LINQ-based recursion
+  - Loads all sectors into memory (acceptable for typical sector count)
+  - Example: Level 2 "Banking" sector returns symbols from all child level 4 sectors like "Commercial Banks", "Investment Banks", etc.
+- **Example hierarchy**:
+  ```
+  Level 1: Finance
+    └─ Level 2: Banking
+        └─ Level 3: Commercial Banking  
+            └─ Level 4: Joint-stock Banks → [VCB, CTG, BID, ...]
+  ```
+
 ## Development Workflow
 
 ### Running the Application
@@ -148,17 +204,25 @@ Use `run-server-and-client.ps1` to launch both API and SignalR test client simul
 - `SsiApiV2`: FastConnect credentials (ConsumerID, ConsumerSecret, RSA keys)
 - `JwtOptions`: JWT secret, issuer, audience, token lifetimes
 - `EmailOptions`: SMTP configuration for email verification/password reset
+- `R2Options` / `AWS:Credentials`: Cloudflare R2 or AWS S3 storage configuration
 - `Cors:AllowedOrigins`: Array of allowed CORS origins
 - `Serilog`: Console + File sinks with structured logging
 
+### Environment Configuration
+- Uses `DotNetEnv` package to load `.env` file at startup
+- Call `Env.Load()` before building the app
+- Environment variables override `appsettings.json` via `EnvironmentConfiguration.AddEnvironmentVariables()`
+- See `.env.example` for required configuration keys
+- **Never commit `.env` files** - they contain secrets
+
 ### Middleware Order (Critical)
 ```csharp
-// In Program.cs
-app.UseExceptionHandler(options => { });
-app.UseCors("AppCorsPolicy");
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseTokenBlacklist();  // MUST be after authentication
+// In Program.cs - MUST follow this exact order
+app.UseExceptionHandler(options => { });        // 1. Exception handling first
+app.UseCors("AppCorsPolicy");                   // 2. CORS before auth
+app.UseAuthentication();                        // 3. Authenticate user
+app.UseAuthorization();                         // 4. Authorize user (BEFORE TokenBlacklist!)
+app.UseTokenBlacklist();                        // 5. Check token blacklist (requires authenticated user)
 app.MapControllers();
 app.MapHub<MarketDataHub>("/hubs/marketdata");
 ```
@@ -186,20 +250,20 @@ Standard response wrapper for all API endpoints. Located in `GreenDragonTrading.
 - `IsSuccess` (bool): Indicates if the request was successful
 - `Message` (string): Human-readable message
 - `Data` (T, optional): Response payload (generic version only)
-- `Errors` (List<string>, optional): List of error messages
+- `ValidationErrors` (IDictionary<string, string[]>, optional): Validation errors by field
 - `ResponseTime` (DateTime): Timestamp of the response
 
 **Factory Methods:**
 ```csharp
 // Non-generic version
 ApiResponse.Success(string message = "Thành công")
-ApiResponse.Failure(string message, List<string> errors)
-ApiResponse.Failure(string message, string? error = null)
+ApiResponse.Failure(string message, IDictionary<string, string[]> validationErrors)
+ApiResponse.Failure(string message)
 
 // Generic version
 ApiResponse<T>.Success(T data, string message = "Thành công")
-ApiResponse<T>.Failure(string message, List<string> errors)
-ApiResponse<T>.Failure(string message, string? error = null)
+ApiResponse<T>.Failure(string message, IDictionary<string, string[]> validationErrors)
+ApiResponse<T>.Failure(string message)
 ```
 
 ### PaginatedResponse<T>
@@ -251,6 +315,27 @@ return Ok(result); // ApiResponse is already wrapped by handler
 - Use ILogger via constructor injection
 - Structured logging: `_logger.LogInformation("Message {Property}", value);`
 - Log levels: Debug (SSI responses), Information (operations), Warning (errors), Error (exceptions)
+
+### Comments and Documentation
+- **All code comments and XML summaries must be in English**
+- Use XML documentation (`/// <summary>`) for public APIs, controllers, and use cases
+- Include `<param>` and `<returns>` tags for clarity in Swagger
+- User-facing API response messages can be in Vietnamese (e.g., success messages in `ApiResponse`)
+- Example:
+  ```csharp
+  /// <summary>
+  /// Retrieves a paginated list of sectors with their associated symbols.
+  /// </summary>
+  /// <param name="level">Sector level (1-4). If null, retrieves all levels.</param>
+  /// <returns>Paginated list of sectors</returns>
+  public async Task<ApiResponse<PaginatedResponse<SectorDto>>> GetSectors(int? level, ...)
+  {
+      // If sector is level 4, get symbols directly
+      if (sector.Level == 4) { ... }
+      
+      return ApiResponse.Success(data, "Lấy danh sách thành công"); // Vietnamese OK for user messages
+  }
+  ```
 
 ## Testing & Debugging
 
