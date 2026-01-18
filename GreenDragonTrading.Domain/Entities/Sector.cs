@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
+using GreenDragonTrading.Domain.Enums;
 
 namespace GreenDragonTrading.Domain.Entities
 {
@@ -28,6 +29,10 @@ namespace GreenDragonTrading.Domain.Entities
 
         [Column("level")]
         public int? Level { get; set; }
+
+        [Column("status", TypeName = "smallint")]
+        [Required]
+        public CommonStatus Status { get; set; } = CommonStatus.Active;
 
         // Navigation Properties
         [ForeignKey("ParentId")]

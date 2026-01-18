@@ -160,6 +160,25 @@ dotnet ef database update --project GreenDragonTrading.Infrastructure --startup-
 - Columns: `[Column("column_name")]` with explicit `TypeName` for PostgreSQL types
 - Navigation: Use `ExchangeCode`/`SectorId` foreign keys (explicit relationships in `OnModelCreating`)
 
+### Sector Hierarchy Pattern
+- **Structure**: Sectors have 4 levels (1-4) in a tree hierarchy with `ParentId` relationships
+- **Symbol Association**: Symbols only link to level 4 sectors (leaf nodes)
+- **Querying Pattern**: When retrieving sectors at levels < 4:
+  1. Find all descendant level 4 sectors using recursive traversal
+  2. Collect symbols from all level 4 descendants
+  3. Return aggregated symbol list with the parent sector
+- **Implementation**: 
+  - Repository method: `GetAllChildLevel4SectorIdsAsync()` uses LINQ-based recursion
+  - Loads all sectors into memory (acceptable for typical sector count)
+  - Example: Level 2 "Banking" sector returns symbols from all child level 4 sectors like "Commercial Banks", "Investment Banks", etc.
+- **Example hierarchy**:
+  ```
+  Level 1: Finance
+    └─ Level 2: Banking
+        └─ Level 3: Commercial Banking  
+            └─ Level 4: Joint-stock Banks → [VCB, CTG, BID, ...]
+  ```
+
 ## Development Workflow
 
 ### Running the Application
@@ -296,6 +315,27 @@ return Ok(result); // ApiResponse is already wrapped by handler
 - Use ILogger via constructor injection
 - Structured logging: `_logger.LogInformation("Message {Property}", value);`
 - Log levels: Debug (SSI responses), Information (operations), Warning (errors), Error (exceptions)
+
+### Comments and Documentation
+- **All code comments and XML summaries must be in English**
+- Use XML documentation (`/// <summary>`) for public APIs, controllers, and use cases
+- Include `<param>` and `<returns>` tags for clarity in Swagger
+- User-facing API response messages can be in Vietnamese (e.g., success messages in `ApiResponse`)
+- Example:
+  ```csharp
+  /// <summary>
+  /// Retrieves a paginated list of sectors with their associated symbols.
+  /// </summary>
+  /// <param name="level">Sector level (1-4). If null, retrieves all levels.</param>
+  /// <returns>Paginated list of sectors</returns>
+  public async Task<ApiResponse<PaginatedResponse<SectorDto>>> GetSectors(int? level, ...)
+  {
+      // If sector is level 4, get symbols directly
+      if (sector.Level == 4) { ... }
+      
+      return ApiResponse.Success(data, "Lấy danh sách thành công"); // Vietnamese OK for user messages
+  }
+  ```
 
 ## Testing & Debugging
 

@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.Symbols.Commands.UpdateSymbolSector;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbol;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.GetSymbols;
 using GreenDragonTrading.Application.UseCases.Symbols.Queries.SearchSymbols;
@@ -67,20 +68,23 @@ namespace GreenDragonTrading.Api.Controllers
             return Ok(result);
         }
 
-        ///// <summary>
-        ///// Get intraday OHLC data for a specific symbol within a date range.
-        ///// </summary>
-        ///// <param name="request">Request model containing symbol and date range information.</param>
-        ///// <param name="cancellationToken">Cancellation token</param>
-        //[HttpGet("intraday-ohlc")]
-        //public async Task<ActionResult<PaginatedResponse<IntradayOhlc>>> IntradayOhlc([FromQuery] GetIntradayOhlcQuery request, CancellationToken cancellationToken = default)
-        //{
-        //    var result = await _mediator.Send(request, cancellationToken);
-        //    if (!result.IsSuccess)
-        //    {
-        //        return BadRequest(result);
-        //    }
-        //    return Ok(result);
-        //}
+        /// <summary>
+        /// Updates a symbol's sector. Only level 4 sectors can be assigned.
+        /// </summary>
+        /// <param name="command">Command containing the new sector ID</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Updated symbol details</returns>
+        [HttpPatch("sector-change")]
+        public async Task<ActionResult<ApiResponse<SymbolDto>>> UpdateSymbolSector(
+            [FromBody] UpdateSymbolSectorCommand command,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
     }
 }
