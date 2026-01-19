@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260118140635_AddTransactionTable")]
+    partial class AddTransactionTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -227,10 +230,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.Property<string>("ParentId")
                         .HasColumnType("varchar(10)")
                         .HasColumnName("parent_id");
-
-                    b.Property<short>("Status")
-                        .HasColumnType("smallint")
-                        .HasColumnName("status");
 
                     b.Property<string>("ViName")
                         .HasMaxLength(100)
@@ -448,7 +447,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                             Id = new Guid("4c0aa1c2-bece-4999-a020-7cb8dc638cef"),
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Email = "greendragon.trading.team@gmail.com",
-                            HashedPassword = "$2a$11$y99atouBMSFU1RGWaKDebegoBTTJDfz9uVZ9G0G3yx0C8OSyjzwt6",
+                            HashedPassword = "$2a$11$fFn1LaR/RMKtXarPBjcQAer//6lpLhChk.JH1UY4rCZHlxGp0ea4a",
                             IsEmailVerified = true,
                             PhoneNumber = "0988671875",
                             Role = (short)3,
@@ -600,10 +599,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 16, 14, 35, 14, 887, DateTimeKind.Unspecified).AddTicks(9453), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 18, 14, 6, 35, 107, DateTimeKind.Unspecified).AddTicks(5398), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             LayoutJson = "{\r\n          \"modules\": [\r\n            {\r\n              \"i\": \"stock-screener-default\",\r\n              \"type\": \"stock-screener\",\r\n              \"title\": \"Bộ lọc cổ phiếu\",\r\n              \"x\": 0, \"y\": 36, \"w\": 96, \"h\": 20,\r\n              \"activeLayoutId\": 1  \r\n            }\r\n          ]\r\n        }",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 16, 14, 35, 14, 887, DateTimeKind.Unspecified).AddTicks(9454), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 18, 14, 6, 35, 107, DateTimeKind.Unspecified).AddTicks(5399), new TimeSpan(0, 0, 0, 0, 0)),
                             WorkspaceName = "SYSTEM_DEFAULT_LAYOUT"
                         });
                 });

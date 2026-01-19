@@ -18,6 +18,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         
         private IUserSubscriptionRepository? userSubscriptions;
 
+        private ISubscriptionRepository? subscriptions;
+
+        private ITransactionRepository? transactions;
+
         private IWorkspaceRepository? workspaces;
 
         private IModuleLayoutRepository? moduleLayouts;
@@ -30,6 +34,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
         public IUserSubscriptionRepository UserSubscriptions => userSubscriptions ??= new UserSubscriptionRepository(_context);
+        public ISubscriptionRepository Subscriptions => subscriptions ??= new SubscriptionRepository(_context);
+        public ITransactionRepository Transactions => transactions ??= new TransactionRepository(_context);
         public IWorkspaceRepository Workspaces => workspaces ??= new WorkspaceRepository(_context);
         public IModuleLayoutRepository ModuleLayouts => moduleLayouts ??= new ModuleLayoutRepository(_context);
         public IWatchListRepository WatchLists => watchLists ??= new WatchListRepository(_context);

@@ -50,6 +50,15 @@ public static class EnvironmentConfiguration
             ["Email:Username"] = Environment.GetEnvironmentVariable("EMAIL_USERNAME"),
             ["Email:Password"] = Environment.GetEnvironmentVariable("EMAIL_PASSWORD"),
             ["Email:EnableSsl"] = Environment.GetEnvironmentVariable("EMAIL_ENABLE_SSL"),
+
+            // PayOS
+            ["PayOS:ClientId"] = Environment.GetEnvironmentVariable("PAYOS_CLIENT_ID"),
+            ["PayOS:ApiKey"] = Environment.GetEnvironmentVariable("PAYOS_API_KEY"),
+            ["PayOS:ChecksumKey"] = Environment.GetEnvironmentVariable("PAYOS_CHECKSUM_KEY"),
+            ["PayOS:BaseUrl"] = Environment.GetEnvironmentVariable("PAYOS_BASE_URL") ?? "https://api-merchant.payos.vn",
+            ["PayOS:ReturnUrl"] = Environment.GetEnvironmentVariable("PAYOS_RETURN_URL") ?? "",
+            ["PayOS:CancelUrl"] = Environment.GetEnvironmentVariable("PAYOS_CANCEL_URL") ?? "",
+            ["PayOS:ExpirationMinutes"] = Environment.GetEnvironmentVariable("PAYOS_EXPIRATION_MINUTES") ?? "30",
         };
 
         // Add CORS allowed origins (split by comma)

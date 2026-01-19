@@ -35,5 +35,12 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                     && us.EndDate > now, 
                     cancellationToken);
         }
+
+        public async Task<UserSubscription?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<UserSubscription>()
+                .Include(us => us.Subscription)
+                .FirstOrDefaultAsync(us => us.UserId == userId, cancellationToken);
+        }
     }
 }
