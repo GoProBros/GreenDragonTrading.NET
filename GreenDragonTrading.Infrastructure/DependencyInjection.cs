@@ -91,6 +91,7 @@ namespace GreenDragonTrading.Infrastructure
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
             services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
             services.Configure<R2Options>(configuration.GetSection(R2Options.SectionName));
+            services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
 
             // Register HttpClient
             services.AddHttpClient<ISsiServiceV1, SsiServiceV1>((sp, client) =>
@@ -129,6 +130,10 @@ namespace GreenDragonTrading.Infrastructure
             
             // Register DNSE Data Mapper
             services.AddScoped<IDnseDataMapper, DnseDataMapper>();
+
+            // Register PayOS Service
+            services.AddScoped<IPayOSService, PayOSService>();
+            services.AddScoped<IPaymentService, PaymentService>();
 
             // Add JWT Authentication
             var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();

@@ -6,6 +6,8 @@
         ISectorRepository Sectors { get; }
         IUserRepository Users { get; }
         IUserSubscriptionRepository UserSubscriptions { get; }
+        ISubscriptionRepository Subscriptions { get; }
+        ITransactionRepository Transactions { get; }
         IWorkspaceRepository Workspaces { get; }
         IModuleLayoutRepository ModuleLayouts { get; }
         IWatchListRepository WatchLists { get; }
