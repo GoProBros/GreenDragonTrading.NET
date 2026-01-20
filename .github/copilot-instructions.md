@@ -1,7 +1,7 @@
 # GreenDragonTrading.NET - AI Agent Instructions
 
 ## Project Overview
-Real-time stock trading platform integrating with SSI (Securities Services Inc.) APIs. The system fetches market data, manages symbols/sectors, streams live prices via SignalR, and caches data in Redis for performance.
+Real-time stock trading platform integrating with SSI (Securities Services Inc.) APIs. The system manages user authentication, fetches market data, handles user workspaces/subscriptions, streams live prices via SignalR, and caches data in Redis for performance.
 
 ## Architecture (Clean Architecture + DDD)
 
@@ -15,42 +15,96 @@ Infrastructure → Application + Domain
 **Never reference Infrastructure or Api from Application/Domain layers.**
 
 ### Core Components
-- **Domain**: Entities (`Symbol`, `Sector`, `Exchange`), Enums (`SymbolType`, `SymbolStatus`), Constants, Interfaces
-- **Application**: Use cases (CQRS with MediatR), DTOs, FluentValidation, Service interfaces
-- **Infrastructure**: DbContext (PostgreSQL/EF Core), Repositories, External services (SSI V1/V2/Streaming), Redis caching, SignalR Hub, Background workers
-- **Api**: ASP.NET Core controllers, Swagger configuration, Serilog logging
+- **Domain**: Entities (`Symbol`, `Sector`, `Exchange`, `User`, `Workspace`, `Subscription`, `UserSubscription`), Enums (`SymbolType`, `SymbolStatus`, `UserRole`, `CommonStatus`), Constants, Interfaces
+- **Application**: Use cases (CQRS with MediatR), DTOs, FluentValidation with `ValidationBehavior<,>`, Service interfaces
+- **Infrastructure**: DbContext (PostgreSQL/EF Core), Repositories, External services (SSI V1/V2/Streaming), Redis caching, SignalR Hub, Background workers (`SsiStreamingBackgroundService`)
+- **Api**: ASP.NET Core controllers, JWT authentication, Swagger configuration, Serilog logging, Custom middlewares
 
 ### Key Patterns
 1. **CQRS with MediatR**: All use cases are `IRequest<TResult>` with separate handlers
-   - Commands: `GreenDragonTrading.Application/UseCases/*/Commands/`
-   - Queries: `GreenDragonTrading.Application/UseCases/*/Queries/`
-   - Example: `ImportSymbolsFromSsiCommandV1` + `ImportSymbolsFromSsiCommandHandlerV1`
+   - Commands: `GreenDragonTrading.Application/UseCases/*/Commands/` (e.g., `Auth/Commands/Login/`, `Workspace/Commands/CreateWorkspace/`)
+   - Queries: `GreenDragonTrading.Application/UseCases/*/Queries/` (e.g., `Symbols/Queries/GetSymbols/`, `Auth/Queries/GetMe/`)
+   - Example: `LoginCommand` + `LoginCommandHandler` in `Auth/Commands/Login/`
 
-2. **Unit of Work + Repository**: Access DB via `IUnitOfWork` with scoped repositories
+2. **Validation Pipeline**: FluentValidation with MediatR behavior
+   ```csharp
+   // In Application/DependencyInjection.cs
+   cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+   services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+   ```
+   - Validators in same folder as commands/queries
+   - Auto-validated before handler execution
+
+3. **Unit of Work + Repository**: Access DB via `IUnitOfWork` with scoped repositories
    ```csharp
    await _uow.Symbols.AddRangeAsync(symbols);
    await _uow.SaveChangesAsync();
    ```
 
-3. **Dependency Injection Extensions**: Configure layers via `AddInfrastructure()` / `AddApplication()`
+4. **Dependency Injection Extensions**: Configure layers via `AddInfrastructure()` / `AddApplication()`
    - Located in `DependencyInjection.cs` in each project
+   - Infrastructure registers: DbContext, UoW, Repositories, External services, HttpClients, JWT auth, Hosted services
+   - Application registers: MediatR, FluentValidation, HttpContextAccessor
 
-4. **Standard API Response**: Wrap all controller responses in `ApiResponse<T>`
+5. **Standard API Response**: Wrap all controller responses in `ApiResponse<T>`
    ```csharp
    // For simple responses
    return Ok(ApiResponse<TData>.Success(data, "Success message"));
    
-   // For paginated responses
-   var paginatedResponse = PaginatedResponse<TData>.Create(items, totalCount, pageIndex, pageSize);
-   return Ok(ApiResponse<PaginatedResponse<TData>>.Success(paginatedResponse, "Success message"));
+   // For paginated responses (inherit PaginationQuery in query)
+   var paginatedResponse = PaginatedResponse<TDto>.Create(items, totalCount, pageIndex, pageSize);
+   return Ok(ApiResponse<PaginatedResponse<TDto>>.Success(paginatedResponse, "Success message"));
    
    // For non-generic responses
    return Ok(ApiResponse.Success("Success message"));
    
    // For error responses
-   return BadRequest(ApiResponse.Failure("Error message", "Error detail"));
-   return BadRequest(ApiResponse<TData>.Failure("Error message", errorList));
+   return BadRequest(ApiResponse.Failure("Error message", validationErrors));
+   return BadRequest(ApiResponse<TData>.Failure("Error message", validationErrors));
    ```
+
+## Exception Handling
+
+### Custom Exception Handler
+- Centralized exception handling via `CustomExceptionHandler` (IExceptionHandler)
+- Registered in Program.cs: `builder.Services.AddExceptionHandler<CustomExceptionHandler>()`
+- Automatically converts domain exceptions to appropriate HTTP status codes and `ApiResponse`
+
+### Domain Exceptions (in `Domain/Exceptions/`)
+- **`BusinessRuleException`** → 400 Bad Request: Business logic violations
+- **`ValidationException`** → 400 Bad Request: FluentValidation failures with `IDictionary<string, string[]>` errors
+- **`NotFoundException`** → 404 Not Found: Entity not found
+- **`ConflictException`** → 409 Conflict: Duplicate/conflict errors
+- **`AccessDeniedException`** → 403 Forbidden: Authorization failures
+- **`UnauthenticatedException`** → 401 Unauthorized: Authentication failures
+- **All others** → 500 Internal Server Error: Unexpected errors
+
+**Usage in handlers:**
+```csharp
+throw new NotFoundException("User not found");
+throw new ConflictException("Email already exists");
+throw new BusinessRuleException("Cannot delete active workspace");
+```
+
+
+## Authentication & Authorization
+
+### JWT Authentication
+- Configured in `Infrastructure/DependencyInjection.cs` with JWT Bearer scheme
+- Token validation: Issuer, Audience, Lifetime, IssuerSigningKey (symmetric)
+- ClockSkew set to `TimeSpan.Zero` for strict expiration
+- JWT options in `appsettings.json` → `JwtOptions` section
+
+### Token Blacklist Middleware
+- Custom middleware `TokenBlacklistMiddleware` checks if access tokens are blacklisted
+- **MUST run after authentication**: `app.UseAuthentication()` → `app.UseTokenBlacklist()` → `app.UseAuthorization()`
+- Extracts JTI from JWT claims and validates against `ITokenBlacklistService` (Redis-backed)
+- Returns 401 if token is blacklisted
+
+### Protected Endpoints
+- Use `[Authorize]` attribute on controllers/actions requiring authentication
+- Examples: `WorkspaceController.CreateWorkspace`, `AuthController.Logout`
+- User claims accessible via `HttpContext.User`
 
 ## External Integrations
 
@@ -59,10 +113,31 @@ Infrastructure → Application + Domain
 - **V2** (`ISsiServiceV2`): Modern REST API with RSA encryption, requires OAuth via `ISsiAuthService`
 - **Streaming** (`ISsiStreamingService`): Real-time SignalR client connecting to `https://fc-datahub.ssi.com.vn`
 
+### DNSE Integration
+- **Service** (`IDnseService`): Financial report data provider
+- **Mapper** (`IDnseDataMapper`): Maps DNSE API responses to domain entities
+- Base URL: `Domain.Constants.DNSE.DnseConstants.API_BASE_URL`
+- Registered as typed HttpClient with 30s timeout
+
+### HttpClient Configuration
+All external services use typed HttpClients registered in `Infrastructure/DependencyInjection.cs`:
+- `ISsiServiceV1`: Timeout from options, `Accept: application/json`
+- `ISsiServiceV2`: `Accept: application/x-www-form-urlencoded`
+- `ISsiAuthService`: For OAuth token retrieval
+- `IDnseService`: Base URL configured, 30s timeout
+
+### File Storage (Cloudflare R2 / AWS S3)
+- **Service** (`IFileStorageService`): Implemented by `S3FileStorageService`
+- S3-compatible storage for Cloudflare R2 or AWS S3
+- Configuration via `R2Options` and `AWS:Credentials` sections
+- Requires `ServiceURL`, `AccessKeyId`, `SecretAccessKey`, `BucketName`
+- Set `ForcePathStyle = true` for R2 compatibility
+
 ### Data Flow
 1. **Import**: Controllers trigger MediatR commands → Services fetch from SSI → Bulk insert/update PostgreSQL
 2. **Streaming**: `SsiStreamingBackgroundService` (hosted service) subscribes to SSI → Publishes to `IMarketDataBroadcaster` → SignalR broadcasts to clients
 3. **Caching**: Market data stored in Redis with key pattern `MarketData:Symbol:{ticker}`
+
 
 ## Database & Persistence
 
@@ -85,6 +160,25 @@ dotnet ef database update --project GreenDragonTrading.Infrastructure --startup-
 - Columns: `[Column("column_name")]` with explicit `TypeName` for PostgreSQL types
 - Navigation: Use `ExchangeCode`/`SectorId` foreign keys (explicit relationships in `OnModelCreating`)
 
+### Sector Hierarchy Pattern
+- **Structure**: Sectors have 4 levels (1-4) in a tree hierarchy with `ParentId` relationships
+- **Symbol Association**: Symbols only link to level 4 sectors (leaf nodes)
+- **Querying Pattern**: When retrieving sectors at levels < 4:
+  1. Find all descendant level 4 sectors using recursive traversal
+  2. Collect symbols from all level 4 descendants
+  3. Return aggregated symbol list with the parent sector
+- **Implementation**: 
+  - Repository method: `GetAllChildLevel4SectorIdsAsync()` uses LINQ-based recursion
+  - Loads all sectors into memory (acceptable for typical sector count)
+  - Example: Level 2 "Banking" sector returns symbols from all child level 4 sectors like "Commercial Banks", "Investment Banks", etc.
+- **Example hierarchy**:
+  ```
+  Level 1: Finance
+    └─ Level 2: Banking
+        └─ Level 3: Commercial Banking  
+            └─ Level 4: Joint-stock Banks → [VCB, CTG, BID, ...]
+  ```
+
 ## Development Workflow
 
 ### Running the Application
@@ -96,15 +190,42 @@ dotnet run --project GreenDragonTrading.Api
 # https://localhost:7148/swagger (default HTTPS port)
 ```
 
+### Quick Start Script
+Use `run-server-and-client.ps1` to launch both API and SignalR test client simultaneously.
+
 ### Project Structure
 - `.sln` file at root: Reference this for builds
 - `appsettings.Development.json`: Local config (NOT committed with real credentials)
 - `Logs/`: Serilog file outputs (rolling daily, 7-day retention)
+- `GreenDragonTrading.SignalRClient/`: Standalone console app for testing SignalR hub
 
 ### Key Configuration Sections
 - `SsiApiV1`: IBoard API endpoints
 - `SsiApiV2`: FastConnect credentials (ConsumerID, ConsumerSecret, RSA keys)
+- `JwtOptions`: JWT secret, issuer, audience, token lifetimes
+- `EmailOptions`: SMTP configuration for email verification/password reset
+- `R2Options` / `AWS:Credentials`: Cloudflare R2 or AWS S3 storage configuration
+- `Cors:AllowedOrigins`: Array of allowed CORS origins
 - `Serilog`: Console + File sinks with structured logging
+
+### Environment Configuration
+- Uses `DotNetEnv` package to load `.env` file at startup
+- Call `Env.Load()` before building the app
+- Environment variables override `appsettings.json` via `EnvironmentConfiguration.AddEnvironmentVariables()`
+- See `.env.example` for required configuration keys
+- **Never commit `.env` files** - they contain secrets
+
+### Middleware Order (Critical)
+```csharp
+// In Program.cs - MUST follow this exact order
+app.UseExceptionHandler(options => { });        // 1. Exception handling first
+app.UseCors("AppCorsPolicy");                   // 2. CORS before auth
+app.UseAuthentication();                        // 3. Authenticate user
+app.UseAuthorization();                         // 4. Authorize user (BEFORE TokenBlacklist!)
+app.UseTokenBlacklist();                        // 5. Check token blacklist (requires authenticated user)
+app.MapControllers();
+app.MapHub<MarketDataHub>("/hubs/marketdata");
+```
 
 ## Real-Time Features
 
@@ -129,20 +250,20 @@ Standard response wrapper for all API endpoints. Located in `GreenDragonTrading.
 - `IsSuccess` (bool): Indicates if the request was successful
 - `Message` (string): Human-readable message
 - `Data` (T, optional): Response payload (generic version only)
-- `Errors` (List<string>, optional): List of error messages
+- `ValidationErrors` (IDictionary<string, string[]>, optional): Validation errors by field
 - `ResponseTime` (DateTime): Timestamp of the response
 
 **Factory Methods:**
 ```csharp
 // Non-generic version
 ApiResponse.Success(string message = "Thành công")
-ApiResponse.Failure(string message, List<string> errors)
-ApiResponse.Failure(string message, string? error = null)
+ApiResponse.Failure(string message, IDictionary<string, string[]> validationErrors)
+ApiResponse.Failure(string message)
 
 // Generic version
 ApiResponse<T>.Success(T data, string message = "Thành công")
-ApiResponse<T>.Failure(string message, List<string> errors)
-ApiResponse<T>.Failure(string message, string? error = null)
+ApiResponse<T>.Failure(string message, IDictionary<string, string[]> validationErrors)
+ApiResponse<T>.Failure(string message)
 ```
 
 ### PaginatedResponse<T>
@@ -194,6 +315,27 @@ return Ok(result); // ApiResponse is already wrapped by handler
 - Use ILogger via constructor injection
 - Structured logging: `_logger.LogInformation("Message {Property}", value);`
 - Log levels: Debug (SSI responses), Information (operations), Warning (errors), Error (exceptions)
+
+### Comments and Documentation
+- **All code comments and XML summaries must be in English**
+- Use XML documentation (`/// <summary>`) for public APIs, controllers, and use cases
+- Include `<param>` and `<returns>` tags for clarity in Swagger
+- User-facing API response messages can be in Vietnamese (e.g., success messages in `ApiResponse`)
+- Example:
+  ```csharp
+  /// <summary>
+  /// Retrieves a paginated list of sectors with their associated symbols.
+  /// </summary>
+  /// <param name="level">Sector level (1-4). If null, retrieves all levels.</param>
+  /// <returns>Paginated list of sectors</returns>
+  public async Task<ApiResponse<PaginatedResponse<SectorDto>>> GetSectors(int? level, ...)
+  {
+      // If sector is level 4, get symbols directly
+      if (sector.Level == 4) { ... }
+      
+      return ApiResponse.Success(data, "Lấy danh sách thành công"); // Vietnamese OK for user messages
+  }
+  ```
 
 ## Testing & Debugging
 

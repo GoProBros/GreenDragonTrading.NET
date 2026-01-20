@@ -1,6 +1,9 @@
 ﻿using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Infrastructure.Persistence.Seeding;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Persistence
 {
@@ -10,11 +13,13 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<Sector> Sectors => Set<Sector>();
         public DbSet<Symbol> Symbols => Set<Symbol>();
         public DbSet<User> Users => Set<User>();
+        public DbSet<FinancialReport> FinancialReports => Set<FinancialReport>();
         public DbSet<Subscription> Subscriptions => Set<Subscription>();
         public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
         public DbSet<Workspace> Workspaces => Set<Workspace>();
         public DbSet<ModuleLayout> ModuleLayouts => Set<ModuleLayout>();
         public DbSet<WatchList> WatchLists => Set<WatchList>();
+        public DbSet<Transaction> Transactions => Set<Transaction>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -115,6 +120,72 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                        .WithMany() 
                        .HasForeignKey(w => w.UserId)
                        .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<FinancialReport>(builder =>
+            {
+                builder.ToTable("financial_reports");
+
+                builder.Property(f => f.Id)
+                       .HasDefaultValueSql("gen_random_uuid()");
+
+                builder.HasOne(f => f.Symbol)
+                       .WithMany()
+                       .HasForeignKey(f => f.Ticker)
+                       .IsRequired()
+                       .OnDelete(DeleteBehavior.Restrict);
+
+                builder.HasIndex(f => new { f.Ticker, f.Year, f.Period })
+                       .IsUnique();
+
+                builder.HasIndex(f => f.Status);
+                
+                builder.HasIndex(f => f.FilePath);
+
+                // Configure ReportData as JSONB column with proper serialization
+                builder.Property(f => f.ReportData)
+                       .HasColumnName("report_data")
+                       .HasColumnType("jsonb")
+                       .HasConversion(
+                           v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                           v => JsonSerializer.Deserialize<FinancialReportData>(v, (JsonSerializerOptions?)null) ?? new FinancialReportData(),
+                           new ValueComparer<FinancialReportData>(
+                               (c1, c2) => JsonSerializer.Serialize(c1, (JsonSerializerOptions?)null) == JsonSerializer.Serialize(c2, (JsonSerializerOptions?)null),
+                               c => JsonSerializer.Serialize(c, (JsonSerializerOptions?)null).GetHashCode(),
+                               c => JsonSerializer.Deserialize<FinancialReportData>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null) ?? new FinancialReportData()
+                           )
+                       );
+            });
+
+            modelBuilder.Entity<Transaction>(builder =>
+            {
+                builder.ToTable("transactions");
+
+                builder.Property(t => t.Id)
+                       .HasDefaultValueSql("gen_random_uuid()");
+
+                builder.Property(t => t.OrderCode)
+                       .IsRequired();
+
+                builder.HasIndex(t => t.OrderCode)
+                       .IsUnique();
+
+                builder.Property(t => t.Amount)
+                       .HasColumnType("numeric(18, 2)");
+
+                builder.Property(t => t.Status)
+                       .HasColumnType("smallint")
+                       .HasDefaultValue(TransactionStatus.Pending);
+
+                builder.HasOne(t => t.User)
+                       .WithMany()
+                       .HasForeignKey(t => t.UserId)
+                       .OnDelete(DeleteBehavior.Cascade);
+
+                builder.HasOne(t => t.Subscription)
+                       .WithMany()
+                       .HasForeignKey(t => t.SubscriptionId)
+                       .OnDelete(DeleteBehavior.Restrict);
             });
 
             DatabaseSeeder.SeedAll(modelBuilder);

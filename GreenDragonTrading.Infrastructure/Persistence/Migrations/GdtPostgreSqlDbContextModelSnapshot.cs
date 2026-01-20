@@ -85,6 +85,66 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("file_path");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_size");
+
+                    b.Property<short>("Period")
+                        .HasColumnType("smallint")
+                        .HasColumnName("period");
+
+                    b.Property<string>("ReportData")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("report_data");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Ticker")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("ticker");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FilePath");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Ticker", "Year", "Period")
+                        .IsUnique();
+
+                    b.ToTable("financial_reports", (string)null);
+                });
+
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ModuleLayout", b =>
                 {
                     b.Property<long>("Id")
@@ -141,11 +201,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         {
                             Id = 1L,
                             ConfigJson = "\r\n        {\r\n          \"state\": {\r\n            \"columns\": {\r\n              \"ticker\": { \"field\": \"ticker\", \"visible\": true, \"width\": 80, \"order\": 0 },\r\n              \"lastPrice\": { \"field\": \"lastPrice\", \"visible\": true, \"width\": 95, \"order\": 10 },\r\n              \"change\": { \"field\": \"change\", \"visible\": true, \"width\": 80, \"order\": 12 },\r\n              \"ratioChange\": { \"field\": \"ratioChange\", \"visible\": true, \"width\": 90, \"order\": 13 },\r\n              \"totalVol\": { \"field\": \"totalVol\", \"visible\": true, \"width\": 120, \"order\": 20 },\r\n              \"PE\": { \"field\": \"PE\", \"visible\": false, \"width\": 80, \"order\": 48 },\r\n              \"ROE\": { \"field\": \"ROE\", \"visible\": false, \"width\": 80, \"order\": 49 }\r\n            }\r\n          }\r\n        }",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 9, 11, 36, 20, 422, DateTimeKind.Unspecified).AddTicks(4906), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 18, 14, 6, 35, 107, DateTimeKind.Unspecified).AddTicks(5327), new TimeSpan(0, 0, 0, 0, 0)),
                             IsSystemDefault = true,
                             LayoutName = "Giao diện bộ lọc mặc định",
                             ModuleType = (short)1,
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 9, 11, 36, 20, 422, DateTimeKind.Unspecified).AddTicks(4907), new TimeSpan(0, 0, 0, 0, 0))
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 18, 14, 6, 35, 107, DateTimeKind.Unspecified).AddTicks(5327), new TimeSpan(0, 0, 0, 0, 0))
                         });
                 });
 
@@ -167,6 +227,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.Property<string>("ParentId")
                         .HasColumnType("varchar(10)")
                         .HasColumnName("parent_id");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status");
 
                     b.Property<string>("ViName")
                         .HasMaxLength(100)
@@ -268,6 +332,53 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.ToTable("symbols");
                 });
 
+            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Transaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18, 2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("OrderCode")
+                        .HasColumnType("bigint")
+                        .HasColumnName("order_code");
+
+                    b.Property<short>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)0)
+                        .HasColumnName("status");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderCode")
+                        .IsUnique();
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("transactions", (string)null);
+                });
+
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -334,15 +445,15 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("ea87b37e-8200-4439-9596-7f8a5660f631"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 9, 11, 36, 20, 422, DateTimeKind.Unspecified).AddTicks(4858), new TimeSpan(0, 0, 0, 0, 0)),
+                            Id = new Guid("4c0aa1c2-bece-4999-a020-7cb8dc638cef"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Email = "greendragon.trading.team@gmail.com",
-                            HashedPassword = "96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e",
+                            HashedPassword = "$2a$11$y99atouBMSFU1RGWaKDebegoBTTJDfz9uVZ9G0G3yx0C8OSyjzwt6",
                             IsEmailVerified = true,
                             PhoneNumber = "0988671875",
                             Role = (short)3,
                             Status = (short)1,
-                            Username = "admin"
+                            Username = "Admin"
                         });
                 });
 
@@ -489,12 +600,23 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 9, 11, 36, 20, 422, DateTimeKind.Unspecified).AddTicks(4958), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 16, 14, 35, 14, 887, DateTimeKind.Unspecified).AddTicks(9453), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             LayoutJson = "{\r\n          \"modules\": [\r\n            {\r\n              \"i\": \"stock-screener-default\",\r\n              \"type\": \"stock-screener\",\r\n              \"title\": \"Bộ lọc cổ phiếu\",\r\n              \"x\": 0, \"y\": 36, \"w\": 96, \"h\": 20,\r\n              \"activeLayoutId\": 1  \r\n            }\r\n          ]\r\n        }",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 9, 11, 36, 20, 422, DateTimeKind.Unspecified).AddTicks(4959), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 16, 14, 35, 14, 887, DateTimeKind.Unspecified).AddTicks(9454), new TimeSpan(0, 0, 0, 0, 0)),
                             WorkspaceName = "SYSTEM_DEFAULT_LAYOUT"
                         });
+                });
+
+            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReport", b =>
+                {
+                    b.HasOne("GreenDragonTrading.Domain.Entities.Symbol", "Symbol")
+                        .WithMany()
+                        .HasForeignKey("Ticker")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Symbol");
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ModuleLayout", b =>
@@ -531,6 +653,25 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.Navigation("Exchange");
 
                     b.Navigation("Sector");
+                });
+
+            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Transaction", b =>
+                {
+                    b.HasOne("GreenDragonTrading.Domain.Entities.Subscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GreenDragonTrading.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.UserSubscription", b =>
