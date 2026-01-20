@@ -21,6 +21,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         private readonly ILogger<SsiStreamingBackgroundService> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IMarketDataBroadcaster _broadcaster;
+        private readonly IOhlcvAggregationService _ohlcvAggregationService;
 
         private readonly Func<string, Task> _broadcastHandler;
         private readonly Action<string> _errorHandler;
@@ -33,16 +34,19 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         /// <param name="logger">Logger</param>
         /// <param name="serviceScopeFactory">Service scope factory</param>
         /// <param name="broadcaster">Market data broadcaster</param>
+        /// <param name="ohlcvAggregationService">OHLCV aggregation service</param>
         public SsiStreamingBackgroundService(
             ISsiStreamingService streamingService,
             ILogger<SsiStreamingBackgroundService> logger,
             IServiceScopeFactory serviceScopeFactory,
-            IMarketDataBroadcaster broadcaster)
+            IMarketDataBroadcaster broadcaster,
+            IOhlcvAggregationService ohlcvAggregationService)
         {
             _streamingService = streamingService;
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
             _broadcaster = broadcaster;
+            _ohlcvAggregationService = ohlcvAggregationService;
 
             _broadcastHandler = async (data) => await HandleBroadcast(data);
             _errorHandler = async (error) => await HandleError(error);
@@ -56,6 +60,21 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         protected async override Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("SSI Streaming Background Service started.");
+            
+            // Initialize OHLCV aggregation service
+            await _ohlcvAggregationService.InitializeAsync(stoppingToken);
+            
+            // Start periodic check for expired candles (every 1 second)
+            _ = Task.Run(async () =>
+            {
+                using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+                while (await timer.WaitForNextTickAsync(stoppingToken))
+                {
+                    await _ohlcvAggregationService.CheckAndCloseExpiredCandlesAsync(
+                        DateTime.UtcNow, stoppingToken);
+                }
+            }, stoppingToken);
+            
             await _streamingService.StartAsync(stoppingToken);
 
             IEnumerable<string> tickers = [];
@@ -440,6 +459,21 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 else
                 {
                     await CreateNewSnapshotData(redis, redisKey, response);
+                }
+
+                // Process tick for OHLCV aggregation
+                if (response.LastVal.HasValue && response.LastVal.Value > 0)
+                {
+                    var tick = new TickData
+                    {
+                        Ticker = response.Symbol!,
+                        Price = (decimal)response.LastVal.Value,
+                        Volume = (long)(response.LastVol ?? 0),
+                        Value = (decimal)(response.LastVal.Value * (response.LastVol ?? 0)),
+                        Timestamp = DateTime.UtcNow
+                    };
+
+                    await _ohlcvAggregationService.ProcessTickAsync(tick);
                 }
             }
             catch (Exception ex)

@@ -28,42 +28,49 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             var entities = ohlcvList.ToList();
             if (entities.Count == 0) return 0;
 
-            // Track the count before attempting insert
-            var countBefore = await _context.Ohlcv.CountAsync(cancellationToken);
-
-            // Try to add all entities - duplicates will be silently skipped by DB constraint
-            await _context.Ohlcv.AddRangeAsync(entities, cancellationToken);
+            // Use raw SQL with INSERT ... ON CONFLICT DO NOTHING for proper UPSERT
+            // This efficiently handles duplicates without exceptions
+            var insertedCount = 0;
             
-            try
+            // Process in smaller batches of 500 to avoid memory issues
+            var batchSize = 500;
+            var now = DateTime.UtcNow; // Single timestamp for entire batch
+            
+            for (int i = 0; i < entities.Count; i += batchSize)
             {
-                await _context.SaveChangesAsync(cancellationToken);
-                // All entities were inserted successfully
-                return entities.Count;
-            }
-            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx 
-                && pgEx.SqlState == "23505") // Unique constraint violation
-            {
-                // Some duplicates exist - need to save individually to get exact count
-                _context.ChangeTracker.Clear(); // Clear failed state
+                var batch = entities.Skip(i).Take(batchSize).ToList();
                 
-                var insertedCount = 0;
-                foreach (var entity in entities)
+                // Build the SQL command for batch insert - include created_at and source (required NOT NULL columns)
+                var sql = @"INSERT INTO ohlcv (time, ticker, timeframe, open, high, low, close, volume, is_preliminary, created_at, source) 
+                           VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10) 
+                           ON CONFLICT (time, ticker, timeframe) DO NOTHING";
+
+                // Execute each entity in the batch
+                foreach (var entity in batch)
                 {
-                    try
-                    {
-                        _context.Ohlcv.Add(entity);
-                        await _context.SaveChangesAsync(cancellationToken);
-                        insertedCount++;
-                    }
-                    catch (DbUpdateException)
-                    {
-                        // Duplicate - skip and continue
-                        _context.ChangeTracker.Clear();
-                    }
+                    var rowsAffected = await _context.Database.ExecuteSqlRawAsync(
+                        sql,
+                        new object[] 
+                        {
+                            entity.Time,
+                            entity.Ticker,
+                            entity.Timeframe,
+                            entity.Open,
+                            entity.High,
+                            entity.Low,
+                            entity.Close,
+                            entity.Volume,
+                            entity.IsPreliminary,
+                            entity.CreatedAt == default ? now : entity.CreatedAt, // Use entity's CreatedAt or fallback to now
+                            string.IsNullOrEmpty(entity.Source) ? "SSI" : entity.Source // Default to "SSI" if not set
+                        },
+                        cancellationToken);
+                    
+                    insertedCount += rowsAffected;
                 }
-                
-                return insertedCount;
             }
+
+            return insertedCount;
         }
 
         public async Task UpsertAsync(Ohlcv ohlcv, CancellationToken cancellationToken = default)

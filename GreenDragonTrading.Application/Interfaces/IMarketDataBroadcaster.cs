@@ -15,5 +15,12 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="data">Data to broadcast</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastMarketDataAsync<T>(string symbol, T data, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast OHLCV candle update to specific ticker+timeframe group
+        /// </summary>
+        /// <param name="candle">Current candle data</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastOhlcvUpdateAsync(CurrentCandleDto candle, CancellationToken cancellationToken = default);
     }
 }

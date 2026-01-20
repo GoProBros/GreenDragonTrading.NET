@@ -79,5 +79,34 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 
             return (symbols, totalCount);
         }
+
+        public async Task<List<Symbol>> GetActiveSymbolsForHeatmapAsync(
+            string? exchange = null,
+            string? sector = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _dbSet
+                .AsNoTracking()
+                .Include(s => s.Exchange)
+                .Include(s => s.Sector)
+                .Where(s => s.Status == CommonStatus.Active);
+
+            // Apply exchange filter
+            if (!string.IsNullOrWhiteSpace(exchange))
+            {
+                query = query.Where(s => s.ExchangeCode == exchange);
+            }
+
+            // Apply sector filter
+            if (!string.IsNullOrWhiteSpace(sector))
+            {
+                query = query.Where(s => s.SectorId == sector);
+            }
+
+            // Order by ticker for consistent display
+            return await query
+                .OrderBy(s => s.Ticker)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

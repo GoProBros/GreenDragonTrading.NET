@@ -94,5 +94,12 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("source", TypeName = "varchar(50)")]
         [MaxLength(50)]
         public string Source { get; set; } = "SSI";
+
+        /// <summary>
+        /// Flag indicating if this is preliminary data (for D1 real-time aggregation)
+        /// Will be overwritten by official data from SSI API later
+        /// </summary>
+        [Column("is_preliminary", TypeName = "boolean")]
+        public bool IsPreliminary { get; set; } = false;
     }
 }

@@ -57,8 +57,53 @@ public class IntradayOhlcvImporter
                     Resollution = 1 // 1 minute
                 };
 
-                var (ssiResponse, recordCount) = await _ssiService.FetchIntradayOhlcAsync(request, cancellationToken);
-                _logger.LogInformation("Received {Count} records from batch", recordCount);
+                // Retry logic with exponential backoff
+                var maxRetries = 3;
+                var retryCount = 0;
+                IntradayOhlcResponse? ssiResponse = null;
+                int recordCount = 0;
+                bool batchFailed = false;
+
+                while (retryCount < maxRetries)
+                {
+                    try
+                    {
+                        (ssiResponse, recordCount) = await _ssiService.FetchIntradayOhlcAsync(request, cancellationToken);
+                        _logger.LogInformation("Received {Count} records from batch", recordCount);
+                        break; // Success, exit retry loop
+                    }
+                    catch (TaskCanceledException ex)
+                    {
+                        retryCount++;
+                        if (retryCount >= maxRetries)
+                        {
+                            _logger.LogError(ex, "Failed to fetch batch after {Retries} retries: {From} to {To} - Skipping batch", 
+                                maxRetries, batchFrom.ToString("yyyy-MM-dd"), batchTo.ToString("yyyy-MM-dd"));
+                            result.FailedCount++;
+                            batchFailed = true;
+                            break; // Exit retry loop, skip this batch
+                        }
+
+                        var delayMs = 1000 * (int)Math.Pow(2, retryCount); // 2s, 4s, 8s
+                        _logger.LogWarning("Request timeout, retrying in {Delay}ms (attempt {Retry}/{Max})", 
+                            delayMs, retryCount + 1, maxRetries);
+                        await Task.Delay(delayMs, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Unexpected error fetching batch: {From} to {To} - Skipping batch", 
+                            batchFrom.ToString("yyyy-MM-dd"), batchTo.ToString("yyyy-MM-dd"));
+                        result.FailedCount++;
+                        batchFailed = true;
+                        break; // Exit retry loop, skip this batch
+                    }
+                }
+
+                // Skip processing if batch failed
+                if (batchFailed)
+                {
+                    continue;
+                }
 
                 if (ssiResponse?.Data != null && ssiResponse.Data.Count > 0)
                 {
@@ -240,13 +285,17 @@ public class IntradayOhlcvImporter
     private Domain.Entities.Ohlcv ConvertToEntity(IntradayOhlcResponseModel data)
     {
         // Parse TradingDate (dd/MM/yyyy) and Time (HH:mm:ss)
+        // SSI trả về giờ Việt Nam (GMT+7), cần trừ đi 7 giờ để lưu đúng UTC
         var tradingDate = DateTime.ParseExact(data.TradingDate!, "dd/MM/yyyy", CultureInfo.InvariantCulture);
         var time = TimeSpan.ParseExact(data.Time!, @"hh\:mm\:ss", CultureInfo.InvariantCulture);
         var dateTime = tradingDate.Add(time);
         
+        // Convert from Vietnam time (GMT+7) to UTC by subtracting 7 hours
+        var utcDateTime = dateTime.AddHours(-7);
+        
         return new Domain.Entities.Ohlcv
         {
-            Time = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc),
+            Time = DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc),
             Ticker = data.Symbol!.ToUpper(),
             Timeframe = OhlcvConstants.Timeframes.M1,
             Open = decimal.Parse(data.Open!),

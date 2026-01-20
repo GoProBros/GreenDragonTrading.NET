@@ -48,6 +48,8 @@ namespace GreenDragonTrading.Infrastructure
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
             services.AddScoped<IFinscService, FinscService>();
+            services.AddScoped<IHeatmapService, HeatmapService>();
+            services.AddSingleton<IOhlcvAggregationService, OhlcvAggregationService>();
 
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();
@@ -65,6 +67,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHostedService<SsiStreamingBackgroundService>();
 
             // Register Api options
+            // Register Api options (must be configured before registering Background Services)
             services.Configure<SsiApiOptionsV1>(configuration.GetSection(SsiApiOptionsV1.SectionName));
             services.Configure<SsiApiOptionsV2>(configuration.GetSection(SsiApiOptionsV2.SectionName));
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
@@ -92,6 +95,15 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHttpClient<ISsiAuthService, SsiAuthService>((sp, client) =>
             {
                 var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
+
+                // Add null check and logging
+                if (string.IsNullOrEmpty(options.FastConnectUrl))
+                {
+                    throw new InvalidOperationException(
+                        "SsiApiV2:FastConnectUrl is not configured. " +
+                        $"ConsumerID: {options.ConsumerID ?? "null"}, " +
+                        $"TimeoutSeconds: {options.TimeoutSeconds}");
+                }
 
                 client.BaseAddress = new Uri(options.FastConnectUrl);
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
@@ -139,6 +151,10 @@ namespace GreenDragonTrading.Infrastructure
                     };
                 });
             }
+
+            // Register Background Services (after all dependencies are configured)
+            services.AddHostedService<SsiStreamingBackgroundService>();
+            services.AddHostedService<HeatmapBroadcastService>();
 
             return services;
         }

@@ -16,6 +16,7 @@ public static class EnvironmentConfiguration
         {
             // Database Configuration
             ["ConnectionStrings:GdtPostgreSqlConnection"] = BuildPostgresConnectionString(),
+            ["ConnectionStrings:OhlcvTimescaleDbConnection"] = BuildTimescaleDbConnectionString(),
             ["ConnectionStrings:Redis"] = BuildRedisConnectionString(),
 
             // SSI API V1
@@ -59,6 +60,22 @@ public static class EnvironmentConfiguration
             ["PayOS:ReturnUrl"] = Environment.GetEnvironmentVariable("PAYOS_RETURN_URL") ?? "",
             ["PayOS:CancelUrl"] = Environment.GetEnvironmentVariable("PAYOS_CANCEL_URL") ?? "",
             ["PayOS:ExpirationMinutes"] = Environment.GetEnvironmentVariable("PAYOS_EXPIRATION_MINUTES") ?? "30",
+            // File Storage R2
+            ["FileStorage:R2:AccountId"] = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID"),
+            ["FileStorage:R2:BucketName"] = Environment.GetEnvironmentVariable("R2_BUCKET_NAME"),
+
+            // AWS
+            ["AWS:Region"] = Environment.GetEnvironmentVariable("AWS_REGION"),
+            ["AWS:Credentials:AccessKeyId"] = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"),
+            ["AWS:Credentials:SecretAccessKey"] = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY"),
+
+            // R2 Options
+            ["R2Options:AccountId"] = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID"),
+            ["R2Options:BucketName"] = Environment.GetEnvironmentVariable("R2_BUCKET_NAME"),
+            ["R2Options:PublicUrl"] = Environment.GetEnvironmentVariable("R2_PUBLIC_URL"),
+
+            // Finsc API
+            ["FinscApiOptions:FinscBaseUrl"] = Environment.GetEnvironmentVariable("FINSC_BASE_URL"),
         };
 
         // Add CORS allowed origins (split by comma)
@@ -86,6 +103,20 @@ public static class EnvironmentConfiguration
             return null;
 
         return $"Host={host};Database={database};Username={username};Password={password}";
+    }
+
+    private static string? BuildTimescaleDbConnectionString()
+    {
+        var host = Environment.GetEnvironmentVariable("OHLCV_DATABASE_HOST");
+        var port = Environment.GetEnvironmentVariable("OHLCV_DATABASE_PORT") ?? "5433";
+        var database = Environment.GetEnvironmentVariable("OHLCV_DATABASE_NAME");
+        var username = Environment.GetEnvironmentVariable("OHLCV_DATABASE_USERNAME");
+        var password = Environment.GetEnvironmentVariable("OHLCV_DATABASE_PASSWORD");
+
+        if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(database))
+            return null;
+
+        return $"Host={host};Port={port};Database={database};Username={username};Password={password}";
     }
 
     private static string? BuildRedisConnectionString()

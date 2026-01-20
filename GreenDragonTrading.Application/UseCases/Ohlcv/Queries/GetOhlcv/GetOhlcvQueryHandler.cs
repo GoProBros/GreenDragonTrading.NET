@@ -16,15 +16,18 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
     {
         private readonly IOhlcvUnitOfWork _ohlcvUow;
         private readonly IRedisService _redisService;
+        private readonly IOhlcvAggregationService _ohlcvAggregationService;
         private readonly ILogger<GetOhlcvQueryHandler> _logger;
 
         public GetOhlcvQueryHandler(
             IOhlcvUnitOfWork ohlcvUow,
             IRedisService redisService,
+            IOhlcvAggregationService ohlcvAggregationService,
             ILogger<GetOhlcvQueryHandler> logger)
         {
             _ohlcvUow = ohlcvUow;
             _redisService = redisService;
+            _ohlcvAggregationService = ohlcvAggregationService;
             _logger = logger;
         }
 
@@ -67,6 +70,43 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
                     // Timeframe có trong DB (M1 hoặc D1) - query trực tiếp
                     ohlcvData = await QueryFromDatabase(request, cancellationToken);
                     source = "Database";
+                    
+                    // CRITICAL: Append in-memory current candle if it exists and has data
+                    // This ensures D1 chart shows today's candle (in-progress) before market close
+                    var currentCandle = _ohlcvAggregationService.GetCurrentCandle(request.Ticker, request.Timeframe);
+                    if (currentCandle != null && currentCandle.Volume > 0)
+                    {
+                        // Check if this candle is not already in DB results (avoid duplicates)
+                        var candleStartTime = currentCandle.StartTime;
+                        var existsInDb = ohlcvData.Any(c => c.Time == candleStartTime);
+                        
+                        if (!existsInDb)
+                        {
+                            // Add in-memory candle to results
+                            var inMemoryCandle = new Domain.Entities.Ohlcv
+                            {
+                                Time = currentCandle.StartTime,
+                                Ticker = currentCandle.Ticker,
+                                Timeframe = currentCandle.Timeframe,
+                                Open = currentCandle.Open,
+                                High = currentCandle.High,
+                                Low = currentCandle.Low,
+                                Close = currentCandle.Close,
+                                Volume = currentCandle.Volume,
+                                Value = currentCandle.TotalValue,
+                                Source = "IN_MEMORY",
+                                IsPreliminary = true,
+                                CreatedAt = currentCandle.LastUpdateTime
+                            };
+                            
+                            ohlcvData.Add(inMemoryCandle);
+                            source = "Database + In-Memory";
+                            
+                            _logger.LogDebug(
+                                "Appended in-memory {Timeframe} candle for {Ticker} to query results",
+                                request.Timeframe, request.Ticker);
+                        }
+                    }
                 }
                 else
                 {
@@ -194,6 +234,42 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
             else
             {
                 aggregated = OhlcvAggregationHelper.AggregateFromD1(sourceData, request.Timeframe);
+            }
+
+            // CRITICAL: Append in-memory current candle if exists
+            // For computed timeframes (M5, M15, H1, H4), include the current in-progress candle
+            var currentCandle = _ohlcvAggregationService.GetCurrentCandle(request.Ticker, request.Timeframe);
+            if (currentCandle != null && currentCandle.Volume > 0)
+            {
+                // Check if this candle is not already in aggregated results (avoid duplicates)
+                var candleStartTime = currentCandle.StartTime;
+                var existsInResults = aggregated.Any(c => c.Time == candleStartTime);
+                
+                if (!existsInResults)
+                {
+                    // Add in-memory candle to results
+                    var inMemoryCandle = new Domain.Entities.Ohlcv
+                    {
+                        Time = currentCandle.StartTime,
+                        Ticker = currentCandle.Ticker,
+                        Timeframe = currentCandle.Timeframe,
+                        Open = currentCandle.Open,
+                        High = currentCandle.High,
+                        Low = currentCandle.Low,
+                        Close = currentCandle.Close,
+                        Volume = currentCandle.Volume,
+                        Value = currentCandle.TotalValue,
+                        Source = "IN_MEMORY",
+                        IsPreliminary = true,
+                        CreatedAt = currentCandle.LastUpdateTime
+                    };
+                    
+                    aggregated.Add(inMemoryCandle);
+                    
+                    _logger.LogDebug(
+                        "Appended in-memory {Timeframe} candle for {Ticker} to computed results",
+                        request.Timeframe, request.Ticker);
+                }
             }
 
             // Apply limit nếu có
