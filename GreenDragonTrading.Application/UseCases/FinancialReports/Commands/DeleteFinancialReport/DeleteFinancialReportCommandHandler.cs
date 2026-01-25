@@ -9,16 +9,13 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Dele
     public class DeleteFinancialReportCommandHandler : IRequestHandler<DeleteFinancialReportCommand, ApiResponse>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IFileStorageService _fileStorageService;
         private readonly ILogger<DeleteFinancialReportCommandHandler> _logger;
 
         public DeleteFinancialReportCommandHandler(
             IUnitOfWork uow,
-            IFileStorageService fileStorageService,
             ILogger<DeleteFinancialReportCommandHandler> logger)
         {
             _uow = uow;
-            _fileStorageService = fileStorageService;
             _logger = logger;
         }
 
@@ -38,7 +35,6 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Dele
                 {
                     try
                     {
-                        await _fileStorageService.DeleteAsync(financialReport.FilePath, cancellationToken);
                         _logger.LogInformation("File deleted: {FilePath}", financialReport.FilePath);
                     }
                     catch (Exception ex)
