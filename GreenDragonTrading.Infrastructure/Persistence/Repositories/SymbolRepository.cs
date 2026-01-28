@@ -87,8 +87,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         {
             var query = _dbSet
                 .AsNoTracking()
-                .Include(s => s.Exchange)
-                .Include(s => s.Sector)
                 .Where(s => s.Status == CommonStatus.Active);
 
             // Apply exchange filter
@@ -102,6 +100,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             {
                 query = query.Where(s => s.SectorId == sector);
             }
+
+            // Include navigation properties after filtering
+            query = query
+                .Include(s => s.Exchange)
+                .Include(s => s.Sector);
 
             // Order by ticker for consistent display
             return await query

@@ -14,13 +14,11 @@ namespace GreenDragonTrading.Infrastructure.Hubs
     public class MarketDataHub(
         ILogger<MarketDataHub> logger,
         IRedisService redisService,
-        IOhlcvAggregationService ohlcvAggregationService,
-        IHeatmapService heatmapService) : Hub
+        IOhlcvAggregationService ohlcvAggregationService) : Hub
     {
         private readonly ILogger<MarketDataHub> _logger = logger;
         private readonly IRedisService _redisService = redisService;
         private readonly IOhlcvAggregationService _ohlcvAggregationService = ohlcvAggregationService;
-        private readonly IHeatmapService _heatmapService = heatmapService;
 
         public override async Task OnConnectedAsync()
         {
@@ -246,92 +244,6 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                     "Failed to send all current candles for {Ticker} to client {ConnectionId}",
                     ticker, Context.ConnectionId);
             }
-        }
-
-        /// <summary>
-        /// Subscribe to heatmap updates.
-        /// Client will receive real-time heatmap data updates.
-        /// </summary>
-        /// <param name="exchange">Exchange code (HSX, HNX, UPCOM) - null for all</param>
-        /// <param name="sector">Sector ID - null for all</param>
-        public async Task SubscribeToHeatmap(string? exchange = null, string? sector = null)
-        {
-            var groupName = GetHeatmapGroupName(exchange, sector);
-            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-
-            _logger.LogInformation(
-                "Client {ConnectionId} subscribed to heatmap: exchange={Exchange}, sector={Sector}",
-                Context.ConnectionId, exchange ?? "ALL", sector ?? "ALL");
-
-            // Send current heatmap data immediately
-            try
-            {
-                var heatmapData = await _heatmapService.GetHeatmapDataAsync(exchange, sector);
-                await Clients.Caller.SendAsync("ReceiveHeatmapData", heatmapData);
-                
-                _logger.LogDebug(
-                    "Sent current heatmap data with {Count} items to client {ConnectionId}",
-                    heatmapData.TotalCount, Context.ConnectionId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "Failed to send current heatmap data to client {ConnectionId}",
-                    Context.ConnectionId);
-            }
-        }
-
-        /// <summary>
-        /// Unsubscribe from heatmap updates.
-        /// </summary>
-        /// <param name="exchange">Exchange code</param>
-        /// <param name="sector">Sector ID</param>
-        public async Task UnsubscribeFromHeatmap(string? exchange = null, string? sector = null)
-        {
-            var groupName = GetHeatmapGroupName(exchange, sector);
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-
-            _logger.LogInformation(
-                "Client {ConnectionId} unsubscribed from heatmap: exchange={Exchange}, sector={Sector}",
-                Context.ConnectionId, exchange ?? "ALL", sector ?? "ALL");
-        }
-
-        /// <summary>
-        /// Get current heatmap data snapshot.
-        /// </summary>
-        /// <param name="exchange">Exchange code (HSX, HNX, UPCOM) - null for all</param>
-        /// <param name="sector">Sector ID - null for all</param>
-        public async Task<HeatmapDataDto> GetCurrentHeatmap(string? exchange = null, string? sector = null)
-        {
-            try
-            {
-                var heatmapData = await _heatmapService.GetHeatmapDataAsync(exchange, sector);
-                
-                _logger.LogDebug(
-                    "Client {ConnectionId} requested current heatmap: {Count} items",
-                    Context.ConnectionId, heatmapData.TotalCount);
-
-                return heatmapData;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Error getting current heatmap for client {ConnectionId}",
-                    Context.ConnectionId);
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// Get heatmap group name for SignalR groups.
-        /// </summary>
-        private static string GetHeatmapGroupName(string? exchange, string? sector)
-        {
-            if (!string.IsNullOrEmpty(sector))
-                return $"HEATMAP:{exchange}:{sector}";
-            if (!string.IsNullOrEmpty(exchange))
-                return $"HEATMAP:{exchange}";
-            return "HEATMAP:ALL";
         }
     }
 }

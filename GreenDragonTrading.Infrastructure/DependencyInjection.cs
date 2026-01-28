@@ -154,7 +154,6 @@ namespace GreenDragonTrading.Infrastructure
 
             // Register Background Services (after all dependencies are configured)
             services.AddHostedService<SsiStreamingBackgroundService>();
-            services.AddHostedService<HeatmapBroadcastService>();
 
             return services;
         }

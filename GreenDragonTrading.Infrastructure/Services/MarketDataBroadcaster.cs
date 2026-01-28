@@ -62,5 +62,41 @@ namespace GreenDragonTrading.Infrastructure.Services
                 throw;
             }
         }
+
+        /// <inheritdoc/>
+        public async Task BroadcastHeatmapUpdateAsync(HeatmapDataDto heatmapData, string? exchange = null, string? sector = null, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var groupName = GetHeatmapGroupName(exchange, sector);
+                
+                await _hubContext.Clients
+                    .Group(groupName)
+                    .SendAsync("ReceiveHeatmapData", heatmapData, cancellationToken);
+
+                _logger.LogDebug(
+                    "📊 Broadcasted heatmap update to {GroupName}: {Count} items",
+                    groupName, heatmapData.TotalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, 
+                    "❌ Error broadcasting heatmap update to {GroupName}",
+                    GetHeatmapGroupName(exchange, sector));
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get heatmap group name for SignalR groups
+        /// </summary>
+        private static string GetHeatmapGroupName(string? exchange, string? sector)
+        {
+            if (!string.IsNullOrEmpty(sector))
+                return $"HEATMAP:{exchange}:{sector}";
+            if (!string.IsNullOrEmpty(exchange))
+                return $"HEATMAP:{exchange}";
+            return "HEATMAP:ALL";
+        }
     }
 }

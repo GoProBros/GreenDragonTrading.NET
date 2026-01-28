@@ -22,5 +22,15 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="candle">Current candle data</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastOhlcvUpdateAsync(CurrentCandleDto candle, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast heatmap update to subscribed groups
+        /// Triggered when market data changes
+        /// </summary>
+        /// <param name="heatmapData">Heatmap data to broadcast</param>
+        /// <param name="exchange">Exchange filter (null = all)</param>
+        /// <param name="sector">Sector filter (null = all)</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastHeatmapUpdateAsync(HeatmapDataDto heatmapData, string? exchange = null, string? sector = null, CancellationToken cancellationToken = default);
     }
 }
