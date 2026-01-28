@@ -49,40 +49,6 @@ namespace GreenDragonTrading.Infrastructure
             // Register Email Service
             services.AddScoped<IEmailService, EmailService>();
 
-            // Register Cloudflare R2 File Storage Service (S3-compatible)
-            var r2Options = configuration.GetSection(R2Options.SectionName).Get<R2Options>();
-            if (r2Options != null)
-            {
-                var accessKeyId = configuration["AWS:Credentials:AccessKeyId"];
-                var secretAccessKey = configuration["AWS:Credentials:SecretAccessKey"];
-                
-                if (!string.IsNullOrEmpty(accessKeyId) && !string.IsNullOrEmpty(secretAccessKey))
-                {
-                    // Configure S3 client for Cloudflare R2
-                    var s3Config = new Amazon.S3.AmazonS3Config
-                    {
-                        ServiceURL = r2Options.Endpoint,
-                        ForcePathStyle = true, // Required for R2
-                        UseHttp = false
-                    };
-
-                    var credentials = new Amazon.Runtime.BasicAWSCredentials(accessKeyId, secretAccessKey);
-                    var s3Client = new Amazon.S3.AmazonS3Client(credentials, s3Config);
-                    
-                    services.AddSingleton<Amazon.S3.IAmazonS3>(s3Client);
-                }
-                else
-                {
-                    throw new InvalidOperationException("AWS credentials are required for R2 file storage");
-                }
-            }
-            else
-            {
-                services.AddDefaultAWSOptions(configuration.GetAWSOptions());
-                services.AddAWSService<Amazon.S3.IAmazonS3>();
-            }
-            services.AddScoped<IFileStorageService, S3FileStorageService>();
-
             // Register Background Service for handling streaming events
             services.AddHostedService<SsiStreamingBackgroundService>();
 
@@ -91,7 +57,6 @@ namespace GreenDragonTrading.Infrastructure
             services.Configure<SsiApiOptionsV2>(configuration.GetSection(SsiApiOptionsV2.SectionName));
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
             services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
-            services.Configure<R2Options>(configuration.GetSection(R2Options.SectionName));
             services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
 
             // Register HttpClient

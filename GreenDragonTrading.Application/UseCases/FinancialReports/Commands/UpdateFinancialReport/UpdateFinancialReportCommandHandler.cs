@@ -10,16 +10,13 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Upda
     public class UpdateFinancialReportCommandHandler : IRequestHandler<UpdateFinancialReportCommand, ApiResponse<FinancialReportDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IFileStorageService _fileStorageService;
         private readonly ILogger<UpdateFinancialReportCommandHandler> _logger;
 
         public UpdateFinancialReportCommandHandler(
             IUnitOfWork uow,
-            IFileStorageService fileStorageService,
             ILogger<UpdateFinancialReportCommandHandler> logger)
         {
             _uow = uow;
-            _fileStorageService = fileStorageService;
             _logger = logger;
         }
 
@@ -58,7 +55,7 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Upda
                     Period = financialReport.Period,
                     ReportData = financialReport.ReportData,
                     FilePath = financialReport.FilePath,
-                    FileUrl = financialReport.FilePath != null ? _fileStorageService.GetFileUrl(financialReport.FilePath) : null,
+                    FileUrl = financialReport.FilePath ?? null,
                     FileSize = financialReport.FileSize,
                     Status = financialReport.Status,
                     CreatedAt = financialReport.CreatedAt,

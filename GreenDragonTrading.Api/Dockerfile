@@ -30,4 +30,5 @@ RUN dotnet publish "./GreenDragonTrading.Api.csproj" -c $BUILD_CONFIGURATION -o 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+ENV ASPNETCORE_ENVIRONMENT=Development
 ENTRYPOINT ["dotnet", "GreenDragonTrading.Api.dll"]
