@@ -34,13 +34,28 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         [HttpPost("webhook")]
+        [AllowAnonymous]
         public async Task<ActionResult<ApiResponse>> ProcessWebhook(
             [FromBody] WebhookType webhookBody,
             CancellationToken cancellationToken)
         {
-            var command = new ProcessPayOSWebhookCommand(webhookBody);
-            var result = await _mediator.Send(command, cancellationToken);
-            return result;
+            try
+            {
+                if (webhookBody.data == null || webhookBody.desc == "test")
+                {
+                    return Ok(new { Success = true, Message = "Webhook URL is active" });
+                }
+
+                var command = new ProcessPayOSWebhookCommand(webhookBody);
+                var result = await _mediator.Send(command, cancellationToken);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Webhook Error]: {ex.Message}");
+                return Ok(new { Success = false, Message = "Internal error handled" });
+            }
         }
 
         [HttpGet("status/{orderCode}")]
