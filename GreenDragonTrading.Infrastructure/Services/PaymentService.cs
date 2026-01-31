@@ -30,8 +30,18 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             _logger.LogInformation("Creating VIP payment for UserId={UserId}, SubscriptionId={SubscriptionId}", userId, subscriptionId);
 
-            var sub = await _uow.Subscriptions.GetByIdAsync(subscriptionId, cancellationToken)
+            var newSubscription = await _uow.Subscriptions.GetByIdAsync(subscriptionId, cancellationToken)
                       ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
+
+            // Check for downgrade attempt
+            var currentHighestSub = await _uow.UserSubscriptions.GetHighestLevelActiveSubscriptionAsync(userId, cancellationToken);
+            
+            if (currentHighestSub != null && newSubscription.LevelOrder < currentHighestSub.Subscription.LevelOrder)
+            {
+                _logger.LogWarning("Downgrade attempt blocked: UserId={UserId}, CurrentLevel={CurrentLevel}, RequestedLevel={RequestedLevel}",
+                    userId, currentHighestSub.Subscription.LevelOrder, newSubscription.LevelOrder);
+                throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ. Vui lòng chọn gói cao hơn hoặc bằng gói hiện tại.");
+            }
 
             long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -40,8 +50,14 @@ namespace GreenDragonTrading.Infrastructure.Services
                 OrderCode = orderCode,
                 UserId = userId,
                 SubscriptionId = subscriptionId,
-                Amount = sub.Price,
-                Status = TransactionStatus.Pending
+                Amount = newSubscription.Price,
+                Status = TransactionStatus.Pending,
+                Type = currentHighestSub == null || newSubscription.Id == currentHighestSub.SubscriptionId
+                    ? TransactionType.Purchase
+                    : TransactionType.Upgrade,
+                Description = currentHighestSub == null || newSubscription.Id == currentHighestSub.SubscriptionId
+                    ? $"Mua gói {newSubscription.Name}"
+                    : $"Nâng cấp lên gói {newSubscription.Name}"
             };
 
             await _uow.Transactions.AddAsync(transaction, cancellationToken);
@@ -51,8 +67,8 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             var result = await _payOSService.CreatePaymentLinkAsync(
                 orderCode,
-                (int)sub.Price,
-                "Upgrade VIP",
+                (int)newSubscription.Price,
+                transaction.Description,
                 listItems,
                 "https://success.com",
                 "https://cancel.com"
@@ -88,37 +104,78 @@ namespace GreenDragonTrading.Infrastructure.Services
                 await _uow.BeginTransactionAsync(cancellationToken);
                 try
                 {
-                    transaction.Status = TransactionStatus.Completed;
-                    _uow.Transactions.Update(transaction);
+                    // Get the new subscription being purchased
+                    var newSubscription = await _uow.Subscriptions.GetByIdAsync(transaction.SubscriptionId, cancellationToken)
+                        ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
-                    var userSub = await _uow.UserSubscriptions.GetByUserIdAsync(transaction.UserId, cancellationToken);
+                    int durationDays = newSubscription.DurationInDays;
 
-                    var subscription = await _uow.Subscriptions.GetByIdAsync(transaction.SubscriptionId, cancellationToken);
-                    int daysToAdd = subscription?.DurationInDays ?? 30;
+                    // Get the highest level active subscription for this user
+                    var currentHighestSub = await _uow.UserSubscriptions.GetHighestLevelActiveSubscriptionAsync(transaction.UserId, cancellationToken);
 
-                    if (userSub != null)
+                    DateTimeOffset startDate;
+                    DateTimeOffset endDate;
+
+                    if (currentHighestSub == null)
                     {
-                        userSub.EndDate = userSub.EndDate > DateTimeOffset.UtcNow
-                            ? userSub.EndDate.AddDays(daysToAdd)
-                            : DateTimeOffset.UtcNow.AddDays(daysToAdd);
-                        _uow.UserSubscriptions.Update(userSub);
+                        // Case 1: New purchase - User has no active subscription
+                        startDate = DateTimeOffset.UtcNow;
+                        endDate = startDate.AddDays(durationDays);
+
+                        _logger.LogInformation("Case 1 - New purchase: UserId={UserId}, SubscriptionId={SubscriptionId}", 
+                            transaction.UserId, transaction.SubscriptionId);
+                    }
+                    else if (newSubscription.Id == currentHighestSub.SubscriptionId)
+                    {
+                        // Case 2: Stacking - Buying same subscription type
+                        var maxEndDate = await _uow.UserSubscriptions.GetMaxEndDateBySubscriptionIdAsync(
+                            transaction.UserId, newSubscription.Id, cancellationToken);
+
+                        startDate = maxEndDate ?? DateTimeOffset.UtcNow;
+                        endDate = startDate.AddDays(durationDays);
+
+                        _logger.LogInformation("Case 2 - Stacking: UserId={UserId}, SubscriptionId={SubscriptionId}, StartDate={StartDate}", 
+                            transaction.UserId, transaction.SubscriptionId, startDate);
+                    }
+                    else if (newSubscription.LevelOrder > currentHighestSub.Subscription.LevelOrder)
+                    {
+                        // Case 3: Upgrade - Buying higher level subscription
+                        startDate = DateTimeOffset.UtcNow;
+                        endDate = startDate.AddDays(durationDays);
+
+                        // Mark all active subscriptions as Upgraded
+                        await _uow.UserSubscriptions.MarkAllActiveAsUpgradedAsync(transaction.UserId, cancellationToken);
+
+                        _logger.LogInformation("Case 3 - Upgrade: UserId={UserId}, OldLevel={OldLevel}, NewLevel={NewLevel}", 
+                            transaction.UserId, currentHighestSub.Subscription.LevelOrder, newSubscription.LevelOrder);
                     }
                     else
                     {
-                        var newUserSub = new UserSubscription
-                        {
-                            UserId = transaction.UserId,
-                            SubscriptionId = transaction.SubscriptionId,
-                            StartDate = DateTimeOffset.UtcNow,
-                            EndDate = DateTimeOffset.UtcNow.AddDays(daysToAdd)
-                        };
-                        await _uow.UserSubscriptions.AddAsync(newUserSub, cancellationToken);
+                        // Downgrade case - should not happen as it's blocked at payment creation
+                        _logger.LogError("Downgrade attempt in webhook - this should have been blocked: UserId={UserId}", transaction.UserId);
+                        throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ.");
                     }
+
+                    // Update transaction status
+                    transaction.Status = TransactionStatus.Completed;
+                    _uow.Transactions.Update(transaction);
+
+                    // Create new UserSubscription
+                    var newUserSub = new UserSubscription
+                    {
+                        UserId = transaction.UserId,
+                        SubscriptionId = transaction.SubscriptionId,
+                        StartDate = startDate,
+                        EndDate = endDate,
+                        Status = SubscriptionStatus.Active
+                    };
+                    await _uow.UserSubscriptions.AddAsync(newUserSub, cancellationToken);
 
                     await _uow.SaveChangesAsync(cancellationToken);
                     await _uow.CommitTransactionAsync(cancellationToken);
 
-                    _logger.LogInformation("Payment completed: OrderCode={OrderCode}, UserId={UserId}", data.orderCode, transaction.UserId);
+                    _logger.LogInformation("Payment completed: OrderCode={OrderCode}, UserId={UserId}, Type={Type}", 
+                        data.orderCode, transaction.UserId, transaction.Type);
 
                     return new WebhookUpdateResult { IsSuccess = true, OrderCode = data.orderCode };
                 }

@@ -22,8 +22,8 @@ namespace GreenDragonTrading.Domain.Entities
         public SubscriptionLevel LevelOrder { get; set; }
 
         [Required]
-        [Column("max_layouts", TypeName = "integer")]
-        public int MaxLayouts { get; set; }
+        [Column("max_workspaces", TypeName = "integer")]
+        public int MaxWorkspaces { get; set; }
 
         [Required]
         [Column("price", TypeName = "numeric(18, 2)")]
@@ -32,6 +32,10 @@ namespace GreenDragonTrading.Domain.Entities
         [Required]
         [Column("duration_in_days", TypeName = "integer")]
         public int DurationInDays { get; set; }
+
+        [Required]
+        [Column("allowed_modules", TypeName = "jsonb")]
+        public string AllowedModules { get; set; } = "[]";
 
         public ICollection<UserSubscription> UserSubscriptions { get; set; } = new List<UserSubscription>();
     }
