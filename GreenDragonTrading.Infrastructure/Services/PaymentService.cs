@@ -118,7 +118,7 @@ namespace GreenDragonTrading.Infrastructure.Services
 
                     if (currentHighestSub == null)
                     {
-                        // Case 1: New purchase - User has no active subscription
+                        // New purchase - User has no active subscription
                         startDate = DateTimeOffset.UtcNow;
                         endDate = startDate.AddDays(durationDays);
 
@@ -127,7 +127,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                     }
                     else if (newSubscription.Id == currentHighestSub.SubscriptionId)
                     {
-                        // Case 2: Stacking - Buying same subscription type
+                        // Stacking - Buying same subscription type
                         var maxEndDate = await _uow.UserSubscriptions.GetMaxEndDateBySubscriptionIdAsync(
                             transaction.UserId, newSubscription.Id, cancellationToken);
 
@@ -139,7 +139,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                     }
                     else if (newSubscription.LevelOrder > currentHighestSub.Subscription.LevelOrder)
                     {
-                        // Case 3: Upgrade - Buying higher level subscription
+                        // Upgrade - Buying higher level subscription
                         startDate = DateTimeOffset.UtcNow;
                         endDate = startDate.AddDays(durationDays);
 
@@ -151,7 +151,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                     }
                     else
                     {
-                        // Downgrade case - should not happen as it's blocked at payment creation
+                        // Downgrade case 
                         _logger.LogError("Downgrade attempt in webhook - this should have been blocked: UserId={UserId}", transaction.UserId);
                         throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ.");
                     }

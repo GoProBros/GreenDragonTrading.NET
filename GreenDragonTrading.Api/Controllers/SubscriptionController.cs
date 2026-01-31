@@ -29,7 +29,7 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "UserRole.Admin.GetDisplayName()")]
+        [Authorize(Roles = nameof(UserRole.Admin))]
         public async Task<ActionResult<ApiResponse<SubscriptionDto>>> CreateSubscription(
             [FromBody] CreateSubscriptionRequest request,
             CancellationToken cancellationToken)
