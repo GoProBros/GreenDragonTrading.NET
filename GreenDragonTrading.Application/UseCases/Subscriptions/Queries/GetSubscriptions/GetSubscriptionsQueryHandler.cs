@@ -3,6 +3,7 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubscriptions
 {
@@ -34,9 +35,10 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubsc
                     Id = s.Id,
                     Name = s.Name,
                     LevelOrder = s.LevelOrder,
-                    MaxLayouts = s.MaxLayouts,
+                    MaxWorkspaces = s.MaxWorkspaces,
                     Price = s.Price,
-                    DurationInDays = s.DurationInDays
+                    DurationInDays = s.DurationInDays,
+                    AllowedModules = JsonDocument.Parse(s.AllowedModules).RootElement.Clone()
                 })
                 .ToList();
 

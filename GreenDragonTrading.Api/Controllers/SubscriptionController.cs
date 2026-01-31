@@ -37,9 +37,10 @@ namespace GreenDragonTrading.Api.Controllers
             var command = new CreateSubscriptionCommand(
                 request.Name,
                 request.LevelOrder,
-                request.MaxLayouts,
+                request.MaxWorkspaces,
                 request.Price,
-                request.DurationInDays
+                request.DurationInDays,
+                request.AllowedModules
             );
             var result = await _mediator.Send(command, cancellationToken);
             return Ok(result);

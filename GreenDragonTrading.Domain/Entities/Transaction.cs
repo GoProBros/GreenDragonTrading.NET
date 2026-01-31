@@ -30,6 +30,14 @@ namespace GreenDragonTrading.Domain.Entities
         public TransactionStatus Status { get; set; } = TransactionStatus.Pending;
 
         [Required]
+        [Column("transaction_type", TypeName = "smallint")]
+        public TransactionType Type { get; set; } = TransactionType.Purchase;
+
+        [MaxLength(255)]
+        [Column("description", TypeName = "varchar(255)")]
+        public string? Description { get; set; }
+
+        [Required]
         [Column("created_at", TypeName = "timestamp with time zone")]
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

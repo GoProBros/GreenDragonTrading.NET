@@ -1,4 +1,5 @@
 using GreenDragonTrading.Domain.Enums;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.DTOs
 {
@@ -7,17 +8,19 @@ namespace GreenDragonTrading.Application.DTOs
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public SubscriptionLevel LevelOrder { get; set; }
-        public int MaxLayouts { get; set; }
+        public int MaxWorkspaces { get; set; }
         public decimal Price { get; set; }
         public int DurationInDays { get; set; }
+        public JsonElement AllowedModules { get; set; }
     }
 
     public class CreateSubscriptionRequest
     {
         public string Name { get; set; } = string.Empty;
         public SubscriptionLevel LevelOrder { get; set; }
-        public int MaxLayouts { get; set; }
+        public int MaxWorkspaces { get; set; }
         public decimal Price { get; set; }
         public int DurationInDays { get; set; }
+        public JsonElement AllowedModules { get; set; }
     }
 }
