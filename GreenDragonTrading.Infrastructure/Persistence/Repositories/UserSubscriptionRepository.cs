@@ -55,19 +55,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<UserSubscription?> GetHighestLevelActiveSubscriptionAsync(Guid userId, CancellationToken cancellationToken = default)
-        {
-            var now = DateTimeOffset.UtcNow;
-
-            return await _context.Set<UserSubscription>()
-                .Include(us => us.Subscription)
-                .Where(us => us.UserId == userId
-                    && us.Status == SubscriptionStatus.Active
-                    && us.EndDate > now)
-                .OrderByDescending(us => us.Subscription.LevelOrder)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
         public async Task<DateTimeOffset?> GetMaxEndDateBySubscriptionIdAsync(Guid userId, int subscriptionId, CancellationToken cancellationToken = default)
         {
             var now = DateTimeOffset.UtcNow;

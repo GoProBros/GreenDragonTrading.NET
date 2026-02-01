@@ -34,12 +34,13 @@ namespace GreenDragonTrading.Infrastructure.Services
                       ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
             // Check for downgrade attempt
-            var currentHighestSub = await _uow.UserSubscriptions.GetHighestLevelActiveSubscriptionAsync(userId, cancellationToken);
-            
-            if (currentHighestSub != null && newSubscription.LevelOrder < currentHighestSub.Subscription.LevelOrder)
+            var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+            var currentLevelOrder = currentHighestSub?.Subscription.LevelOrder ?? 0;
+
+            if (newSubscription.LevelOrder < currentLevelOrder)
             {
                 _logger.LogWarning("Downgrade attempt blocked: UserId={UserId}, CurrentLevel={CurrentLevel}, RequestedLevel={RequestedLevel}",
-                    userId, currentHighestSub.Subscription.LevelOrder, newSubscription.LevelOrder);
+                    userId, currentLevelOrder, newSubscription.LevelOrder);
                 throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ. Vui lòng chọn gói cao hơn hoặc bằng gói hiện tại.");
             }
 
@@ -56,8 +57,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                     ? TransactionType.Purchase
                     : TransactionType.Upgrade,
                 Description = currentHighestSub == null || newSubscription.Id == currentHighestSub.SubscriptionId
-                    ? $"Mua gói {newSubscription.Name}"
-                    : $"Nâng cấp lên gói {newSubscription.Name}"
+                    ? $"Mua gói {newSubscription.Id}"
+                    : $"Nâng cấp lên gói {newSubscription.Id}"
             };
 
             await _uow.Transactions.AddAsync(transaction, cancellationToken);
@@ -104,21 +105,18 @@ namespace GreenDragonTrading.Infrastructure.Services
                 await _uow.BeginTransactionAsync(cancellationToken);
                 try
                 {
-                    // Get the new subscription being purchased
                     var newSubscription = await _uow.Subscriptions.GetByIdAsync(transaction.SubscriptionId, cancellationToken)
                         ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
                     int durationDays = newSubscription.DurationInDays;
 
-                    // Get the highest level active subscription for this user
-                    var currentHighestSub = await _uow.UserSubscriptions.GetHighestLevelActiveSubscriptionAsync(transaction.UserId, cancellationToken);
+                    var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(transaction.UserId, cancellationToken);
 
                     DateTimeOffset startDate;
                     DateTimeOffset endDate;
 
                     if (currentHighestSub == null)
                     {
-                        // New purchase - User has no active subscription
                         startDate = DateTimeOffset.UtcNow;
                         endDate = startDate.AddDays(durationDays);
 
@@ -127,7 +125,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                     }
                     else if (newSubscription.Id == currentHighestSub.SubscriptionId)
                     {
-                        // Stacking - Buying same subscription type
                         var maxEndDate = await _uow.UserSubscriptions.GetMaxEndDateBySubscriptionIdAsync(
                             transaction.UserId, newSubscription.Id, cancellationToken);
 
@@ -139,7 +136,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                     }
                     else if (newSubscription.LevelOrder > currentHighestSub.Subscription.LevelOrder)
                     {
-                        // Upgrade - Buying higher level subscription
                         startDate = DateTimeOffset.UtcNow;
                         endDate = startDate.AddDays(durationDays);
 
@@ -151,16 +147,13 @@ namespace GreenDragonTrading.Infrastructure.Services
                     }
                     else
                     {
-                        // Downgrade case 
                         _logger.LogError("Downgrade attempt in webhook - this should have been blocked: UserId={UserId}", transaction.UserId);
                         throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ.");
                     }
 
-                    // Update transaction status
                     transaction.Status = TransactionStatus.Completed;
                     _uow.Transactions.Update(transaction);
 
-                    // Create new UserSubscription
                     var newUserSub = new UserSubscription
                     {
                         UserId = transaction.UserId,
@@ -230,20 +223,19 @@ namespace GreenDragonTrading.Infrastructure.Services
                 {
                     transaction.Status = TransactionStatus.Cancelled;
 
-                    await _uow.SaveChangesAsync();
+                    await _uow.SaveChangesAsync(cancellationToken);
                 }
+                return new PaymentInformationResponse
+                {
+                    OrderCode = result.orderCode,
+                    Amount = result.amount,
+                    Status = result.status,
+                    CancellationReason = result.cancellationReason,
+                    CreatedAt = null
+                };
             }
 
-            return new PaymentInformationResponse
-            {
-                OrderCode = result!.orderCode,
-                Amount = result.amount,
-                Status = result.status,
-                CancellationReason = result.cancellationReason,
-                CreatedAt = result.createdAt != null
-                ? DateTimeOffset.FromUnixTimeSeconds(long.Parse(result.createdAt)).UtcDateTime
-                : null
-            };
+            throw new BusinessRuleException("Hủy thanh toán không thành công.");
         }
     }
 }
