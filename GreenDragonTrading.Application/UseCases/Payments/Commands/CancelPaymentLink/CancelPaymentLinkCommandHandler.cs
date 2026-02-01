@@ -1,7 +1,9 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
+using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -13,17 +15,20 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Commands.CancelPaymen
         private readonly IPaymentService _paymentService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IJwtService _jwtService;
+        private readonly IUnitOfWork _uow;
         private readonly ILogger<CancelPaymentLinkCommandHandler> _logger;
 
         public CancelPaymentLinkCommandHandler(
             IPaymentService paymentService,
             IHttpContextAccessor httpContextAccessor,
             IJwtService jwtService,
+            IUnitOfWork unitOfWork,
             ILogger<CancelPaymentLinkCommandHandler> logger)
         {
             _paymentService = paymentService;
             _httpContextAccessor = httpContextAccessor;
             _jwtService = jwtService;
+            _uow = unitOfWork;
             _logger = logger;
         }
 
@@ -49,6 +54,18 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Commands.CancelPaymen
             }
             _logger.LogInformation("Cancelling payment link for UserId={UserId}, OrderCode={OrderCode}, Reason={Reason}",
                 tokenInfo.UserId, request.orderCode, request.reason);
+
+            var checkPayment = await _uow.Transactions.GetByOrderCodeAsync(request.orderCode, cancellationToken);
+            if (checkPayment == null)
+            {
+                _logger.LogInformation("Payment link not found for OrderCode={OrderCode}", request.orderCode);
+                throw new NotFoundException("Link thanh toán không tồn tại.");
+            }
+            else if (checkPayment.Status == TransactionStatus.Completed)
+            {
+                _logger.LogInformation("Attempt to cancel completed payment link for OrderCode={OrderCode}", request.orderCode);
+               throw new BusinessRuleException("Link thanh toán đã được hoàn tất và không thể hủy.");
+            }
             var result = await _paymentService.CancelPaymentAsync(
                 request.orderCode,
                 request.reason,
