@@ -8,6 +8,15 @@ namespace GreenDragonTrading.Domain.Enums
         Free = 0,
 
         [Display(Name = "Vip")]
-        Advanced = 1
+        Advanced = 1,
+
+        [Display(Name = "Vip 1")]
+        VipOne = 2,
+
+        [Display(Name = "Vip 2")]
+        VipTwo = 3,
+
+        [Display(Name = "Vip 3")]
+        VipThree = 4
     }
 }
