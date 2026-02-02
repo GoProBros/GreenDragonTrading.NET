@@ -106,7 +106,7 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySub
                     AllowedModules = JsonDocument.Parse(subscription.AllowedModules).RootElement,
                     StartDate = earliestStartDate,
                     EndDate = latestEndDate,
-                    Status = userSubscription.Status,
+                    Status = userSubscription.Status.GetDisplayName(),
                     IsActive = true
                 };
             }
