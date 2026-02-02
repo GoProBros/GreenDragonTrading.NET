@@ -2,6 +2,7 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplySharedWorkspace;
 using GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorkspace;
+using GreenDragonTrading.Application.UseCases.Workspace.Commands.DeleteWorkspace;
 using GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorkspace;
 using GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspace;
 using GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspaceByShareCode;
@@ -97,6 +98,22 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new ApplySharedWorkspaceCommand(shareCode), cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Delete a workspace by ID
+        /// Only the workspace owner can delete the workspace. Module layouts are not affected.
+        /// </summary>
+        /// <param name="id">Workspace ID</param>
+        /// <param name="cancellationToken"></param>
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse>> DeleteWorkspace(
+            [FromRoute] int id,
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new DeleteWorkspaceCommand(id), cancellationToken);
             return result;
         }
     }
