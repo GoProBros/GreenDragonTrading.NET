@@ -35,12 +35,7 @@ public class DeleteFileCommandHandler : IRequestHandler<DeleteFileCommand, ApiRe
                     throw new BusinessRuleException("ID báo cáo tài chính không hợp lệ");
                 }
 
-                var financialReport = await _uow.FinancialReports.GetByIdAsync(financialReportId, cancellationToken);
-                if (financialReport == null)
-                {
-                    throw new NotFoundException("Báo cáo tài chính không tồn tại");
-                }
-
+                var financialReport = await _uow.FinancialReports.GetByIdAsync(financialReportId, cancellationToken) ?? throw new NotFoundException("Báo cáo tài chính không tồn tại");
                 if (string.IsNullOrEmpty(financialReport.FilePath))
                 {
                     throw new BusinessRuleException("Báo cáo tài chính không có file để xóa");
@@ -66,12 +61,7 @@ public class DeleteFileCommandHandler : IRequestHandler<DeleteFileCommand, ApiRe
                     throw new BusinessRuleException("ID báo cáo phân tích không hợp lệ");
                 }
 
-                var analysisReport = await _uow.AnalysisReports.GetByIdAsync(analysisReportId, cancellationToken);
-                if (analysisReport == null)
-                {
-                    throw new NotFoundException("Báo cáo phân tích không tồn tại");
-                }
-
+                var analysisReport = await _uow.AnalysisReports.GetByIdAsync(analysisReportId, cancellationToken) ?? throw new NotFoundException("Báo cáo phân tích không tồn tại");
                 if (string.IsNullOrEmpty(analysisReport.FilePath))
                 {
                     throw new BusinessRuleException("Báo cáo phân tích không có file để xóa");
@@ -82,8 +72,10 @@ public class DeleteFileCommandHandler : IRequestHandler<DeleteFileCommand, ApiRe
                 // Delete file from storage
                 await _fileStorageService.DeleteFileAsync(filePath, cancellationToken);
 
-                // Delete entire analysis report entity (since file is required)
-                _uow.AnalysisReports.Delete(analysisReport);
+                // Update entity
+                analysisReport.FilePath = null;
+                analysisReport.FileSize = null;
+                analysisReport.UpdatedAt = DateTimeOffset.UtcNow;
                 await _uow.SaveChangesAsync(cancellationToken);
                 break;
 
@@ -93,12 +85,7 @@ public class DeleteFileCommandHandler : IRequestHandler<DeleteFileCommand, ApiRe
                     throw new BusinessRuleException("ID người dùng không hợp lệ");
                 }
 
-                var user = await _uow.Users.GetByIdAsync(userId, cancellationToken);
-                if (user == null)
-                {
-                    throw new NotFoundException("Người dùng không tồn tại");
-                }
-
+                var user = await _uow.Users.GetByIdAsync(userId, cancellationToken) ?? throw new NotFoundException("Người dùng không tồn tại");
                 if (string.IsNullOrEmpty(user.AvatarUrl))
                 {
                     throw new BusinessRuleException("Người dùng không có avatar để xóa");
@@ -116,12 +103,7 @@ public class DeleteFileCommandHandler : IRequestHandler<DeleteFileCommand, ApiRe
                 break;
 
             case FileCategory.CompanyLogo:
-                var symbol = await _uow.Symbols.GetByIdAsync(request.EntityId, cancellationToken);
-                if (symbol == null)
-                {
-                    throw new NotFoundException($"Mã chứng khoán {request.EntityId} không tồn tại");
-                }
-
+                var symbol = await _uow.Symbols.GetByIdAsync(request.EntityId, cancellationToken) ?? throw new NotFoundException($"Mã chứng khoán {request.EntityId} không tồn tại");
                 if (string.IsNullOrEmpty(symbol.LogoPath))
                 {
                     throw new BusinessRuleException("Công ty không có logo để xóa");

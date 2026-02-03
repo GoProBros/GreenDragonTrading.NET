@@ -13,7 +13,7 @@ namespace GreenDragonTrading.Api.Controllers;
 /// File management controller
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/files")]
 public class FileController : ControllerBase
 {
     private readonly IMediator _mediator;

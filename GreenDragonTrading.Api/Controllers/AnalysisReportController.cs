@@ -41,6 +41,7 @@ public class AnalysisReportController : ControllerBase
     /// <param name="searchTerm">Search in title, description, author</param>
     /// <param name="pageIndex">Page number (default: 1)</param>
     /// <param name="pageSize">Page size (default: 20)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     [HttpGet]
     public async Task<IActionResult> GetReports(
         [FromQuery] string? sourceId,
