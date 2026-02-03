@@ -30,12 +30,27 @@ public class LocalFileStorageService : ILocalFileStorageService
         Domain.Enums.FileCategory category, 
         string originalFileName,
         string? relatedEntityId = null,
+        string? ticker = null,
+        int? year = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
             // Get category-specific subdirectory
             var categoryDir = GetCategoryDirectory(category);
+            
+            // For financial reports, add Ticker/Year subdirectory structure
+            if (category == Domain.Enums.FileCategory.FinancialReport && !string.IsNullOrEmpty(ticker) && year.HasValue)
+            {
+                categoryDir = Path.Combine(categoryDir, ticker.ToUpper(), year.Value.ToString());
+            }
+            // For analysis reports, add Category subdirectory structure
+            else if (category == Domain.Enums.FileCategory.AnalysisReport && !string.IsNullOrEmpty(ticker))
+            {
+                // ticker parameter is used for category code in analysis reports
+                categoryDir = Path.Combine(categoryDir, ticker);
+            }
+            
             var fullDirectoryPath = Path.Combine(_baseStoragePath, categoryDir);
             
             // Ensure directory exists
