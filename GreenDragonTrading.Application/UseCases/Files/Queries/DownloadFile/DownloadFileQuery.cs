@@ -18,7 +18,7 @@ public record DownloadFileQuery(
 public record FileDownloadResult
 {
     public Stream FileStream { get; init; } = null!;
-    public string FileName { get; init; } = null!;
+    public string? FileName { get; init; } = null!;
     public string ContentType { get; init; } = null!;
-    public long FileSize { get; init; }
+    public long? FileSize { get; init; }
 }
