@@ -67,41 +67,36 @@ public class AnalysisReport
     /// <summary>
     /// File path
     /// </summary>
-    [Required]
     [Column("file_path", TypeName = "varchar(500)")]
     [MaxLength(500)]
-    public string FilePath { get; set; } = null!;
+    public string? FilePath { get; set; } = null!;
 
     /// <summary>
     /// Original file name
     /// </summary>
-    [Required]
     [Column("original_file_name", TypeName = "varchar(500)")]
     [MaxLength(500)]
-    public string OriginalFileName { get; set; } = null!;
+    public string? OriginalFileName { get; set; } = null!;
 
     /// <summary>
     /// File extension
     /// </summary>
-    [Required]
     [Column("file_extension", TypeName = "varchar(10)")]
     [MaxLength(10)]
-    public string FileExtension { get; set; } = null!;
+    public string? FileExtension { get; set; } = null!;
 
     /// <summary>
     /// MIME type
     /// </summary>
-    [Required]
     [Column("mime_type", TypeName = "varchar(100)")]
     [MaxLength(100)]
-    public string MimeType { get; set; } = null!;
+    public string? MimeType { get; set; } = null!;
 
     /// <summary>
     /// File size in bytes
     /// </summary>
-    [Required]
     [Column("file_size", TypeName = "bigint")]
-    public long FileSize { get; set; }
+    public long? FileSize { get; set; }
 
     /// <summary>
     /// Uploaded by user ID

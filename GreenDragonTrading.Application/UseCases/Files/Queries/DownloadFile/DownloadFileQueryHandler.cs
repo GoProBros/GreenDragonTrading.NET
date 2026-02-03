@@ -28,7 +28,7 @@ public class DownloadFileQueryHandler : IRequestHandler<DownloadFileQuery, ApiRe
         string? filePath = null;
         string? fileName = null;
         string? mimeType = null;
-        long fileSize = 0;
+        long? fileSize = 0;
 
         switch (request.Category)
         {

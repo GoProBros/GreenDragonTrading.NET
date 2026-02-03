@@ -103,11 +103,11 @@ public class AnalysisReportDto
     public string[]? Tickers { get; set; }
     public string? SectorId { get; set; }
     public DateTimeOffset? PublishDate { get; set; }
-    public string FilePath { get; set; } = null!;
-    public string OriginalFileName { get; set; } = null!;
-    public string FileExtension { get; set; } = null!;
-    public string MimeType { get; set; } = null!;
-    public long FileSize { get; set; }
+    public string? FilePath { get; set; } = null!;
+    public string? OriginalFileName { get; set; } = null!;
+    public string? FileExtension { get; set; } = null!;
+    public string? MimeType { get; set; } = null!;
+    public long? FileSize { get; set; }
     public Guid? UploadedBy { get; set; }
     public CommonStatus Status { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
