@@ -80,11 +80,13 @@ public class UploadReportCommandHandler : IRequestHandler<UploadReportCommand, A
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         var mimeType = FileConstants.MimeTypes.GetMimeType(extension);
 
-        // Save file
+        // Save file with category subdirectory structure
         var filePath = await _fileStorageService.SaveFileAsync(
             file,
             FileCategory.AnalysisReport,
             file.FileName,
+            null,
+            metadata.CategoryId,
             null,
             cancellationToken);
 

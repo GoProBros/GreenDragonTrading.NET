@@ -76,12 +76,14 @@ public class UploadFileCommandHandler : IRequestHandler<UploadFileCommand, ApiRe
             throw new NotFoundException("Báo cáo tài chính không tồn tại");
         }
 
-        // Save file
+        // Save file with Ticker/Year structure
         var filePath = await _fileStorageService.SaveFileAsync(
             file, 
             FileCategory.FinancialReport, 
             file.FileName,
+            existingReport.Id.ToString(),
             existingReport.Ticker,
+            existingReport.Year,
             cancellationToken);
 
         // Delete old file if exists
@@ -126,12 +128,14 @@ public class UploadFileCommandHandler : IRequestHandler<UploadFileCommand, ApiRe
             throw new NotFoundException("Báo cáo phân tích không tồn tại");
         }
 
-        // Save file
+        // Save file with category subdirectory structure
         var filePath = await _fileStorageService.SaveFileAsync(
             file, 
             FileCategory.AnalysisReport, 
             file.FileName,
             reportId.ToString(),
+            existingReport.CategoryId,
+            null,
             cancellationToken);
 
         // Delete old file if exists
@@ -184,6 +188,8 @@ public class UploadFileCommandHandler : IRequestHandler<UploadFileCommand, ApiRe
             FileCategory.Avatar, 
             file.FileName,
             uploadedBy.ToString(),
+            null,
+            null,
             cancellationToken);
 
         // Delete old avatar if exists
@@ -229,6 +235,8 @@ public class UploadFileCommandHandler : IRequestHandler<UploadFileCommand, ApiRe
             FileCategory.CompanyLogo, 
             file.FileName,
             metadata.RelatedEntityId,
+            null,
+            null,
             cancellationToken);
 
         // Delete old logo if exists

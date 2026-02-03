@@ -14,6 +14,8 @@ public interface ILocalFileStorageService
     /// <param name="category">File category</param>
     /// <param name="originalFileName">Original file name</param>
     /// <param name="relatedEntityId">Related entity ID (optional, for subdirectory naming)</param>
+    /// <param name="ticker">Ticker symbol (for financial reports)</param>
+    /// <param name="year">Report year (for financial reports)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Relative file path</returns>
     Task<string> SaveFileAsync(
@@ -21,6 +23,8 @@ public interface ILocalFileStorageService
         Domain.Enums.FileCategory category, 
         string originalFileName,
         string? relatedEntityId = null,
+        string? ticker = null,
+        int? year = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
