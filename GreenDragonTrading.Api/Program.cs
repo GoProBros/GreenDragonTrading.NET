@@ -54,6 +54,12 @@ try
     // Add SignalR
     builder.Services.AddSignalR();
 
+    // Configure file upload size limits (50MB)
+    builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+    {
+        options.MultipartBodyLengthLimit = 52428800; // 50MB
+    });
+
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
