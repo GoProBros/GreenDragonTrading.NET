@@ -1,5 +1,7 @@
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.Files.Commands.DeleteFile;
 using GreenDragonTrading.Application.UseCases.Files.Commands.UploadFile;
+using GreenDragonTrading.Application.UseCases.Files.Queries.DownloadFile;
 using GreenDragonTrading.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -52,6 +54,62 @@ public class FileController : ControllerBase
         };
 
         var result = await _mediator.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Download a file by category and entity ID
+    /// </summary>
+    /// <param name="category">File category (1=FinancialReport, 2=AnalysisReport, 3=Avatar, 4=CompanyLogo)</param>
+    /// <param name="entityId">Entity ID (Financial/Analysis Report GUID, User GUID, or Symbol ticker)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>File stream</returns>
+    [HttpGet("download")]
+    public async Task<IActionResult> DownloadFile(
+        [FromQuery] FileCategory category,
+        [FromQuery] string entityId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new DownloadFileQuery(category, entityId);
+        var result = await _mediator.Send(query, cancellationToken);
+
+        if (!result.IsSuccess || result.Data == null)
+        {
+            return NotFound(result);
+        }
+
+        return File(
+            result.Data.FileStream,
+            result.Data.ContentType,
+            result.Data.FileName);
+    }
+
+    /// <summary>
+    /// Delete a file by category and entity ID
+    /// </summary>
+    /// <param name="category">File category (1=FinancialReport, 2=AnalysisReport, 3=Avatar, 4=CompanyLogo)</param>
+    /// <param name="entityId">Entity ID (Financial/Analysis Report GUID, User GUID, or Symbol ticker)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Success response</returns>
+    /// <remarks>
+    /// Note: Deleting an AnalysisReport file will delete the entire report entity.
+    /// For other categories, only the file is deleted and the entity is updated.
+    /// </remarks>
+    [HttpDelete]
+    [Authorize]
+    public async Task<IActionResult> DeleteFile(
+        [FromQuery] FileCategory category,
+        [FromQuery] string entityId,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new DeleteFileCommand(category, entityId);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+
         return Ok(result);
     }
 }
