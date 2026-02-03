@@ -12,6 +12,9 @@
         IModuleLayoutRepository ModuleLayouts { get; }
         IWatchListRepository WatchLists { get; }
         IFinancialReportRepository FinancialReports { get; }
+        IAnalysisReportRepository AnalysisReports { get; }
+        IAnalysisReportSourceRepository AnalysisReportSources { get; }
+        IAnalysisReportCategoryRepository AnalysisReportCategories { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);
