@@ -35,6 +35,13 @@ namespace GreenDragonTrading.Domain.Entities
         public string? SectorId { get; set; } 
 
         /// <summary>
+        /// Company logo file path
+        /// </summary>
+        [Column("logo_path", TypeName = "varchar(500)")]
+        [MaxLength(500)]
+        public string? LogoPath { get; set; }
+
+        /// <summary>
         /// Phân loại: Cổ phiếu / ETF / Trái phiếu,...
         /// </summary>
         [Column("type")]

@@ -370,3 +370,154 @@ return Ok(result); // ApiResponse is already wrapped by handler
 - Swagger auto-generated from XML comments (`GenerateDocumentationFile` enabled)
 - Use `/// <summary>` tags on controllers and actions
 - Include `/// <param>` and `/// <returns>` for clarity
+
+## Common Errors & Solutions
+
+### Repository Interface Inheritance
+**Error:** `IRepository<TEntity, TId> could not be found`
+
+**Solution:** All repository interfaces MUST inherit from `IPostgreSqlGenericRepository<TEntity, TId>`, not `IRepository<,>`. This is the project standard.
+
+```csharp
+// ❌ WRONG
+public interface IAnalysisReportRepository : IRepository<AnalysisReport, Guid> { }
+
+// ✅ CORRECT
+public interface IAnalysisReportRepository : IPostgreSqlGenericRepository<AnalysisReport, Guid> { }
+```
+
+### Application Layer Entity Framework Dependencies
+**Error:** `Microsoft.EntityFrameworkCore` namespace not found in Application layer handlers
+
+**Cause:** Application layer does NOT reference EntityFrameworkCore package. This is by design to maintain clean architecture layer separation.
+
+**Solution:** 
+- **Never use** `Include()`, `ThenInclude()`, `AsNoTracking()`, `ToListAsync()` directly in Application layer
+- Use synchronous LINQ methods: `ToList()`, `FirstOrDefault()`, etc.
+- For complex queries with includes, create specific repository methods in Infrastructure layer
+
+```csharp
+// ❌ WRONG - Application layer handler
+var sources = await _uow.AnalysisReportSources
+    .GetQueryable()
+    .Include(x => x.Reports)
+    .ToListAsync(cancellationToken);
+
+// ✅ CORRECT - Application layer handler
+var sources = _uow.AnalysisReportSources
+    .GetQueryable()
+    .ToList(); // Synchronous
+
+// ✅ BETTER - Create repository method in Infrastructure
+// In IAnalysisReportSourceRepository:
+Task<List<AnalysisReportSource>> GetSourcesWithReportsAsync(CancellationToken ct);
+
+// Implementation in Infrastructure layer can use EF Core extensions
+public async Task<List<AnalysisReportSource>> GetSourcesWithReportsAsync(CancellationToken ct)
+{
+    return await _dbSet.Include(x => x.Reports).ToListAsync(ct);
+}
+```
+
+### GetQueryable() Pattern Limitations
+**Issue:** `GetQueryable()` returns `IQueryable<T>` but Application layer cannot use EF Core extensions on it.
+
+**Guidelines:**
+- Prefer repository methods over exposing `IQueryable<T>` to Application layer
+- If using `GetQueryable()`, only use standard LINQ methods (Where, Select, OrderBy)
+- Convert to list with `.ToList()` (synchronous) instead of `.ToListAsync()`
+- For pagination, filtering, or includes, create dedicated repository methods
+
+```csharp
+// ⚠️ USE WITH CAUTION - Limited to standard LINQ
+var query = _uow.Sources.GetQueryable()
+    .Where(x => x.Status == CommonStatus.Active)
+    .OrderBy(x => x.DisplayOrder)
+    .ToList(); // Must use synchronous
+
+// ✅ PREFERRED - Dedicated repository method
+var sources = await _uow.Sources.GetActiveSortedAsync(cancellationToken);
+```
+
+### Entity Property Synchronization
+**Error:** Property `XYZ` does not exist on type `EntityName`
+
+**Cause:** DTOs, Commands, or Handlers reference entity properties that don't exist in the actual entity class.
+
+**Solution:** Always verify entity properties before using in:
+1. DTOs (mapping)
+2. Command/Query classes
+3. Validators
+4. Handlers (assignment/access)
+
+**Checklist when adding new entity properties:**
+- [ ] Add to entity class with proper Column attribute
+- [ ] Update all DTOs that map this entity
+- [ ] Update Create/Update commands
+- [ ] Update validators if property has validation rules
+- [ ] Update handlers that create/modify entity
+- [ ] Create migration for database schema
+
+### Hierarchical Data Queries (e.g., Categories with Children)
+**Pattern:** When querying hierarchical data without EF Core includes in Application layer:
+
+```csharp
+// Get all items first
+var allCategories = _uow.AnalysisReportCategories
+    .GetQueryable()
+    .ToList();
+
+// Build hierarchy in memory
+var rootCategories = allCategories
+    .Where(c => c.ParentId == null)
+    .ToList();
+
+foreach (var category in rootCategories)
+{
+    category.ChildCategories = allCategories
+        .Where(c => c.ParentId == category.Id)
+        .ToList();
+}
+```
+
+### Pagination Query Pattern
+All paginated queries should inherit from `PaginationQuery`:
+
+```csharp
+public class GetSourcesQuery : PaginationQuery, IRequest<ApiResponse<PaginatedResponse<AnalysisReportSourceDto>>>
+{
+    // Additional filter properties
+    public string? SearchTerm { get; set; }
+}
+```
+
+Handler should return `PaginatedResponse<T>`:
+
+```csharp
+var paginatedResponse = PaginatedResponse<AnalysisReportSourceDto>.Create(
+    items, 
+    totalCount, 
+    query.PageIndex, 
+    query.PageSize
+);
+
+return ApiResponse<PaginatedResponse<AnalysisReportSourceDto>>.Success(
+    paginatedResponse, 
+    "Lấy danh sách thành công"
+);
+```
+
+### DisplayOrder Property Pattern
+All entities with ordering should have `DisplayOrder` property:
+
+```csharp
+[Column("display_order")]
+public int DisplayOrder { get; set; }
+```
+
+Default ordering in queries:
+
+```csharp
+.OrderBy(x => x.DisplayOrder)
+.ThenBy(x => x.CreatedAt)
+```

@@ -11,6 +11,10 @@
 appsettings.Development.json
 appsettings.*.local.json
 
+# Local file storage (uploaded files)
+LocalStorage/
+**/LocalStorage/
+
 # User-specific files
 *.rsuser
 *.suo

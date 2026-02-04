@@ -5,7 +5,6 @@ using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.DeleteFi
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.UpdateFinancialReport;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportById;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReports;
-using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportsByTicker;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -58,27 +57,6 @@ namespace GreenDragonTrading.Api.Controllers
             if (!result.IsSuccess)
             {
                 return NotFound(result);
-            }
-            
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Retrieves all financial reports for a specific ticker symbol.
-        /// </summary>
-        /// <param name="query">Query parameters for pagination.</param>
-        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
-        /// <returns>A paginated list of financial reports for the specified ticker.</returns>
-        [HttpGet("ticker")]
-        public async Task<ActionResult<ApiResponse<PaginatedResponse<FinancialReportDto>>>> GetFinancialReportsByTicker(
-            [FromQuery] GetFinancialReportsByTickerQuery query,
-            CancellationToken cancellationToken = default)
-        {
-            var result = await _mediator.Send(query, cancellationToken);
-            
-            if (!result.IsSuccess)
-            {
-                return BadRequest(result);
             }
             
             return Ok(result);

@@ -26,9 +26,10 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
             {
                 Name = request.Name,
                 LevelOrder = request.LevelOrder,
-                MaxLayouts = request.MaxLayouts,
+                MaxWorkspaces = request.MaxWorkspaces,
                 Price = request.Price,
-                DurationInDays = request.DurationInDays
+                DurationInDays = request.DurationInDays,
+                AllowedModules = request.AllowedModules.GetRawText()
             };
 
             await _uow.Subscriptions.AddAsync(subscription, cancellationToken);
@@ -41,9 +42,10 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
                 Id = subscription.Id,
                 Name = subscription.Name,
                 LevelOrder = subscription.LevelOrder,
-                MaxLayouts = subscription.MaxLayouts,
+                MaxWorkspaces = subscription.MaxWorkspaces,
                 Price = subscription.Price,
-                DurationInDays = subscription.DurationInDays
+                DurationInDays = subscription.DurationInDays,
+                AllowedModules = request.AllowedModules
             };
 
             return ApiResponse<SubscriptionDto>.Success(dto, "Tạo gói đăng ký thành công.");

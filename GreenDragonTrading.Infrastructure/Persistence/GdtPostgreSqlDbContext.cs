@@ -20,6 +20,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<ModuleLayout> ModuleLayouts => Set<ModuleLayout>();
         public DbSet<WatchList> WatchLists => Set<WatchList>();
         public DbSet<Transaction> Transactions => Set<Transaction>();
+        public DbSet<AnalysisReport> AnalysisReports => Set<AnalysisReport>();
+        public DbSet<AnalysisReportSource> AnalysisReportSources => Set<AnalysisReportSource>();
+        public DbSet<AnalysisReportCategory> AnalysisReportCategories => Set<AnalysisReportCategory>();
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -185,6 +189,61 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.HasOne(t => t.Subscription)
                        .WithMany()
                        .HasForeignKey(t => t.SubscriptionId)
+                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AnalysisReport>(builder =>
+            {
+                builder.ToTable("analysis_reports");
+
+                builder.HasIndex(ar => ar.SourceId);
+                builder.HasIndex(ar => ar.CategoryId);
+                builder.HasIndex(ar => ar.SectorId);
+                builder.HasIndex(ar => ar.UploadedBy);
+                builder.HasIndex(ar => ar.Status);
+
+                // Configure Tickers as PostgreSQL array
+                builder.Property(ar => ar.Tickers)
+                       .HasColumnType("varchar(20)[]");
+
+                builder.HasOne(ar => ar.Source)
+                       .WithMany(s => s.AnalysisReports)
+                       .HasForeignKey(ar => ar.SourceId)
+                       .OnDelete(DeleteBehavior.Restrict);
+
+                builder.HasOne(ar => ar.Category)
+                       .WithMany(c => c.AnalysisReports)
+                       .HasForeignKey(ar => ar.CategoryId)
+                       .OnDelete(DeleteBehavior.Restrict);
+
+                builder.HasOne(ar => ar.Sector)
+                       .WithMany()
+                       .HasForeignKey(ar => ar.SectorId)
+                       .OnDelete(DeleteBehavior.SetNull);
+
+                builder.HasOne(ar => ar.Uploader)
+                       .WithMany()
+                       .HasForeignKey(ar => ar.UploadedBy)
+                       .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<AnalysisReportSource>(builder =>
+            {
+                builder.ToTable("analysis_report_sources");
+
+                builder.HasIndex(s => s.Status);
+            });
+
+            modelBuilder.Entity<AnalysisReportCategory>(builder =>
+            {
+                builder.ToTable("analysis_report_categories");
+
+                builder.HasIndex(c => c.ParentId);
+                builder.HasIndex(c => c.Status);
+
+                builder.HasOne(c => c.ParentCategory)
+                       .WithMany(p => p.ChildCategories)
+                       .HasForeignKey(c => c.ParentId)
                        .OnDelete(DeleteBehavior.Restrict);
             });
 

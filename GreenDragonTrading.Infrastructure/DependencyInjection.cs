@@ -49,6 +49,9 @@ namespace GreenDragonTrading.Infrastructure
             // Register Email Service
             services.AddScoped<IEmailService, EmailService>();
 
+            // Register Local File Storage Service
+            services.AddScoped<ILocalFileStorageService, LocalFileStorageService>();
+
             // Register Background Service for handling streaming events
             services.AddHostedService<SsiStreamingBackgroundService>();
 
