@@ -13,10 +13,12 @@ namespace GreenDragonTrading.Infrastructure.Hubs
     /// </summary>
     public class MarketDataHub(
         ILogger<MarketDataHub> logger,
-        IRedisService redisService) : Hub
+        IRedisService redisService,
+        IOhlcvAggregationService ohlcvAggregationService) : Hub
     {
         private readonly ILogger<MarketDataHub> _logger = logger;
         private readonly IRedisService _redisService = redisService;
+        private readonly IOhlcvAggregationService _ohlcvAggregationService = ohlcvAggregationService;
 
         public override async Task OnConnectedAsync()
         {
@@ -131,6 +133,171 @@ namespace GreenDragonTrading.Infrastructure.Hubs
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, "ALL_MARKET_DATA");
             _logger.LogInformation("Client {ConnectionId} unsubscribed from all market data", Context.ConnectionId);
+        }
+
+        /// <summary>
+        /// Subscribe to OHLCV updates for a specific ticker and timeframe.
+        /// Client will receive real-time candle updates as they form.
+        /// </summary>
+        /// <param name="ticker">Stock ticker symbol (e.g., "FPT")</param>
+        /// <param name="timeframe">Timeframe (M1, M5, M15, H1, H4, D1)</param>
+        public async Task SubscribeToOhlcv(string ticker, string timeframe)
+        {
+            if (string.IsNullOrWhiteSpace(ticker) || string.IsNullOrWhiteSpace(timeframe))
+            {
+                _logger.LogWarning(
+                    "Client {ConnectionId} attempted to subscribe with invalid ticker or timeframe",
+                    Context.ConnectionId);
+                return;
+            }
+
+            var upperTicker = ticker.ToUpper();
+            var upperTimeframe = timeframe.ToUpper();
+            var groupName = $"OHLCV:{upperTicker}:{upperTimeframe}";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation(
+                "Client {ConnectionId} subscribed to OHLCV {Ticker} {Timeframe}",
+                Context.ConnectionId, upperTicker, upperTimeframe);
+
+            // Send current candle immediately if exists AND has data (Volume > 0)
+            // This prevents sending empty candles that would overwrite historical data on frontend
+            try
+            {
+                var currentCandle = _ohlcvAggregationService.GetCurrentCandle(upperTicker, upperTimeframe);
+                if (currentCandle != null && currentCandle.Volume > 0)
+                {
+                    await Clients.Caller.SendAsync("ReceiveCurrentCandle", currentCandle);
+                    _logger.LogDebug(
+                        "Sent current {Timeframe} candle for {Ticker} to client {ConnectionId} (Volume: {Volume})",
+                        upperTimeframe, upperTicker, Context.ConnectionId, currentCandle.Volume);
+                }
+                else if (currentCandle != null && currentCandle.Volume == 0)
+                {
+                    _logger.LogDebug(
+                        "Skipped sending empty {Timeframe} candle for {Ticker} to client {ConnectionId} (no ticks yet)",
+                        upperTimeframe, upperTicker, Context.ConnectionId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to send current candle for {Ticker} {Timeframe} to client {ConnectionId}",
+                    upperTicker, upperTimeframe, Context.ConnectionId);
+            }
+        }
+
+        /// <summary>
+        /// Unsubscribe from OHLCV updates for a specific ticker and timeframe.
+        /// </summary>
+        /// <param name="ticker">Stock ticker symbol</param>
+        /// <param name="timeframe">Timeframe</param>
+        public async Task UnsubscribeFromOhlcv(string ticker, string timeframe)
+        {
+            if (string.IsNullOrWhiteSpace(ticker) || string.IsNullOrWhiteSpace(timeframe))
+            {
+                return;
+            }
+
+            var upperTicker = ticker.ToUpper();
+            var upperTimeframe = timeframe.ToUpper();
+            var groupName = $"OHLCV:{upperTicker}:{upperTimeframe}";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation(
+                "Client {ConnectionId} unsubscribed from OHLCV {Ticker} {Timeframe}",
+                Context.ConnectionId, upperTicker, upperTimeframe);
+        }
+
+        /// <summary>
+        /// Get all current candles for a ticker across all timeframes.
+        /// Useful for displaying multiple timeframe charts simultaneously.
+        /// </summary>
+        /// <param name="ticker">Stock ticker symbol</param>
+        public async Task GetAllCurrentCandles(string ticker)
+        {
+            if (string.IsNullOrWhiteSpace(ticker))
+            {
+                return;
+            }
+
+            try
+            {
+                var upperTicker = ticker.ToUpper();
+                var candles = _ohlcvAggregationService.GetAllCurrentCandles(upperTicker);
+
+                await Clients.Caller.SendAsync("ReceiveAllCurrentCandles", new
+                {
+                    Ticker = upperTicker,
+                    Candles = candles
+                });
+
+                _logger.LogDebug(
+                    "Sent {Count} current candles for {Ticker} to client {ConnectionId}",
+                    candles.Count, upperTicker, Context.ConnectionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to send all current candles for {Ticker} to client {ConnectionId}",
+                    ticker, Context.ConnectionId);
+            }
+        }
+
+        /// <summary>
+        /// Subscribe to heatmap updates for a specific exchange and/or sector.
+        /// Client will receive real-time heatmap data updates.
+        /// </summary>
+        /// <param name="exchange">Exchange code (hsx, hnx, upcom) or null for all exchanges</param>
+        /// <param name="sector">Sector ID or null for all sectors</param>
+        public async Task SubscribeToHeatmap(string? exchange, string? sector)
+        {
+            var exchangeUpper = exchange?.ToUpper() ?? "ALL";
+            var sectorUpper = sector?.ToUpper() ?? "ALL";
+            var groupName = $"HEATMAP:{exchangeUpper}:{sectorUpper}";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation(
+                "Client {ConnectionId} subscribed to heatmap: Exchange={Exchange}, Sector={Sector}, Group={GroupName}",
+                Context.ConnectionId, exchangeUpper, sectorUpper, groupName);
+        }
+
+        /// <summary>
+        /// Unsubscribe from heatmap updates.
+        /// </summary>
+        /// <param name="exchange">Exchange code or null</param>
+        /// <param name="sector">Sector ID or null</param>
+        public async Task UnsubscribeFromHeatmap(string? exchange, string? sector)
+        {
+            var exchangeUpper = exchange?.ToUpper() ?? "ALL";
+            var sectorUpper = sector?.ToUpper() ?? "ALL";
+            var groupName = $"HEATMAP:{exchangeUpper}:{sectorUpper}";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation(
+                "Client {ConnectionId} unsubscribed from heatmap: Exchange={Exchange}, Sector={Sector}",
+                Context.ConnectionId, exchangeUpper, sectorUpper);
+        }
+
+        /// <summary>
+        /// Get current heatmap snapshot for specific exchange and/or sector.
+        /// Returns current heatmap data without subscribing to updates.
+        /// </summary>
+        /// <param name="exchange">Exchange code or null for all</param>
+        /// <param name="sector">Sector ID or null for all</param>
+        public async Task GetCurrentHeatmap(string? exchange, string? sector)
+        {
+            _logger.LogInformation(
+                "Client {ConnectionId} requested current heatmap: Exchange={Exchange}, Sector={Sector}",
+                Context.ConnectionId, exchange ?? "ALL", sector ?? "ALL");
+
+            // Note: The actual heatmap data will be broadcast by MarketDataBroadcaster
+            // Frontend should listen to "ReceiveHeatmapData" event after calling this
+            await Task.CompletedTask;
         }
     }
 }

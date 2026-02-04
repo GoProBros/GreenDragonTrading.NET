@@ -29,15 +29,26 @@ namespace GreenDragonTrading.Infrastructure
                 options.UseNpgsql(
                     configuration.GetConnectionString("GdtPostgreSqlConnection"),
                     b => b.MigrationsAssembly(typeof(GdtPostgreSqlDbContext).Assembly.FullName)));
+            
+            // Register OhlcvTimescaleDbContext
+            services.AddDbContext<OhlcvTimescaleDbContext>(options =>
+                options.UseNpgsql(
+                    configuration.GetConnectionString("OhlcvTimescaleDbConnection"),
+                    b => b.MigrationsAssembly(typeof(OhlcvTimescaleDbContext).Assembly.FullName)));
+            
             string redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
 
             // Register Unit of Work and Repositories here if needed
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped(typeof(IPostgreSqlGenericRepository<>), typeof(PostgreSqlGenericRepository<>));
+            services.AddScoped<IOhlcvUnitOfWork, OhlcvUnitOfWork>();
+            services.AddScoped<IOhlcvRepository, OhlcvRepository>();
             services.AddSingleton<ISsiStreamingService, SsiStreamingService>();
             services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
+            services.AddScoped<IHeatmapService, HeatmapService>();
+            services.AddSingleton<IOhlcvAggregationService, OhlcvAggregationService>();
 
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();
@@ -55,6 +66,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHostedService<SsiStreamingBackgroundService>();
 
             // Register Api options
+            // Register Api options (must be configured before registering Background Services)
             services.Configure<SsiApiOptionsV1>(configuration.GetSection(SsiApiOptionsV1.SectionName));
             services.Configure<SsiApiOptionsV2>(configuration.GetSection(SsiApiOptionsV2.SectionName));
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
@@ -74,6 +86,7 @@ namespace GreenDragonTrading.Infrastructure
             {
                 var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
 
+                client.BaseAddress = new Uri(options.FastConnectUrl);
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/x-www-form-urlencoded");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
@@ -82,6 +95,16 @@ namespace GreenDragonTrading.Infrastructure
             {
                 var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
 
+                // Add null check and logging
+                if (string.IsNullOrEmpty(options.FastConnectUrl))
+                {
+                    throw new InvalidOperationException(
+                        "SsiApiV2:FastConnectUrl is not configured. " +
+                        $"ConsumerID: {options.ConsumerID ?? "null"}, " +
+                        $"TimeoutSeconds: {options.TimeoutSeconds}");
+                }
+
+                client.BaseAddress = new Uri(options.FastConnectUrl);
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
@@ -127,6 +150,10 @@ namespace GreenDragonTrading.Infrastructure
                     };
                 });
             }
+
+            // Register Background Services (after all dependencies are configured)
+            services.AddHostedService<SsiStreamingBackgroundService>();
+            services.AddHostedService<PriceAdjustmentCheckService>();
 
             return services;
         }

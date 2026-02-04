@@ -141,4 +141,34 @@ namespace GreenDragonTrading.Application.DTOs
         public string? Volume { get; set; }
     }
     #endregion IntradayOhlcResponse
+
+    #region DailyOhlcResponse
+    public class DailyOhlcResponse : ResponseBase<DailyOhlcResponseModel>
+    {
+    }
+
+    public class DailyOhlcResponseModel
+    {
+        [JsonPropertyName("Symbol")]
+        public string? Symbol { get; set; }
+        [JsonPropertyName("Market")]
+        public string? Market { get; set; }
+        [JsonPropertyName("TradingDate")]
+        public string? TradingDate { get; set; }
+        [JsonPropertyName("Time")]
+        public string? Time { get; set; }
+        [JsonPropertyName("Open")]
+        public string? Open { get; set; }
+        [JsonPropertyName("High")]
+        public string? High { get; set; }
+        [JsonPropertyName("Low")]
+        public string? Low { get; set; }
+        [JsonPropertyName("Close")]
+        public string? Close { get; set; }
+        [JsonPropertyName("Volume")]
+        public string? Volume { get; set; }
+        [JsonPropertyName("Value")]
+        public string? Value { get; set; }
+    }
+    #endregion DailyOhlcResponse
 }

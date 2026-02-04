@@ -49,5 +49,10 @@
         /// Check if a key exists in Redis.
         /// </summary>
         Task<bool> ExistsAsync(string key);
+
+        /// <summary>
+        /// Delete all keys matching a pattern (e.g., "OHLCV:FPT:*")
+        /// </summary>
+        Task<long> DeleteByPatternAsync(string pattern);
     }
 }

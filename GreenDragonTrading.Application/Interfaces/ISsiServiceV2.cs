@@ -26,5 +26,15 @@ namespace GreenDragonTrading.Application.Interfaces
         Task<(IntradayOhlcResponse result, int count)> FetchIntradayOhlcAsync(
             IntradayOhlcRequest requestQuery,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Fetch daily OHLC data from ssi api
+        /// </summary>
+        /// <param name="requestQuery">Request query</param>
+        /// <param name="cancellationToken">Cancellation token for the request</param>
+        /// <returns>A list of daily OHLC data from ssi api</returns>
+        Task<(DailyOhlcResponse result, int count)> FetchDailyOhlcAsync(
+            DailyOhlcRequest requestQuery,
+            CancellationToken cancellationToken = default);
     }
 }
