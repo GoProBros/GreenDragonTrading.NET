@@ -21,5 +21,10 @@ namespace GreenDragonTrading.Domain.Interfaces
             int pageIndex,
             int pageSize,
             CancellationToken cancellationToken = default);
+
+        Task<List<Symbol>> GetActiveSymbolsForHeatmapAsync(
+            string? exchange = null,
+            string? sector = null,
+            CancellationToken cancellationToken = default);
     }
 }

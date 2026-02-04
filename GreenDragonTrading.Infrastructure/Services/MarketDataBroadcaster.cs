@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Infrastructure.Hubs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Application.DTOs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 
@@ -29,6 +30,73 @@ namespace GreenDragonTrading.Infrastructure.Services
                 _logger.LogError(ex, "Error broadcasting market data for symbol: {Symbol}", symbol);
                 throw;
             }
+        }
+
+        /// <inheritdoc/>
+        public async Task BroadcastOhlcvUpdateAsync(CurrentCandleDto candle, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var groupName = $"OHLCV:{candle.Ticker}:{candle.Timeframe}";
+                
+                await _hubContext.Clients
+                    .Group(groupName)
+                    .SendAsync("ReceiveOhlcvUpdate", candle, cancellationToken);
+
+                _logger.LogInformation(
+                    "📊 Broadcasted {Status} {Timeframe} candle for {Ticker} - O:{Open} H:{High} L:{Low} C:{Close} V:{Volume}",
+                    candle.IsComplete ? "completed" : "in-progress",
+                    candle.Timeframe,
+                    candle.Ticker,
+                    candle.Open,
+                    candle.High,
+                    candle.Low,
+                    candle.Close,
+                    candle.Volume);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, 
+                    "❌ CRITICAL ERROR broadcasting OHLCV update for {Ticker} {Timeframe} to group {GroupName}. Exception: {Message}",
+                    candle.Ticker, candle.Timeframe, $"OHLCV:{candle.Ticker}:{candle.Timeframe}", ex.Message);
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task BroadcastHeatmapUpdateAsync(HeatmapDataDto heatmapData, string? exchange = null, string? sector = null, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var groupName = GetHeatmapGroupName(exchange, sector);
+                
+                await _hubContext.Clients
+                    .Group(groupName)
+                    .SendAsync("ReceiveHeatmapData", heatmapData, cancellationToken);
+
+                _logger.LogDebug(
+                    "📊 Broadcasted heatmap update to {GroupName}: {Count} items",
+                    groupName, heatmapData.TotalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, 
+                    "❌ Error broadcasting heatmap update to {GroupName}",
+                    GetHeatmapGroupName(exchange, sector));
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get heatmap group name for SignalR groups
+        /// </summary>
+        private static string GetHeatmapGroupName(string? exchange, string? sector)
+        {
+            if (!string.IsNullOrEmpty(sector))
+                return $"HEATMAP:{exchange}:{sector}";
+            if (!string.IsNullOrEmpty(exchange))
+                return $"HEATMAP:{exchange}";
+            return "HEATMAP:ALL";
         }
     }
 }

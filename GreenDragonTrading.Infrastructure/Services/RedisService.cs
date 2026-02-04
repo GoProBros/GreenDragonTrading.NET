@@ -7,6 +7,7 @@ namespace GreenDragonTrading.Infrastructure.Services
     /// <inheritdoc/>
     public class RedisService(IConnectionMultiplexer redis) : IRedisService
     {
+        private readonly IConnectionMultiplexer _redis = redis;
         private readonly IDatabase _db = redis.GetDatabase();
         private static readonly JsonSerializerOptions _jsonOptions = new()
         {
@@ -147,6 +148,20 @@ namespace GreenDragonTrading.Infrastructure.Services
                 }
             }
             return obj;
+        }
+
+        /// <inheritdoc/>
+        public async Task<long> DeleteByPatternAsync(string pattern)
+        {
+            var server = _redis.GetServer(_redis.GetEndPoints().First());
+            var keys = server.Keys(pattern: pattern).ToArray();
+            
+            if (keys.Length == 0)
+            {
+                return 0;
+            }
+
+            return await _db.KeyDeleteAsync(keys);
         }
     }
 }

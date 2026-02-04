@@ -16,6 +16,7 @@ public static class EnvironmentConfiguration
         {
             // Database Configuration
             ["ConnectionStrings:GdtPostgreSqlConnection"] = BuildPostgresConnectionString(),
+            ["ConnectionStrings:OhlcvTimescaleDbConnection"] = BuildTimescaleDbConnectionString(),
             ["ConnectionStrings:Redis"] = BuildRedisConnectionString(),
 
             // SSI API V1
@@ -59,6 +60,22 @@ public static class EnvironmentConfiguration
             ["PayOS:ReturnUrl"] = Environment.GetEnvironmentVariable("PAYOS_RETURN_URL") ?? "",
             ["PayOS:CancelUrl"] = Environment.GetEnvironmentVariable("PAYOS_CANCEL_URL") ?? "",
             ["PayOS:ExpirationMinutes"] = Environment.GetEnvironmentVariable("PAYOS_EXPIRATION_MINUTES") ?? "30",
+            // File Storage R2
+            ["FileStorage:R2:AccountId"] = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID"),
+            ["FileStorage:R2:BucketName"] = Environment.GetEnvironmentVariable("R2_BUCKET_NAME"),
+
+            // AWS
+            ["AWS:Region"] = Environment.GetEnvironmentVariable("AWS_REGION"),
+            ["AWS:Credentials:AccessKeyId"] = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"),
+            ["AWS:Credentials:SecretAccessKey"] = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY"),
+
+            // R2 Options
+            ["R2Options:AccountId"] = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID"),
+            ["R2Options:BucketName"] = Environment.GetEnvironmentVariable("R2_BUCKET_NAME"),
+            ["R2Options:PublicUrl"] = Environment.GetEnvironmentVariable("R2_PUBLIC_URL"),
+
+            // Finsc API
+            ["FinscApiOptions:FinscBaseUrl"] = Environment.GetEnvironmentVariable("FINSC_BASE_URL"),
         };
 
         // Add CORS allowed origins (split by comma)
@@ -85,6 +102,24 @@ public static class EnvironmentConfiguration
         if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(database))
             return null;
 
+        return $"Host={host};Database={database};Username={username};Password={password}";
+    }
+
+    private static string? BuildTimescaleDbConnectionString()
+    {
+        // Use same DATABASE_* variables as PostgreSQL (unified configuration)
+        var host = Environment.GetEnvironmentVariable("DATABASE_HOST");
+        var ohlcvDatabase = Environment.GetEnvironmentVariable("OHLCV_DATABASE_NAME");
+        var username = Environment.GetEnvironmentVariable("DATABASE_USERNAME");
+        var password = Environment.GetEnvironmentVariable("DATABASE_PASSWORD");
+
+        // If no OHLCV_DATABASE_NAME specified, use default "ohlcv_db"
+        var database = !string.IsNullOrEmpty(ohlcvDatabase) ? ohlcvDatabase : "ohlcv_db";
+
+        if (string.IsNullOrEmpty(host))
+            return null;
+
+        // Host already includes port (e.g., "103.48.193.165:50001")
         return $"Host={host};Database={database};Username={username};Password={password}";
     }
 
