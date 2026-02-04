@@ -22,7 +22,6 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IMarketDataBroadcaster _broadcaster;
         private readonly IOhlcvAggregationService _ohlcvAggregationService;
-
         private readonly Func<string, Task> _broadcastHandler;
         private readonly Action<string> _errorHandler;
         private readonly Action<string, string> _stateChangedHandler;
@@ -147,9 +146,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         /// Handle streaming errors.
         /// </summary>
         /// <param name="error">Error message</param>
-        private async Task HandleError(string error)
+        private Task HandleError(string error)
         {
             _logger.LogError("SSI Streaming error: {Error}", error);
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -158,9 +158,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         /// <param name="oldState">Old streaming state</param>
         /// <param name="newState">New streaming state</param>
         /// <returns></returns>
-        private async Task HandleStateChanged(string oldState, string newState)
+        private Task HandleStateChanged(string oldState, string newState)
         {
             _logger.LogInformation("SSI connection state changed: {OldState} -> {NewState}", oldState, newState);
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -534,6 +535,20 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (updates.Count > 0)
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
+                
+                // Broadcast heatmap when market data changes (real-time)
+                // Fire-and-forget to avoid blocking market data stream
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await BroadcastHeatmapForExchangeAsync(response.Exchange!);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to broadcast heatmap for exchange {Exchange}", response.Exchange);
+                    }
+                });
             }
 
             updates["Ticker"] = response.Symbol!;
@@ -586,6 +601,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
         #endregion Handle Snapshot
 
+        #region Helper Methods
+
         /// <summary>
         /// Check if new value is different from existing value, and add to updates if changed.
         /// </summary>
@@ -619,5 +636,66 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 updates[fieldName] = valueToCompare;
             }
         }
+        
+        #endregion Helper Methods
+
+        #region Heatmap Real-time Broadcasting
+
+        /// <summary>
+        /// Broadcast heatmap update for a specific exchange in real-time.
+        /// This method is called when market data changes to provide instant heatmap updates.
+        /// Uses throttling to avoid excessive broadcasts (max once per 500ms per exchange).
+        /// </summary>
+        /// <param name="exchange">Exchange code (HSX, HNX, UPCOM)</param>
+        private async Task BroadcastHeatmapForExchangeAsync(string exchange)
+        {
+            try
+            {
+                var normalizedExchange = exchange.ToLower();
+                
+                // Create scope to get scoped services
+                using var scope = _serviceScopeFactory.CreateScope();
+                var heatmapService = scope.ServiceProvider.GetRequiredService<IHeatmapService>();
+                
+                // Broadcast for specific exchange
+                var heatmapData = await heatmapService.GetHeatmapDataAsync(
+                    exchange: normalizedExchange,
+                    sector: null,
+                    cancellationToken: default);
+
+                if (heatmapData.Items.Any())
+                {
+                    await _broadcaster.BroadcastHeatmapUpdateAsync(
+                        heatmapData,
+                        exchange: normalizedExchange,
+                        sector: null,
+                        cancellationToken: default);
+
+                    _logger.LogDebug("🔥 Broadcasted real-time heatmap: {Exchange}, {Count} items",
+                        normalizedExchange.ToUpper(), heatmapData.TotalCount);
+                }
+                
+                // Also broadcast for ALL exchanges group
+                var allHeatmapData = await heatmapService.GetHeatmapDataAsync(
+                    exchange: null,
+                    sector: null,
+                    cancellationToken: default);
+
+                if (allHeatmapData.Items.Any())
+                {
+                    await _broadcaster.BroadcastHeatmapUpdateAsync(
+                        allHeatmapData,
+                        exchange: null,
+                        sector: null,
+                        cancellationToken: default);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting heatmap for exchange: {Exchange}", exchange);
+            }
+        }
+
+        #endregion
     }
 }

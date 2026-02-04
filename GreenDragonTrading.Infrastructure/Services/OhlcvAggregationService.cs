@@ -306,23 +306,25 @@ namespace GreenDragonTrading.Infrastructure.Services
                 // Broadcast completed candle for ALL timeframes
                 await BroadcastCandleUpdateAsync(candle, isComplete: true, cancellationToken);
 
-                // CRITICAL: Invalidate Redis cache for ALL timeframes when M1 completes
-                // Because M1 is the base for computed timeframes (M5, M15, M30, H1, H4)
-                if (candle.Timeframe == "M1")
+                // Cache invalidation: ONLY for D1 (end of day), NOT for M1
+                // M1 closes every minute for ~1500 tickers → would overload Redis
+                // Cache has TTL and will expire naturally
+                // D1 is important for daily aggregations, so invalidate cache at end of day
+                if (candle.Timeframe == "D1")
                 {
                     try
                     {
                         var cacheKeyPattern = $"OHLCV:{candle.Ticker}:*";
                         await redisService.DeleteByPatternAsync(cacheKeyPattern);
                         
-                        _logger.LogDebug(
-                            "Invalidated cache pattern {Pattern} after closing M1 candle for {Ticker}",
+                        _logger.LogInformation(
+                            "Invalidated cache pattern {Pattern} after closing D1 candle for {Ticker}",
                             cacheKeyPattern, candle.Ticker);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, 
-                            "Failed to invalidate cache for {Ticker} after closing M1 candle - cache will expire naturally",
+                            "Failed to invalidate cache for {Ticker} after closing D1 candle - cache will expire naturally",
                             candle.Ticker);
                     }
                 }

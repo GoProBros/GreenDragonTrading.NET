@@ -47,7 +47,6 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
-            services.AddScoped<IFinscService, FinscService>();
             services.AddScoped<IHeatmapService, HeatmapService>();
             services.AddSingleton<IOhlcvAggregationService, OhlcvAggregationService>();
 
@@ -154,6 +153,7 @@ namespace GreenDragonTrading.Infrastructure
 
             // Register Background Services (after all dependencies are configured)
             services.AddHostedService<SsiStreamingBackgroundService>();
+            services.AddHostedService<PriceAdjustmentCheckService>();
 
             return services;
         }

@@ -245,5 +245,39 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .Where(o => o.Time < olderThan)
                 .ExecuteDeleteAsync(cancellationToken);
         }
+
+        public async Task<DateTime?> GetOldestDateAsync(
+            string ticker,
+            string timeframe,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.Ohlcv
+                .Where(o => o.Ticker == ticker.ToUpper() && o.Timeframe == timeframe.ToUpper())
+                .OrderBy(o => o.Time)
+                .Select(o => o.Time)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<DateTime?> GetNewestDateAsync(
+            string ticker,
+            string timeframe,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.Ohlcv
+                .Where(o => o.Ticker == ticker.ToUpper() && o.Timeframe == timeframe.ToUpper())
+                .OrderByDescending(o => o.Time)
+                .Select(o => o.Time)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task DeleteByTickerAndTimeframeAsync(
+            string ticker,
+            string timeframe,
+            CancellationToken cancellationToken = default)
+        {
+            await _context.Ohlcv
+                .Where(o => o.Ticker == ticker.ToUpper() && o.Timeframe == timeframe.ToUpper())
+                .ExecuteDeleteAsync(cancellationToken);
+        }
     }
 }

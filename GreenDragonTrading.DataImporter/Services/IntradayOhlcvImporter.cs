@@ -285,17 +285,13 @@ public class IntradayOhlcvImporter
     private Domain.Entities.Ohlcv ConvertToEntity(IntradayOhlcResponseModel data)
     {
         // Parse TradingDate (dd/MM/yyyy) and Time (HH:mm:ss)
-        // SSI trả về giờ Việt Nam (GMT+7), cần trừ đi 7 giờ để lưu đúng UTC
         var tradingDate = DateTime.ParseExact(data.TradingDate!, "dd/MM/yyyy", CultureInfo.InvariantCulture);
         var time = TimeSpan.ParseExact(data.Time!, @"hh\:mm\:ss", CultureInfo.InvariantCulture);
         var dateTime = tradingDate.Add(time);
         
-        // Convert from Vietnam time (GMT+7) to UTC by subtracting 7 hours
-        var utcDateTime = dateTime.AddHours(-7);
-        
         return new Domain.Entities.Ohlcv
         {
-            Time = DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc),
+            Time = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc),
             Ticker = data.Symbol!.ToUpper(),
             Timeframe = OhlcvConstants.Timeframes.M1,
             Open = decimal.Parse(data.Open!),

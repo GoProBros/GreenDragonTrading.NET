@@ -95,5 +95,29 @@ namespace GreenDragonTrading.Domain.Interfaces
         Task DeleteOlderThanAsync(
             DateTime olderThan,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get the oldest date for a ticker and timeframe
+        /// </summary>
+        Task<DateTime?> GetOldestDateAsync(
+            string ticker,
+            string timeframe,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get the newest date for a ticker and timeframe
+        /// </summary>
+        Task<DateTime?> GetNewestDateAsync(
+            string ticker,
+            string timeframe,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Delete all OHLCV data by ticker and timeframe
+        /// </summary>
+        Task DeleteByTickerAndTimeframeAsync(
+            string ticker,
+            string timeframe,
+            CancellationToken cancellationToken = default);
     }
 }

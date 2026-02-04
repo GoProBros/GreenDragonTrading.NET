@@ -245,5 +245,59 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                     ticker, Context.ConnectionId);
             }
         }
+
+        /// <summary>
+        /// Subscribe to heatmap updates for a specific exchange and/or sector.
+        /// Client will receive real-time heatmap data updates.
+        /// </summary>
+        /// <param name="exchange">Exchange code (hsx, hnx, upcom) or null for all exchanges</param>
+        /// <param name="sector">Sector ID or null for all sectors</param>
+        public async Task SubscribeToHeatmap(string? exchange, string? sector)
+        {
+            var exchangeUpper = exchange?.ToUpper() ?? "ALL";
+            var sectorUpper = sector?.ToUpper() ?? "ALL";
+            var groupName = $"HEATMAP:{exchangeUpper}:{sectorUpper}";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation(
+                "Client {ConnectionId} subscribed to heatmap: Exchange={Exchange}, Sector={Sector}, Group={GroupName}",
+                Context.ConnectionId, exchangeUpper, sectorUpper, groupName);
+        }
+
+        /// <summary>
+        /// Unsubscribe from heatmap updates.
+        /// </summary>
+        /// <param name="exchange">Exchange code or null</param>
+        /// <param name="sector">Sector ID or null</param>
+        public async Task UnsubscribeFromHeatmap(string? exchange, string? sector)
+        {
+            var exchangeUpper = exchange?.ToUpper() ?? "ALL";
+            var sectorUpper = sector?.ToUpper() ?? "ALL";
+            var groupName = $"HEATMAP:{exchangeUpper}:{sectorUpper}";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation(
+                "Client {ConnectionId} unsubscribed from heatmap: Exchange={Exchange}, Sector={Sector}",
+                Context.ConnectionId, exchangeUpper, sectorUpper);
+        }
+
+        /// <summary>
+        /// Get current heatmap snapshot for specific exchange and/or sector.
+        /// Returns current heatmap data without subscribing to updates.
+        /// </summary>
+        /// <param name="exchange">Exchange code or null for all</param>
+        /// <param name="sector">Sector ID or null for all</param>
+        public async Task GetCurrentHeatmap(string? exchange, string? sector)
+        {
+            _logger.LogInformation(
+                "Client {ConnectionId} requested current heatmap: Exchange={Exchange}, Sector={Sector}",
+                Context.ConnectionId, exchange ?? "ALL", sector ?? "ALL");
+
+            // Note: The actual heatmap data will be broadcast by MarketDataBroadcaster
+            // Frontend should listen to "ReceiveHeatmapData" event after calling this
+            await Task.CompletedTask;
+        }
     }
 }
