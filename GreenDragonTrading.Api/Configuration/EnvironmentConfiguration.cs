@@ -107,16 +107,20 @@ public static class EnvironmentConfiguration
 
     private static string? BuildTimescaleDbConnectionString()
     {
-        var host = Environment.GetEnvironmentVariable("OHLCV_DATABASE_HOST");
-        var port = Environment.GetEnvironmentVariable("OHLCV_DATABASE_PORT") ?? "5433";
-        var database = Environment.GetEnvironmentVariable("OHLCV_DATABASE_NAME");
-        var username = Environment.GetEnvironmentVariable("OHLCV_DATABASE_USERNAME");
-        var password = Environment.GetEnvironmentVariable("OHLCV_DATABASE_PASSWORD");
+        // Use same DATABASE_* variables as PostgreSQL (unified configuration)
+        var host = Environment.GetEnvironmentVariable("DATABASE_HOST");
+        var ohlcvDatabase = Environment.GetEnvironmentVariable("OHLCV_DATABASE_NAME");
+        var username = Environment.GetEnvironmentVariable("DATABASE_USERNAME");
+        var password = Environment.GetEnvironmentVariable("DATABASE_PASSWORD");
 
-        if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(database))
+        // If no OHLCV_DATABASE_NAME specified, use default "ohlcv_db"
+        var database = !string.IsNullOrEmpty(ohlcvDatabase) ? ohlcvDatabase : "ohlcv_db";
+
+        if (string.IsNullOrEmpty(host))
             return null;
 
-        return $"Host={host};Port={port};Database={database};Username={username};Password={password}";
+        // Host already includes port (e.g., "103.48.193.165:50001")
+        return $"Host={host};Database={database};Username={username};Password={password}";
     }
 
     private static string? BuildRedisConnectionString()
