@@ -38,9 +38,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.HasIndex(u => u.Email)
                         .IsUnique();
 
-                builder.HasIndex(u => u.Username)
-                        .IsUnique();
-
                 builder.HasMany(u => u.UserSubscriptions)
                        .WithOne(us => us.User)
                        .HasForeignKey(us => us.UserId)

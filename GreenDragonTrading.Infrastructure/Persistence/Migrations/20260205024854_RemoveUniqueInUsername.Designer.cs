@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260205024854_RemoveUniqueInUsername")]
+    partial class RemoveUniqueInUsername
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,243 +24,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.AnalysisReport", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("CategoryId")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("category_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<string>("FileExtension")
-                        .HasMaxLength(10)
-                        .HasColumnType("varchar(10)")
-                        .HasColumnName("file_extension");
-
-                    b.Property<string>("FilePath")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("file_path");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("bigint")
-                        .HasColumnName("file_size");
-
-                    b.Property<string>("MimeType")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)")
-                        .HasColumnName("mime_type");
-
-                    b.Property<string>("OriginalFileName")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("original_file_name");
-
-                    b.Property<DateTimeOffset?>("PublishDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("publish_date");
-
-                    b.Property<string>("SectorId")
-                        .HasMaxLength(10)
-                        .HasColumnType("varchar(10)")
-                        .HasColumnName("sector_id");
-
-                    b.Property<string>("SourceId")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("source_id");
-
-                    b.Property<short>("Status")
-                        .HasColumnType("smallint")
-                        .HasColumnName("status");
-
-                    b.Property<string[]>("Tickers")
-                        .HasColumnType("varchar(20)[]")
-                        .HasColumnName("tickers");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid?>("UploadedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("uploaded_by");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
-
-                    b.HasIndex("SectorId");
-
-                    b.HasIndex("SourceId");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("UploadedBy");
-
-                    b.ToTable("analysis_reports", (string)null);
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.AnalysisReportCategory", b =>
-                {
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<int>("Level")
-                        .HasColumnType("integer")
-                        .HasColumnName("level");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("ParentId")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("parent_id");
-
-                    b.Property<short>("Status")
-                        .HasColumnType("smallint")
-                        .HasColumnName("status");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Code");
-
-                    b.HasIndex("ParentId");
-
-                    b.HasIndex("Status");
-
-                    b.ToTable("analysis_report_categories", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Code = "1000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 2, 3, 16, 58, 6, 123, DateTimeKind.Unspecified).AddTicks(3821), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Phân tích kinh tế vĩ mô, chính sách, triển vọng thị trường",
-                            Level = 1,
-                            Name = "Báo cáo Vĩ mô",
-                            Status = (short)1
-                        },
-                        new
-                        {
-                            Code = "2000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 2, 3, 16, 58, 6, 123, DateTimeKind.Unspecified).AddTicks(3825), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Phân tích các ngành công nghiệp, xu hướng và triển vọng",
-                            Level = 1,
-                            Name = "Báo cáo Ngành",
-                            Status = (short)1
-                        },
-                        new
-                        {
-                            Code = "3000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 2, 3, 16, 58, 6, 123, DateTimeKind.Unspecified).AddTicks(3828), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Phân tích chuyên sâu về doanh nghiệp niêm yết",
-                            Level = 1,
-                            Name = "Báo cáo Doanh nghiệp",
-                            Status = (short)1
-                        },
-                        new
-                        {
-                            Code = "4000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 2, 3, 16, 58, 6, 123, DateTimeKind.Unspecified).AddTicks(3830), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Chiến lược và khuyến nghị đầu tư",
-                            Level = 1,
-                            Name = "Chiến lược Đầu tư",
-                            Status = (short)1
-                        },
-                        new
-                        {
-                            Code = "5000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 2, 3, 16, 58, 6, 123, DateTimeKind.Unspecified).AddTicks(3833), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Nhận định và phân tích thị trường chứng khoán",
-                            Level = 1,
-                            Name = "Báo cáo Thị trường",
-                            Status = (short)1
-                        });
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.AnalysisReportSource", b =>
-                {
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<string>("LogoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("logo_url");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)")
-                        .HasColumnName("name");
-
-                    b.Property<short>("Status")
-                        .HasColumnType("smallint")
-                        .HasColumnName("status");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("Website")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("website");
-
-                    b.HasKey("Code");
-
-                    b.HasIndex("Status");
-
-                    b.ToTable("analysis_report_sources", (string)null);
-                });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Exchange", b =>
                 {
@@ -543,11 +309,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.Property<string>("Isin")
                         .HasColumnType("varchar(25)")
                         .HasColumnName("isin");
-
-                    b.Property<string>("LogoPath")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("logo_path");
 
                     b.Property<string>("SectorId")
                         .HasColumnType("varchar(10)")
@@ -861,49 +622,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.AnalysisReport", b =>
-                {
-                    b.HasOne("GreenDragonTrading.Domain.Entities.AnalysisReportCategory", "Category")
-                        .WithMany("AnalysisReports")
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GreenDragonTrading.Domain.Entities.Sector", "Sector")
-                        .WithMany()
-                        .HasForeignKey("SectorId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("GreenDragonTrading.Domain.Entities.AnalysisReportSource", "Source")
-                        .WithMany("AnalysisReports")
-                        .HasForeignKey("SourceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GreenDragonTrading.Domain.Entities.User", "Uploader")
-                        .WithMany()
-                        .HasForeignKey("UploadedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Category");
-
-                    b.Navigation("Sector");
-
-                    b.Navigation("Source");
-
-                    b.Navigation("Uploader");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.AnalysisReportCategory", b =>
-                {
-                    b.HasOne("GreenDragonTrading.Domain.Entities.AnalysisReportCategory", "ParentCategory")
-                        .WithMany("ChildCategories")
-                        .HasForeignKey("ParentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("ParentCategory");
-                });
-
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.FinancialReport", b =>
                 {
                     b.HasOne("GreenDragonTrading.Domain.Entities.Symbol", "Symbol")
@@ -1008,18 +726,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.AnalysisReportCategory", b =>
-                {
-                    b.Navigation("AnalysisReports");
-
-                    b.Navigation("ChildCategories");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.AnalysisReportSource", b =>
-                {
-                    b.Navigation("AnalysisReports");
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Exchange", b =>
