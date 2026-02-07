@@ -2,10 +2,12 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Constants.SSI;
+using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
@@ -21,10 +23,27 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         private readonly ILogger<SsiStreamingBackgroundService> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IMarketDataBroadcaster _broadcaster;
-        private readonly IOhlcvAggregationService _ohlcvAggregationService;
         private readonly Func<string, Task> _broadcastHandler;
         private readonly Action<string> _errorHandler;
         private readonly Action<string, string> _stateChangedHandler;
+
+        // Symbol metadata cache to avoid DB queries on every tick
+        // Loaded once at startup and reused for heatmap broadcasting
+        private readonly ConcurrentDictionary<string, SymbolMetadata> _symbolMetadataCache = new();
+
+        // No more state dictionaries! Redis is the single source of truth
+        // All candle states stored in Redis with key pattern: OHLCV:{ticker}:{timeframe}
+
+        /// <summary>
+        /// Simple struct for passing OHLCV update data
+        /// </summary>
+        private record struct OhlcvUpdateData(
+            decimal Open,
+            decimal High,
+            decimal Low,
+            decimal Close,
+            long Volume,
+            decimal TotalValue);
 
         /// <summary>
         /// Constructor for SsiStreamingBackgroundService.
@@ -33,19 +52,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         /// <param name="logger">Logger</param>
         /// <param name="serviceScopeFactory">Service scope factory</param>
         /// <param name="broadcaster">Market data broadcaster</param>
-        /// <param name="ohlcvAggregationService">OHLCV aggregation service</param>
         public SsiStreamingBackgroundService(
             ISsiStreamingService streamingService,
             ILogger<SsiStreamingBackgroundService> logger,
             IServiceScopeFactory serviceScopeFactory,
-            IMarketDataBroadcaster broadcaster,
-            IOhlcvAggregationService ohlcvAggregationService)
+            IMarketDataBroadcaster broadcaster)
         {
             _streamingService = streamingService;
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
             _broadcaster = broadcaster;
-            _ohlcvAggregationService = ohlcvAggregationService;
 
             _broadcastHandler = async (data) => await HandleBroadcast(data);
             _errorHandler = async (error) => await HandleError(error);
@@ -60,20 +76,6 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         {
             _logger.LogInformation("SSI Streaming Background Service started.");
             
-            // Initialize OHLCV aggregation service
-            await _ohlcvAggregationService.InitializeAsync(stoppingToken);
-            
-            // Start periodic check for expired candles (every 1 second)
-            _ = Task.Run(async () =>
-            {
-                using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-                while (await timer.WaitForNextTickAsync(stoppingToken))
-                {
-                    await _ohlcvAggregationService.CheckAndCloseExpiredCandlesAsync(
-                        DateTime.UtcNow, stoppingToken);
-                }
-            }, stoppingToken);
-            
             await _streamingService.StartAsync(stoppingToken);
 
             IEnumerable<string> tickers = [];
@@ -83,6 +85,9 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             {
                 var _uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
                 tickers = await _uow.Symbols.GetAllTickersAsync(stoppingToken);
+                
+                // Initialize symbol metadata cache
+                await InitializeSymbolCacheAsync(_uow, stoppingToken);
             }
             string tickersString = string.Join("-", tickers);
 
@@ -100,6 +105,50 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
             string snapshotFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_X}:{tickersString}";
             await _streamingService.SwitchChannelsAsync(snapshotFilter);
+
+            // Subscribe to Channel B: Realtime OHLCV data (replaces tick aggregation)
+            string ohlcvFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_B}:{tickersString}";
+            _logger.LogInformation("Subscribing to OHLCV (Channel B) for {Count} symbols", tickers.Count());
+            await _streamingService.SwitchChannelsAsync(ohlcvFilter);
+        }
+
+        /// <summary>
+        /// Initialize symbol metadata cache from database
+        /// Eliminates need for DB queries during tick processing
+        /// </summary>
+        private async Task InitializeSymbolCacheAsync(IUnitOfWork uow, CancellationToken cancellationToken)
+        {
+            try
+            {
+                _logger.LogInformation("Initializing symbol metadata cache...");
+
+                // Get all active symbols for heatmap
+                var symbols = await uow.Symbols.GetActiveSymbolsForHeatmapAsync(
+                    exchange: null, 
+                    sector: null, 
+                    cancellationToken);
+
+                foreach (var symbol in symbols)
+                {
+                    var metadata = new SymbolMetadata
+                    {
+                        Ticker = symbol.Ticker,
+                        CompanyName = symbol.ViCompanyName ?? symbol.EnCompanyName ?? string.Empty,
+                        Exchange = symbol.ExchangeCode,
+                        SectorId = symbol.SectorId,
+                        SectorName = symbol.Sector?.ViName ?? symbol.Sector?.EnName
+                    };
+                    _symbolMetadataCache.TryAdd(symbol.Ticker.ToUpper(), metadata);
+                }
+
+                _logger.LogInformation(
+                    "Symbol metadata cache initialized with {Count} symbols",
+                    _symbolMetadataCache.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing symbol metadata cache");
+            }
         }
 
         /// <summary>
@@ -135,6 +184,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     var response = JsonSerializer.Deserialize<SecuritiesSnapshot>(wrapperResponse.Content!);
                     await HandleSnapshot(_redis, response);
                 }
+                // TODO: Uncomment when ready to enable OHLCV realtime processing
+                //else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_B))
+                //{
+                //    var response = JsonSerializer.Deserialize<OhlcvDataResponse>(wrapperResponse.Content!);
+                //    await HandleOhlcvData(_redis, response);
+                //}
             }
             catch (Exception ex)
             {
@@ -232,7 +287,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
                 updates["Ticker"] = response.Symbol!;
-                await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
+                
+                // Broadcast in background - don't let failures block data updates
+                await SafeBroadcastAsync(
+                    () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
+                    $"market data for {response.Symbol}");
             }
         }
 
@@ -261,7 +320,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 AskVol3 = response.AskVol3 ?? default,
             };
             await redis.SetHashAsync(redisKey, newData);
-            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
+            
+            // Broadcast in background - don't let failures block data updates
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData),
+                $"new quote data for {response.Symbol}");
         }
 
         #endregion Handle X-QUOTE
@@ -326,7 +389,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
 
             updates["Ticker"] = response.Symbol!;
-            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
+            
+            // Broadcast in background - don't let failures block data updates  
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
+                $"trade data for {response.Symbol}");
         }
 
         /// <summary>
@@ -356,7 +423,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 PriorVal = response.PriorVal ?? default
             };
             await redis.SetHashAsync(redisKey, newData);
-            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
+            
+            // Broadcast in background - don't let failures block data updates
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData),
+                $"new trade data for {response.Symbol}");
         }
 
         #endregion Handle X-TRADE
@@ -413,7 +484,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
 
             updates["Ticker"] = response.Symbol!;
-            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
+            
+            // Broadcast in background - don't let failures block data updates
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
+                $"foreign room data for {response.Symbol}");
         }
 
         /// <summary>
@@ -435,7 +510,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 FSellVal = response.FSellVal ?? default,
             };
             await redis.SetHashAsync(redisKey, newData);
-            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
+            
+            // Broadcast in background - don't let failures block data updates
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData),
+                $"new foreign room data for {response.Symbol}");
         }
 
         #endregion Handle Foreign Room
@@ -460,21 +539,6 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 else
                 {
                     await CreateNewSnapshotData(redis, redisKey, response);
-                }
-
-                // Process tick for OHLCV aggregation
-                if (response.LastVal.HasValue && response.LastVal.Value > 0)
-                {
-                    var tick = new TickData
-                    {
-                        Ticker = response.Symbol!,
-                        Price = (decimal)response.LastVal.Value,
-                        Volume = (long)(response.LastVol ?? 0),
-                        Value = (decimal)(response.LastVal.Value * (response.LastVol ?? 0)),
-                        Timestamp = DateTime.UtcNow
-                    };
-
-                    await _ohlcvAggregationService.ProcessTickAsync(tick);
                 }
             }
             catch (Exception ex)
@@ -536,23 +600,24 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
                 
-                // Broadcast heatmap when market data changes (real-time)
-                // Fire-and-forget to avoid blocking market data stream
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await BroadcastHeatmapForExchangeAsync(response.Exchange!);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to broadcast heatmap for exchange {Exchange}", response.Exchange);
-                    }
-                });
+                // TODO: Uncomment when ready to enable heatmap realtime processing
+                //// Update Heatmap Redis key (single source of truth)
+                //// Returns true if heatmap actually changed (price, volume, etc)
+                //var heatmapChanged = await UpdateHeatmapRedisAsync(redis, response.Symbol!, updates, existingData);
+                //
+                //// Only broadcast if heatmap-relevant fields changed (not just Bid/Ask)
+                //if (heatmapChanged)
+                //{
+                //    await BroadcastHeatmapItemFromRedisAsync(redis, response.Symbol!);
+                //}
             }
 
             updates["Ticker"] = response.Symbol!;
-            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates);
+            
+            // Broadcast in background - don't let failures block data updates
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
+                $"snapshot data for {response.Symbol}");
         }
 
         /// <summary>
@@ -596,12 +661,42 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 Side = response.Side ?? string.Empty
             };
             await redis.SetHashAsync(redisKey, newData);
-            await _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData);
+            
+            // TODO: Uncomment when ready to enable heatmap realtime processing
+            //// Create initial Heatmap Redis entry
+            //await CreateInitialHeatmapRedisAsync(redis, response.Symbol!, newData);
+            //
+            //// Broadcast heatmap item to SignalR from Redis
+            //await BroadcastHeatmapItemFromRedisAsync(redis, response.Symbol!);
+            
+            // Broadcast in background - don't let failures block data updates
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData),
+                $"new snapshot data for {response.Symbol}");
         }
 
         #endregion Handle Snapshot
 
         #region Helper Methods
+
+        /// <summary>
+        /// Safely execute broadcast operations without letting failures crash data processing.
+        /// Broadcasts are fire-and-forget with error logging only.
+        /// </summary>
+        /// <param name="broadcastAction">The broadcast action to execute</param>
+        /// <param name="context">Context description for logging</param>
+        private async Task SafeBroadcastAsync(Func<Task> broadcastAction, string context)
+        {
+            try
+            {
+                await broadcastAction();
+            }
+            catch (Exception ex)
+            {
+                // Log but don't throw - broadcast failures should not stop data processing
+                _logger.LogWarning(ex, "⚠️ Broadcast failed for {Context}. Data saved but clients not notified.", context);
+            }
+        }
 
         /// <summary>
         /// Check if new value is different from existing value, and add to updates if changed.
@@ -639,63 +734,586 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         
         #endregion Helper Methods
 
-        #region Heatmap Real-time Broadcasting
+        /// <summary>
+        /// Symbol metadata cached from database to avoid repeated queries
+        /// </summary>
+        private class SymbolMetadata
+        {
+            public required string Ticker { get; set; }
+            public required string CompanyName { get; set; }
+            public required string Exchange { get; set; }
+            public string? SectorId { get; set; }
+            public string? SectorName { get; set; }
+        }
+
+        /* TODO: Uncomment when ready to enable OHLCV realtime processing
+        #region Handle OHLCV (Channel B)
 
         /// <summary>
-        /// Broadcast heatmap update for a specific exchange in real-time.
-        /// This method is called when market data changes to provide instant heatmap updates.
-        /// Uses throttling to avoid excessive broadcasts (max once per 500ms per exchange).
+        /// Handle Channel B: Realtime OHLCV data from SSI
+        /// NEW LOGIC: Update ALL timeframes directly from SSI data (no aggregation)
+        /// Each timeframe maintains its own state in Redis, updated incrementally
         /// </summary>
-        /// <param name="exchange">Exchange code (HSX, HNX, UPCOM)</param>
-        private async Task BroadcastHeatmapForExchangeAsync(string exchange)
+        /// <param name="redis">Redis service</param>
+        /// <param name="response">OHLCV data from SSI Channel B</param>
+        private async Task HandleOhlcvData(IRedisService redis, OhlcvDataResponse? response)
         {
             try
             {
-                var normalizedExchange = exchange.ToLower();
-                
-                // Create scope to get scoped services
-                using var scope = _serviceScopeFactory.CreateScope();
-                var heatmapService = scope.ServiceProvider.GetRequiredService<IHeatmapService>();
-                
-                // Broadcast for specific exchange
-                var heatmapData = await heatmapService.GetHeatmapDataAsync(
-                    exchange: normalizedExchange,
-                    sector: null,
-                    cancellationToken: default);
-
-                if (heatmapData.Items.Any())
+                if (response == null || string.IsNullOrWhiteSpace(response.Symbol))
                 {
-                    await _broadcaster.BroadcastHeatmapUpdateAsync(
-                        heatmapData,
-                        exchange: normalizedExchange,
-                        sector: null,
-                        cancellationToken: default);
+                    _logger.LogWarning("Received null or invalid OHLCV data");
+                    return;
+                }
 
-                    _logger.LogDebug("🔥 Broadcasted real-time heatmap: {Exchange}, {Count} items",
-                        normalizedExchange.ToUpper(), heatmapData.TotalCount);
+                // Parse trading time (format: "HH:mm:ss")
+                if (!TimeOnly.TryParse(response.TradingTime, out var tradingTime))
+                {
+                    _logger.LogWarning("Invalid TradingTime format: {Time} for {Symbol}",
+                        response.TradingTime, response.Symbol);
+                    return;
+                }
+
+                var now = DateTime.UtcNow;
+                var ticker = response.Symbol.ToUpper();
+
+                // Extract OHLCV values from SSI
+                var ohlcvUpdate = new OhlcvUpdateData(
+                    Open: (decimal)(response.Open ?? 0),
+                    High: (decimal)(response.High ?? 0),
+                    Low: (decimal)(response.Low ?? 0),
+                    Close: (decimal)(response.Close ?? 0),
+                    Volume: (long)(response.Volume ?? 0),
+                    TotalValue: (decimal)(response.Value ?? 0)
+                );
+
+                // Update ALL 9 timeframes directly from SSI data
+                var timeframes = new[] { "M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1" };
+
+                foreach (var timeframe in timeframes)
+                {
+                    await UpdateTimeframeCandle(redis, ticker, timeframe, ohlcvUpdate, now);
+                }
+
+                _logger.LogDebug(
+                    "📊 SSI Update: {Ticker} | O:{Open} H:{High} L:{Low} C:{Close} V:{Volume}",
+                    ticker, ohlcvUpdate.Open, ohlcvUpdate.High, ohlcvUpdate.Low, ohlcvUpdate.Close, ohlcvUpdate.Volume);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling OHLCV data for symbol: {Symbol}", response?.Symbol);
+            }
+        }
+
+        /// <summary>
+        /// Update a specific timeframe candle with new SSI data
+        /// Logic: Get from Redis → Check new period → Update incremental → Save Redis → Broadcast
+        /// </summary>
+        private async Task UpdateTimeframeCandle(
+            IRedisService redis,
+            string ticker,
+            string timeframe,
+            OhlcvUpdateData ohlcvData,
+            DateTime now)
+        {
+            try
+            {
+                string redisKey = $"OHLCV:{ticker}:{timeframe}";
+
+                // Get current candle from Redis (single source of truth)
+                var existingCandle = await redis.GetAsync<CurrentCandleDto>(redisKey);
+
+                // Calculate period start time for this timeframe
+                var periodStart = GetPeriodStartTime(now, timeframe);
+
+                CurrentCandleDto candle;
+
+                // Check if we need to create new candle or update existing
+                if (existingCandle == null)
+                {
+                    // No existing candle, create new one
+                    candle = new CurrentCandleDto
+                    {
+                        Ticker = ticker,
+                        Timeframe = timeframe,
+                        StartTime = periodStart,
+                        Open = ohlcvData.Open,
+                        High = ohlcvData.High,
+                        Low = ohlcvData.Low,
+                        Close = ohlcvData.Close,
+                        Volume = ohlcvData.Volume,
+                        TotalValue = ohlcvData.TotalValue,
+                        LastUpdateTime = now,
+                        IsComplete = false
+                    };
+
+                    _logger.LogInformation(
+                        "🆕 New {Timeframe} candle: {Ticker} @ {StartTime}",
+                        timeframe, ticker, periodStart);
+                }
+                else if (existingCandle.StartTime < periodStart)
+                {
+                    // New period started, save old candle and create new one
+                    // D1: Only save if market has closed (after 14:50 VN time)
+                    // M1: Always save when period ends
+                    if (ShouldSaveCompletedCandle(timeframe, existingCandle, now))
+                    {
+                        await SaveCandleToDatabase(existingCandle);
+                    }
+
+                    candle = new CurrentCandleDto
+                    {
+                        Ticker = ticker,
+                        Timeframe = timeframe,
+                        StartTime = periodStart,
+                        Open = ohlcvData.Open,
+                        High = ohlcvData.High,
+                        Low = ohlcvData.Low,
+                        Close = ohlcvData.Close,
+                        Volume = ohlcvData.Volume,
+                        TotalValue = ohlcvData.TotalValue,
+                        LastUpdateTime = now,
+                        IsComplete = false
+                    };
+
+                    _logger.LogInformation(
+                        "🆕 New {Timeframe} candle: {Ticker} @ {StartTime}",
+                        timeframe, ticker, periodStart);
+                }
+                else
+                {
+                    // Same period, update existing candle incrementally
+                    candle = existingCandle;
+                    candle.High = Math.Max(candle.High, ohlcvData.High);
+                    candle.Low = candle.Low == 0 ? ohlcvData.Low : Math.Min(candle.Low, ohlcvData.Low);
+                    candle.Close = ohlcvData.Close;
+                    candle.Volume += ohlcvData.Volume;
+                    candle.TotalValue += ohlcvData.TotalValue;
+                    candle.LastUpdateTime = now;
+                }
+
+                // Save back to Redis (single source of truth)
+                var ttl = GetRedisTTL(timeframe);
+                await redis.SetAsync(redisKey, candle, ttl);
+
+                // Broadcast to connected clients
+                await SafeBroadcastAsync(
+                    () => _broadcaster.BroadcastOhlcvUpdateAsync(candle),
+                    $"OHLCV {timeframe} for {ticker}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update {Timeframe} for {Ticker}", timeframe, ticker);
+            }
+        }
+
+        /// <summary>
+        /// Save completed candle to database
+        /// Only M1 (every minute) and D1 (end of day) are saved
+        /// </summary>
+        private async Task SaveCandleToDatabase(CurrentCandleDto candle)
+        {
+            try
+            {
+                var entity = new Ohlcv
+                {
+                    Time = candle.StartTime,
+                    Ticker = candle.Ticker,
+                    Timeframe = candle.Timeframe,
+                    Open = candle.Open,
+                    High = candle.High,
+                    Low = candle.Low,
+                    Close = candle.Close,
+                    Volume = candle.Volume,
+                    Value = candle.TotalValue,
+                    CreatedAt = DateTime.UtcNow,
+                    Source = "SSI_STREAMING"
+                };
+
+                using var scope = _serviceScopeFactory.CreateScope();
+                var ohlcvUow = scope.ServiceProvider.GetRequiredService<IOhlcvUnitOfWork>();
+
+                await ohlcvUow.Ohlcv.UpsertAsync(entity);
+                await ohlcvUow.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "💾 Saved {Timeframe}: {Ticker} @ {Time} | O:{Open} H:{High} L:{Low} C:{Close} V:{Volume}",
+                    entity.Timeframe, entity.Ticker, entity.Time, entity.Open, entity.High, entity.Low, entity.Close, entity.Volume);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save {Timeframe} to DB: {Ticker} @ {Time}",
+                    candle.Timeframe, candle.Ticker, candle.StartTime);
+            }
+        }
+
+        /// <summary>
+        /// Calculate period start time for a timeframe
+        /// Examples:
+        /// - M1 at 9:37:25 → 9:37:00
+        /// - M5 at 9:37:00 → 9:35:00
+        /// - H1 at 10:45:00 → 10:00:00
+        /// - D1 at any time → 00:00:00 today
+        /// - W1 at any time → 00:00:00 Monday of current week
+        /// - MN1 at any time → 00:00:00 1st of current month
+        /// </summary>
+        private static DateTime GetPeriodStartTime(DateTime now, string timeframe)
+        {
+            return timeframe switch
+            {
+                "M1" => new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Utc),
+                "M5" => RoundDownToMinutes(now, 5),
+                "M15" => RoundDownToMinutes(now, 15),
+                "M30" => RoundDownToMinutes(now, 30),
+                "H1" => new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc),
+                "H4" => RoundDownToHours(now, 4),
+                "D1" => new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc),
+                "W1" => GetWeekStart(now),
+                "MN1" => new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+                _ => now
+            };
+        }
+
+        /// <summary>
+        /// Round down to nearest interval minutes
+        /// Example: 9:37 with interval 5 → 9:35
+        /// </summary>
+        private static DateTime RoundDownToMinutes(DateTime time, int intervalMinutes)
+        {
+            var totalMinutes = time.Hour * 60 + time.Minute;
+            var roundedMinutes = (totalMinutes / intervalMinutes) * intervalMinutes;
+            var hour = roundedMinutes / 60;
+            var minute = roundedMinutes % 60;
+            return new DateTime(time.Year, time.Month, time.Day, hour, minute, 0, DateTimeKind.Utc);
+        }
+
+        /// <summary>
+        /// Round down to nearest interval hours
+        /// Example: 13:45 with interval 4 → 12:00 (12pm is 4-hour aligned from midnight)
+        /// </summary>
+        private static DateTime RoundDownToHours(DateTime time, int intervalHours)
+        {
+            var roundedHour = (time.Hour / intervalHours) * intervalHours;
+            return new DateTime(time.Year, time.Month, time.Day, roundedHour, 0, 0, DateTimeKind.Utc);
+        }
+
+        /// <summary>
+        /// Get start of current week (Monday)
+        /// </summary>
+        private static DateTime GetWeekStart(DateTime time)
+        {
+            var daysSinceMonday = ((int)time.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            return time.Date.AddDays(-daysSinceMonday);
+        }
+
+        /// <summary>
+        /// Determine if a completed candle should be saved to database
+        /// M1: Save every minute when candle completes
+        /// D1: Save only after market close (14:50 VN time = 07:50 UTC)
+        /// Others: Don't save (M5-H4, W1, MN1)
+        /// </summary>
+        private static bool ShouldSaveCompletedCandle(string timeframe, CurrentCandleDto completedCandle, DateTime now)
+        {
+            if (timeframe == "M1")
+            {
+                // M1: Always save when minute ends
+                return true;
+            }
+            
+            if (timeframe == "D1")
+            {
+                // D1: Only save if market has closed
+                // VN market hours: 9:00-11:30, 13:00-14:50 (UTC+7)
+                // Market close: 14:50 VN time = 07:50 UTC
+                // Save D1 only after 14:50 (when day is complete)
+                
+                var vnTime = now.AddHours(7); // Convert UTC to VN time (UTC+7)
+                bool isAfterMarketClose = vnTime.Hour > 14 || (vnTime.Hour == 14 && vnTime.Minute >= 50);
+                
+                if (!isAfterMarketClose)
+                {
+                    // Market still open, don't save yet
+                    return false;
                 }
                 
-                // Also broadcast for ALL exchanges group
-                var allHeatmapData = await heatmapService.GetHeatmapDataAsync(
-                    exchange: null,
-                    sector: null,
-                    cancellationToken: default);
+                // Check if this is truly end of day (not same day update)
+                var completedDay = completedCandle.StartTime.Date;
+                var currentDay = vnTime.Date;
+                
+                // Only save if we're moving to a new day AND market has closed
+                return currentDay > completedDay;
+            }
+            
+            // M5-H4, W1, MN1: Don't save to database
+            return false;
+        }
 
-                if (allHeatmapData.Items.Any())
+        /// <summary>
+        /// Get Redis TTL for each timeframe
+        /// Shorter timeframes have shorter TTL (more frequent updates)
+        /// </summary>
+        private static TimeSpan GetRedisTTL(string timeframe)
+        {
+            return timeframe switch
+            {
+                "M1" => TimeSpan.FromMinutes(10),
+                "M5" => TimeSpan.FromMinutes(30),
+                "M15" => TimeSpan.FromHours(1),
+                "M30" => TimeSpan.FromHours(2),
+                "H1" => TimeSpan.FromHours(4),
+                "H4" => TimeSpan.FromHours(8),
+                "D1" => TimeSpan.FromHours(24),
+                "W1" => TimeSpan.FromDays(7),
+                "MN1" => TimeSpan.FromDays(30),
+                _ => TimeSpan.FromHours(1)
+            };
+        }
+
+        #endregion Handle OHLCV (Channel B)
+        */
+
+        /* TODO: Uncomment when ready to enable Heatmap realtime processing
+        #region Heatmap Realtime Broadcasting (Per Symbol)
+
+        /// <summary>
+        /// Update heatmap data in Redis (single source of truth)
+        /// Similar to OHLCV pattern - calculate metrics once and store in Redis
+        /// </summary>
+        /// <param name="redis">Redis service</param>
+        /// <param name="ticker">Symbol ticker</param>
+        /// <param name="updates">Updated fields from SSI</param>
+        /// <param name="existingData">Existing market data</param>
+        /// <returns>True if heatmap changed and needs broadcast, false otherwise</returns>
+        private async Task<bool> UpdateHeatmapRedisAsync(
+            IRedisService redis,
+            string ticker,
+            Dictionary<string, object> updates,
+            MarketSymbolDto existingData)
+        {
+            try
+            {
+                // Check if heatmap-relevant fields changed
+                // Heatmap only cares about: Price, Change%, Volume, TotalValue
+                // Does NOT care about: Bid/Ask prices, Bid/Ask volumes, TradingSession, etc
+                bool heatmapRelevantFieldsChanged = 
+                    updates.ContainsKey(nameof(MarketSymbolDto.LastPrice)) ||
+                    updates.ContainsKey(nameof(MarketSymbolDto.Change)) ||
+                    updates.ContainsKey(nameof(MarketSymbolDto.RatioChange)) ||
+                    updates.ContainsKey(nameof(MarketSymbolDto.TotalVol)) ||
+                    updates.ContainsKey(nameof(MarketSymbolDto.TotalVal)) ||
+                    updates.ContainsKey(nameof(MarketSymbolDto.CeilingPrice)) ||
+                    updates.ContainsKey(nameof(MarketSymbolDto.FloorPrice));
+
+                if (!heatmapRelevantFieldsChanged)
                 {
-                    await _broadcaster.BroadcastHeatmapUpdateAsync(
-                        allHeatmapData,
-                        exchange: null,
-                        sector: null,
-                        cancellationToken: default);
+                    // Only Bid/Ask or other non-heatmap fields changed
+                    // Skip heatmap update and broadcast
+                    return false;
+                }
+                // Get updated values (use existing if not in updates)
+                var lastPrice = GetValue<double>(updates, nameof(MarketSymbolDto.LastPrice), existingData.LastPrice);
+                var referencePrice = GetValue<double>(updates, nameof(MarketSymbolDto.ReferencePrice), existingData.ReferencePrice);
+                var totalVol = (long)GetValue<double>(updates, nameof(MarketSymbolDto.TotalVol), existingData.TotalVol);
+                var totalVal = GetValue<double>(updates, nameof(MarketSymbolDto.TotalVal), existingData.TotalVal);
+                var change = GetValue<double>(updates, nameof(MarketSymbolDto.Change), existingData.Change);
+                var ratioChange = GetValue<double>(updates, nameof(MarketSymbolDto.RatioChange), existingData.RatioChange);
+                var ceilingPrice = GetValue<double>(updates, nameof(MarketSymbolDto.CeilingPrice), existingData.CeilingPrice);
+                var floorPrice = GetValue<double>(updates, nameof(MarketSymbolDto.FloorPrice), existingData.FloorPrice);
+
+                // Skip if no valid price data
+                if (lastPrice == 0 || referencePrice == 0)
+                    return false;
+
+                // Get symbol metadata from cache (avoids DB query)
+                if (!_symbolMetadataCache.TryGetValue(ticker.ToUpper(), out var metadata))
+                {
+                    _logger.LogWarning("Symbol metadata not found in cache for {Ticker}", ticker);
+                    return false;
+                }
+
+                // Calculate heatmap metrics
+                var changePercent = (decimal)ratioChange;
+                var changeValue = (decimal)change;
+                var colorType = CalculateColorType(
+                    (decimal)lastPrice,
+                    (decimal)referencePrice,
+                    (decimal)ceilingPrice,
+                    (decimal)floorPrice,
+                    changePercent);
+
+                // Create heatmap item
+                var heatmapItem = new HeatmapItemDto
+                {
+                    Ticker = ticker,
+                    CompanyName = metadata.CompanyName,
+                    CurrentPrice = (decimal)lastPrice,
+                    ChangePercent = changePercent,
+                    ChangeValue = changeValue,
+                    Volume = totalVol,
+                    TotalValue = (decimal)totalVal,
+                    MarketCap = null, // Not available in Symbol entity
+                    Exchange = metadata.Exchange,
+                    Sector = metadata.SectorId,
+                    SectorName = metadata.SectorName,
+                    ColorType = colorType,
+                    LastUpdate = DateTime.UtcNow
+                };
+
+                // Save to Redis with pattern HEATMAP:{ticker}
+                var heatmapKey = $"HEATMAP:{ticker.ToUpper()}";
+                await redis.SetAsync(heatmapKey, heatmapItem, TimeSpan.FromMinutes(10));
+
+                _logger.LogDebug(
+                    "Updated heatmap Redis: {Ticker} | Price:{Price} Change:{Change}% Vol:{Volume}",
+                    ticker, lastPrice, changePercent, totalVol);
+                
+                return true; // Heatmap changed, needs broadcast
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update heatmap Redis for {Ticker}", ticker);
+                return false; // Error, skip broadcast
+            }
+        }
+
+        /// <summary>
+        /// Create initial heatmap Redis entry for new symbol
+        /// </summary>
+        private async Task CreateInitialHeatmapRedisAsync(
+            IRedisService redis,
+            string ticker,
+            MarketSymbolDto marketData)
+        {
+            try
+            {
+                // Skip if no valid price data
+                if (marketData.LastPrice == 0 || marketData.ReferencePrice == 0)
+                    return;
+
+                // Get symbol metadata from cache
+                if (!_symbolMetadataCache.TryGetValue(ticker.ToUpper(), out var metadata))
+                {
+                    _logger.LogWarning("Symbol metadata not found in cache for {Ticker}", ticker);
+                    return;
+                }
+
+                // Calculate metrics
+                var changePercent = (decimal)marketData.RatioChange;
+                var colorType = CalculateColorType(
+                    (decimal)marketData.LastPrice,
+                    (decimal)marketData.ReferencePrice,
+                    (decimal)marketData.CeilingPrice,
+                    (decimal)marketData.FloorPrice,
+                    changePercent);
+
+                // Create heatmap item
+                var heatmapItem = new HeatmapItemDto
+                {
+                    Ticker = ticker,
+                    CompanyName = metadata.CompanyName,
+                    CurrentPrice = (decimal)marketData.LastPrice,
+                    ChangePercent = changePercent,
+                    ChangeValue = (decimal)marketData.Change,
+                    Volume = (long)marketData.TotalVol,
+                    TotalValue = (decimal)marketData.TotalVal,
+                    MarketCap = null,
+                    Exchange = metadata.Exchange,
+                    Sector = metadata.SectorId,
+                    SectorName = metadata.SectorName,
+                    ColorType = colorType,
+                    LastUpdate = DateTime.UtcNow
+                };
+
+                // Save to Redis
+                var heatmapKey = $"HEATMAP:{ticker.ToUpper()}";
+                await redis.SetAsync(heatmapKey, heatmapItem, TimeSpan.FromMinutes(10));
+
+                _logger.LogInformation(
+                    "🆕 Created heatmap Redis: {Ticker} | Price:{Price}",
+                    ticker, marketData.LastPrice);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to create heatmap Redis for {Ticker}", ticker);
+            }
+        }
+
+        /// <summary>
+        /// Broadcast heatmap item to SignalR from Redis (no calculation needed)
+        /// </summary>
+        private async Task BroadcastHeatmapItemFromRedisAsync(IRedisService redis, string ticker)
+        {
+            try
+            {
+                var heatmapKey = $"HEATMAP:{ticker.ToUpper()}";
+                var heatmapItem = await redis.GetAsync<HeatmapItemDto>(heatmapKey);
+                
+                if (heatmapItem != null)
+                {
+                    // Broadcast to SignalR (exchange-specific groups)
+                    await SafeBroadcastAsync(
+                        () => _broadcaster.BroadcastHeatmapItemAsync(heatmapItem),
+                        $"heatmap item for {ticker}");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error broadcasting heatmap for exchange: {Exchange}", exchange);
+                _logger.LogWarning(ex, "Failed to broadcast heatmap item for {Ticker}", ticker);
             }
         }
 
+        /// <summary>
+        /// Calculate color type for heatmap based on price changes
+        /// </summary>
+        private static string CalculateColorType(
+            decimal currentPrice,
+            decimal referencePrice,
+            decimal ceilingPrice,
+            decimal floorPrice,
+            decimal changePercent)
+        {
+            // Ceiling or Floor
+            if (currentPrice >= ceilingPrice && ceilingPrice > 0)
+                return "ceiling";
+            if (currentPrice <= floorPrice && floorPrice > 0)
+                return "floor";
+
+            // Based on change percentage
+            return changePercent switch
+            {
+                >= 3.0m => "strong-up",
+                >= 0.5m => "up",
+                <= -3.0m => "strong-down",
+                <= -0.5m => "down",
+                _ => "neutral"
+            };
+        }
+
+        /// <summary>
+        /// Get value from updates dictionary or fallback to existing value
+        /// </summary>
+        private static T GetValue<T>(Dictionary<string, object> updates, string key, T existingValue)
+        {
+            if (updates.TryGetValue(key, out var value))
+            {
+                return (T)Convert.ChangeType(value, typeof(T));
+            }
+            return existingValue;
+        }
+
+        /// <summary>
+        /// Symbol metadata cached from database to avoid repeated queries
+        /// </summary>
+        private class SymbolMetadata
+        {
+            public required string Ticker { get; set; }
+            public required string CompanyName { get; set; }
+            public required string Exchange { get; set; }
+            public string? SectorId { get; set; }
+            public string? SectorName { get; set; }
+        }
+
         #endregion
+        */
     }
 }

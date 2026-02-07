@@ -12,7 +12,7 @@ namespace GreenDragonTrading.Infrastructure.Services
     /// Service for aggregating real-time tick data into OHLCV candles
     /// Maintains in-memory candles and saves completed candles to database
     /// </summary>
-    public class OhlcvAggregationService : IOhlcvAggregationService
+    public class OhlcvAggregationService : IOhlcvAggregationService, IDisposable
     {
         private readonly ILogger<OhlcvAggregationService> _logger;
         private readonly IMarketDataBroadcaster _broadcaster;
@@ -21,8 +21,14 @@ namespace GreenDragonTrading.Infrastructure.Services
         // In-memory storage: Ticker → Timeframe → CurrentCandle
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, CurrentCandle>> _candles;
 
-        // Lock for thread-safe operations
-        private readonly SemaphoreSlim _lock = new(1, 1);
+        // Per-ticker locks for fine-grained concurrency control
+        // Allows parallel processing of different tickers while maintaining consistency per ticker
+        private readonly ConcurrentDictionary<string, SemaphoreSlim> _tickerLocks;
+
+        // Global lock for operations that need to access all tickers (flush, check expired)
+        private readonly SemaphoreSlim _globalLock = new(1, 1);
+
+        private bool _disposed;
 
         // Supported timeframes for realtime aggregation
         // M1: Base timeframe, stored to DB
@@ -41,6 +47,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             _broadcaster = broadcaster;
             _serviceProvider = serviceProvider;
             _candles = new ConcurrentDictionary<string, ConcurrentDictionary<string, CurrentCandle>>();
+            _tickerLocks = new ConcurrentDictionary<string, SemaphoreSlim>();
         }
 
         public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -84,7 +91,9 @@ namespace GreenDragonTrading.Infrastructure.Services
                 return;
             }
 
-            await _lock.WaitAsync(cancellationToken);
+            // Use per-ticker lock for better concurrency
+            var tickerLock = GetTickerLock(tick.Ticker);
+            await tickerLock.WaitAsync(cancellationToken);
             try
             {
                 foreach (var timeframe in Timeframes)
@@ -119,7 +128,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
             finally
             {
-                _lock.Release();
+                tickerLock.Release();
             }
         }
 
@@ -150,11 +159,11 @@ namespace GreenDragonTrading.Infrastructure.Services
             return result;
         }
 
-        public async Task FlushAllAsync(CancellationToken cancellationToken = default)
+        public async Task FlushAllCandlesAsync(CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Flushing all incomplete candles to database...");
 
-            await _lock.WaitAsync(cancellationToken);
+            await _globalLock.WaitAsync(cancellationToken);
             try
             {
                 using var scope = _serviceProvider.CreateScope();
@@ -182,13 +191,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
             finally
             {
-                _lock.Release();
+                _globalLock.Release();
             }
         }
 
-        public async Task CheckAndCloseExpiredCandlesAsync(DateTime currentTime, CancellationToken cancellationToken = default)
+        public async Task CheckExpiredCandlesAsync(CancellationToken cancellationToken = default)
         {
-            await _lock.WaitAsync(cancellationToken);
+            var currentTime = DateTime.UtcNow;
+            await _globalLock.WaitAsync(cancellationToken);
             try
             {
                 var candlesToClose = new List<CurrentCandle>();
@@ -221,11 +231,20 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
             finally
             {
-                _lock.Release();
+                _globalLock.Release();
             }
         }
 
         #region Private Methods
+
+        /// <summary>
+        /// Get or create a lock for a specific ticker
+        /// </summary>
+        private SemaphoreSlim GetTickerLock(string ticker)
+        {
+            var tickerKey = ticker.ToUpper();
+            return _tickerLocks.GetOrAdd(tickerKey, _ => new SemaphoreSlim(1, 1));
+        }
 
         private bool IsValidTick(TickData tick)
         {
@@ -558,6 +577,32 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Dispose resources including all semaphore locks
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+
+            _globalLock?.Dispose();
+
+            // Dispose all per-ticker locks
+            foreach (var lockItem in _tickerLocks.Values)
+            {
+                try
+                {
+                    lockItem?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error disposing ticker lock");
+                }
+            }
+            _tickerLocks.Clear();
+
+            _disposed = true;
         }
 
         #endregion
