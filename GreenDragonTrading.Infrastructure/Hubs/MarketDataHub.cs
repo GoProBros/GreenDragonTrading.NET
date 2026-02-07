@@ -13,12 +13,10 @@ namespace GreenDragonTrading.Infrastructure.Hubs
     /// </summary>
     public class MarketDataHub(
         ILogger<MarketDataHub> logger,
-        IRedisService redisService,
-        IOhlcvAggregationService ohlcvAggregationService) : Hub
+        IRedisService redisService) : Hub
     {
         private readonly ILogger<MarketDataHub> _logger = logger;
         private readonly IRedisService _redisService = redisService;
-        private readonly IOhlcvAggregationService _ohlcvAggregationService = ohlcvAggregationService;
 
         public override async Task OnConnectedAsync()
         {
@@ -161,11 +159,12 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                 "Client {ConnectionId} subscribed to OHLCV {Ticker} {Timeframe}",
                 Context.ConnectionId, upperTicker, upperTimeframe);
 
-            // Send current candle immediately if exists AND has data (Volume > 0)
-            // This prevents sending empty candles that would overwrite historical data on frontend
+            // Send current candle immediately from Redis if exists
             try
             {
-                var currentCandle = _ohlcvAggregationService.GetCurrentCandle(upperTicker, upperTimeframe);
+                string redisKey = $"OHLCV:{upperTicker}:{upperTimeframe}";
+                var currentCandle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
+                
                 if (currentCandle != null && currentCandle.Volume > 0)
                 {
                     await Clients.Caller.SendAsync("ReceiveCurrentCandle", currentCandle);
@@ -176,7 +175,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                 else if (currentCandle != null && currentCandle.Volume == 0)
                 {
                     _logger.LogDebug(
-                        "Skipped sending empty {Timeframe} candle for {Ticker} to client {ConnectionId} (no ticks yet)",
+                        "Skipped sending empty {Timeframe} candle for {Ticker} to client {ConnectionId} (no data yet)",
                         upperTimeframe, upperTicker, Context.ConnectionId);
                 }
             }
@@ -226,7 +225,19 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             try
             {
                 var upperTicker = ticker.ToUpper();
-                var candles = _ohlcvAggregationService.GetAllCurrentCandles(upperTicker);
+                var timeframes = new[] { "M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1" };
+                var candles = new List<CurrentCandleDto>();
+
+                // Read all timeframes from Redis
+                foreach (var tf in timeframes)
+                {
+                    var redisKey = $"OHLCV:{upperTicker}:{tf}";
+                    var candle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
+                    if (candle != null && candle.Volume > 0)
+                    {
+                        candles.Add(candle);
+                    }
+                }
 
                 await Clients.Caller.SendAsync("ReceiveAllCurrentCandles", new
                 {
@@ -248,21 +259,34 @@ namespace GreenDragonTrading.Infrastructure.Hubs
 
         /// <summary>
         /// Subscribe to heatmap updates for a specific exchange and/or sector.
-        /// Client will receive real-time heatmap data updates.
+        /// Client will receive real-time per-symbol heatmap item updates.
         /// </summary>
         /// <param name="exchange">Exchange code (hsx, hnx, upcom) or null for all exchanges</param>
         /// <param name="sector">Sector ID or null for all sectors</param>
         public async Task SubscribeToHeatmap(string? exchange, string? sector)
         {
-            var exchangeUpper = exchange?.ToUpper() ?? "ALL";
-            var sectorUpper = sector?.ToUpper() ?? "ALL";
-            var groupName = $"HEATMAP:{exchangeUpper}:{sectorUpper}";
-
-            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-
-            _logger.LogInformation(
-                "Client {ConnectionId} subscribed to heatmap: Exchange={Exchange}, Sector={Sector}, Group={GroupName}",
-                Context.ConnectionId, exchangeUpper, sectorUpper, groupName);
+            var exchangeLower = exchange?.ToLower() ?? "all";
+            
+            // Subscribe to exchange-specific group (e.g., HEATMAP:hsx)
+            var exchangeGroup = $"HEATMAP:{exchangeLower}";
+            await Groups.AddToGroupAsync(Context.ConnectionId, exchangeGroup);
+            
+            // Also subscribe to sector-specific group if provided
+            if (!string.IsNullOrEmpty(sector))
+            {
+                var sectorGroup = $"HEATMAP:{exchangeLower}:{sector}";
+                await Groups.AddToGroupAsync(Context.ConnectionId, sectorGroup);
+                
+                _logger.LogInformation(
+                    "Client {ConnectionId} subscribed to heatmap: Exchange={Exchange}, Sector={Sector}",
+                    Context.ConnectionId, exchangeLower, sector);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Client {ConnectionId} subscribed to heatmap: Exchange={Exchange}",
+                    Context.ConnectionId, exchangeLower);
+            }
         }
 
         /// <summary>
@@ -272,32 +296,99 @@ namespace GreenDragonTrading.Infrastructure.Hubs
         /// <param name="sector">Sector ID or null</param>
         public async Task UnsubscribeFromHeatmap(string? exchange, string? sector)
         {
-            var exchangeUpper = exchange?.ToUpper() ?? "ALL";
-            var sectorUpper = sector?.ToUpper() ?? "ALL";
-            var groupName = $"HEATMAP:{exchangeUpper}:{sectorUpper}";
-
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+            var exchangeLower = exchange?.ToLower() ?? "all";
+            
+            // Unsubscribe from exchange-specific group
+            var exchangeGroup = $"HEATMAP:{exchangeLower}";
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, exchangeGroup);
+            
+            // Also unsubscribe from sector-specific group if provided
+            if (!string.IsNullOrEmpty(sector))
+            {
+                var sectorGroup = $"HEATMAP:{exchangeLower}:{sector}";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, sectorGroup);
+            }
 
             _logger.LogInformation(
                 "Client {ConnectionId} unsubscribed from heatmap: Exchange={Exchange}, Sector={Sector}",
-                Context.ConnectionId, exchangeUpper, sectorUpper);
+                Context.ConnectionId, exchangeLower, sector ?? "all");
         }
 
         /// <summary>
         /// Get current heatmap snapshot for specific exchange and/or sector.
-        /// Returns current heatmap data without subscribing to updates.
+        /// Returns current heatmap data from Redis without subscribing to updates.
         /// </summary>
         /// <param name="exchange">Exchange code or null for all</param>
         /// <param name="sector">Sector ID or null for all</param>
-        public async Task GetCurrentHeatmap(string? exchange, string? sector)
+        public async Task<HeatmapDataDto> GetCurrentHeatmap(string? exchange, string? sector)
         {
-            _logger.LogInformation(
-                "Client {ConnectionId} requested current heatmap: Exchange={Exchange}, Sector={Sector}",
-                Context.ConnectionId, exchange ?? "ALL", sector ?? "ALL");
+            try
+            {
+                _logger.LogInformation(
+                    "Client {ConnectionId} requested current heatmap: Exchange={Exchange}, Sector={Sector}",
+                    Context.ConnectionId, exchange ?? "ALL", sector ?? "ALL");
 
-            // Note: The actual heatmap data will be broadcast by MarketDataBroadcaster
-            // Frontend should listen to "ReceiveHeatmapData" event after calling this
-            await Task.CompletedTask;
+                // Get all heatmap keys from Redis
+                var pattern = "HEATMAP:*";
+                var keys = await _redisService.GetKeysAsync(pattern);
+                
+                var heatmapItems = new List<HeatmapItemDto>();
+
+                // Fetch all heatmap items from Redis
+                foreach (var key in keys)
+                {
+                    try
+                    {
+                        var item = await _redisService.GetAsync<HeatmapItemDto>(key);
+                        if (item != null)
+                        {
+                            // Apply filters
+                            bool matchExchange = string.IsNullOrEmpty(exchange) || 
+                                                item.Exchange.Equals(exchange, StringComparison.OrdinalIgnoreCase);
+                            bool matchSector = string.IsNullOrEmpty(sector) || 
+                                              (item.Sector != null && item.Sector.Equals(sector, StringComparison.OrdinalIgnoreCase));
+
+                            if (matchExchange && matchSector)
+                            {
+                                heatmapItems.Add(item);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch heatmap item from key {Key}", key);
+                    }
+                }
+
+                var result = new HeatmapDataDto
+                {
+                    Exchange = exchange,
+                    Sector = sector,
+                    Items = heatmapItems,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _logger.LogInformation(
+                    "Returned {Count} heatmap items to client {ConnectionId}",
+                    heatmapItems.Count, Context.ConnectionId);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, 
+                    "Error getting current heatmap for client {ConnectionId}",
+                    Context.ConnectionId);
+                
+                // Return empty result on error
+                return new HeatmapDataDto
+                {
+                    Exchange = exchange,
+                    Sector = sector,
+                    Items = new List<HeatmapItemDto>(),
+                    Timestamp = DateTime.UtcNow
+                };
+            }
         }
     }
 }

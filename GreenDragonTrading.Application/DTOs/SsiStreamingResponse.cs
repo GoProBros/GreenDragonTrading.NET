@@ -439,4 +439,37 @@ namespace GreenDragonTrading.Application.DTOs
         [JsonPropertyName("CloseQtty")]
         public double? CloseQtty { get; set; }
     }
+
+    /// <summary>
+    /// Channel B: Realtime OHLCV (Open, High, Low, Close, Volume) data
+    /// </summary>
+    public class OhlcvDataResponse
+    {
+        [JsonPropertyName("RType")]
+        public string? RType { get; set; }
+
+        [JsonPropertyName("Symbol")]
+        public string? Symbol { get; set; }
+
+        [JsonPropertyName("TradingTime")]
+        public string? TradingTime { get; set; }
+
+        [JsonPropertyName("Open")]
+        public double? Open { get; set; }
+
+        [JsonPropertyName("High")]
+        public double? High { get; set; }
+
+        [JsonPropertyName("Low")]
+        public double? Low { get; set; }
+
+        [JsonPropertyName("Close")]
+        public double? Close { get; set; }
+
+        [JsonPropertyName("Volume")]
+        public double? Volume { get; set; }
+
+        [JsonPropertyName("Value")]
+        public double? Value { get; set; }
+    }
 }

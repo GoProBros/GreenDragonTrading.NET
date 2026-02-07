@@ -48,7 +48,6 @@ namespace GreenDragonTrading.Infrastructure
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
             services.AddScoped<IHeatmapService, HeatmapService>();
-            services.AddSingleton<IOhlcvAggregationService, OhlcvAggregationService>();
 
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();

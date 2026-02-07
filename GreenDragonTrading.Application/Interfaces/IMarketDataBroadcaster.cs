@@ -32,5 +32,13 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="sector">Sector filter (null = all)</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastHeatmapUpdateAsync(HeatmapDataDto heatmapData, string? exchange = null, string? sector = null, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast single heatmap item update in realtime (per symbol)
+        /// Similar to OHLCV realtime broadcast pattern
+        /// </summary>
+        /// <param name="item">Single heatmap item</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastHeatmapItemAsync(HeatmapItemDto item, CancellationToken cancellationToken = default);
     }
 }

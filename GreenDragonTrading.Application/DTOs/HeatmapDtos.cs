@@ -36,6 +36,11 @@ public class HeatmapItemDto
     public long Volume { get; set; }
 
     /// <summary>
+    /// Giá trị giao dịch (Volume × Price)
+    /// </summary>
+    public decimal TotalValue { get; set; }
+
+    /// <summary>
     /// Vốn hóa thị trường (optional)
     /// </summary>
     public decimal? MarketCap { get; set; }

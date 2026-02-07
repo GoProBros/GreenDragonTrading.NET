@@ -54,37 +54,37 @@ public class HeatmapService : IHeatmapService
             var tickers = symbols.Select(s => s.Ticker).ToList();
             _logger.LogInformation("Found {Count} symbols to fetch market data", tickers.Count);
 
-            // 2. Lấy market data từ Redis cho các symbols
+            // Fix #2: Fetch market data from Redis using BATCH operation
+            // Reduces 1800 sequential calls to 1 pipeline call
             var marketDataItems = new List<HeatmapItemDto>();
+            var redisKeys = symbols.Select(s => $"MarketData:Symbol:{s.Ticker}").ToList();
+            
+            var marketDataBatch = await _redisService.GetHashBatchAsync<MarketSymbolDto>(redisKeys);
 
+            // Process all market data
             foreach (var symbol in symbols)
             {
                 try
                 {
-                    var marketData = await _redisService.GetHashAsync<MarketSymbolDto>(
-                        $"MarketData:Symbol:{symbol.Ticker}");
-
-                    if (marketData == null)
+                    var redisKey = $"MarketData:Symbol:{symbol.Ticker}";
+                    if (!marketDataBatch.TryGetValue(redisKey, out var marketData) || marketData == null)
                     {
-                        _logger.LogDebug("No market data found for {Ticker}", symbol.Ticker);
                         continue;
                     }
 
-                    // 3. Calculate changePercent and changeValue
+                    // Calculate changePercent and changeValue
                     var currentPrice = (decimal)marketData.LastPrice;
                     var referencePrice = (decimal)marketData.ReferencePrice;
 
                     if (referencePrice <= 0)
                     {
-                        _logger.LogDebug("Invalid reference price for {Ticker}: {ReferencePrice}", 
-                            symbol.Ticker, referencePrice);
                         continue;
                     }
 
                     var changeValue = currentPrice - referencePrice;
                     var changePercent = (changeValue / referencePrice) * 100;
 
-                    // 4. Map to HeatmapItemDto
+                    // Map to HeatmapItemDto
                     var item = new HeatmapItemDto
                     {
                         Ticker = symbol.Ticker,
@@ -104,7 +104,7 @@ public class HeatmapService : IHeatmapService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error processing market data for {Ticker}", symbol.Ticker);
+                    _logger.LogWarning(ex, "Error processing market data for {Ticker}", symbol.Ticker);
                 }
             }
 

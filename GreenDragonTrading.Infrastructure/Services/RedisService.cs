@@ -53,6 +53,44 @@ namespace GreenDragonTrading.Infrastructure.Services
         }
 
         /// <inheritdoc/>
+        /// Fix #2: Batch operation using Redis pipeline
+        public async Task<Dictionary<string, T?>> GetHashBatchAsync<T>(IEnumerable<string> keys)
+        {
+            var keysList = keys.ToList();
+            if (keysList.Count == 0)
+                return new Dictionary<string, T?>();
+
+            // Use Redis batch for pipeline execution (all commands sent at once)
+            var batch = _db.CreateBatch();
+            var tasks = keysList.Select(key => 
+                new { Key = key, Task = batch.HashGetAllAsync(key) }
+            ).ToList();
+
+            // Execute all commands in pipeline
+            batch.Execute();
+
+            // Wait for all results
+            await Task.WhenAll(tasks.Select(t => t.Task));
+
+            // Convert results to dictionary
+            var results = new Dictionary<string, T?>();
+            foreach (var item in tasks)
+            {
+                var entries = await item.Task;
+                if (entries.Length > 0)
+                {
+                    results[item.Key] = ConvertFromHashEntries<T>(entries);
+                }
+                else
+                {
+                    results[item.Key] = default;
+                }
+            }
+
+            return results;
+        }
+
+        /// <inheritdoc/>
         public async Task SetHashFieldAsync<T>(string key, string fieldName, T value)
         {
             string stringValue = value is string s ? s : JsonSerializer.Serialize(value, _jsonOptions);
@@ -162,6 +200,17 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
 
             return await _db.KeyDeleteAsync(keys);
+        }
+
+        /// <inheritdoc/>
+        public async Task<string[]> GetKeysAsync(string pattern)
+        {
+            var server = _redis.GetServer(_redis.GetEndPoints().First());
+            var keys = server.Keys(pattern: pattern)
+                .Select(k => k.ToString())
+                .ToArray();
+            
+            return await Task.FromResult(keys);
         }
     }
 }

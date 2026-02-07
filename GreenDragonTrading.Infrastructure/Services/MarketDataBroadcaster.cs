@@ -87,6 +87,39 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
         }
 
+        /// <inheritdoc/>
+        public async Task BroadcastHeatmapItemAsync(HeatmapItemDto item, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Broadcast to exchange-specific group (e.g., HEATMAP:hsx)
+                var exchangeGroup = $"HEATMAP:{item.Exchange.ToLower()}";
+                await _hubContext.Clients
+                    .Group(exchangeGroup)
+                    .SendAsync("ReceiveHeatmapItem", item, cancellationToken);
+
+                // Also broadcast to sector-specific group if applicable
+                if (!string.IsNullOrEmpty(item.Sector))
+                {
+                    var sectorGroup = $"HEATMAP:{item.Exchange.ToLower()}:{item.Sector}";
+                    await _hubContext.Clients
+                        .Group(sectorGroup)
+                        .SendAsync("ReceiveHeatmapItem", item, cancellationToken);
+                }
+
+                _logger.LogDebug(
+                    "📊 Broadcasted heatmap item: {Ticker} ({Exchange}) - {ChangePercent}%",
+                    item.Ticker, item.Exchange, item.ChangePercent);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, 
+                    "❌ Error broadcasting heatmap item for {Ticker}",
+                    item.Ticker);
+                throw;
+            }
+        }
+
         /// <summary>
         /// Get heatmap group name for SignalR groups
         /// </summary>

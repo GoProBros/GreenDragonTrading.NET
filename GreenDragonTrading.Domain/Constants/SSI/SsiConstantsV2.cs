@@ -102,7 +102,6 @@
         /// SSI Streaming Data Type: X - Securities snapshot
         /// </summary>
         public const string SSI_STREAMING_DATA_TYPE_X = "X";
-
         /// <summary>
         /// SSI Streaming Data Type: X-Quote - provides best bid/ask. 
         /// </summary>
@@ -157,6 +156,11 @@
         /// SSI Streaming Channel: Securities snapshot
         /// </summary>
         public const string SSI_STREAMING_CHANNEL_X = "X";
+
+        /// <summary>
+        /// SSI Streaming Channel: Realtime OHLCV (Open, High, Low, Close, Volume)
+        /// </summary>
+        public const string SSI_STREAMING_CHANNEL_B = "B";
         #endregion SSI Streaming
     }
 }
