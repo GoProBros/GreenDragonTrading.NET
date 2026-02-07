@@ -26,6 +26,14 @@
         Task<T?> GetHashAsync<T>(string key);
 
         /// <summary>
+        /// Fix #2: Gets multiple hash values from Redis using pipeline for better performance.
+        /// Reduces network round-trips from N separate calls to 1 batch call.
+        /// </summary>
+        /// <param name="keys">List of Redis keys to fetch</param>
+        /// <returns>Dictionary mapping keys to values (null if key doesn't exist)</returns>
+        Task<Dictionary<string, T?>> GetHashBatchAsync<T>(IEnumerable<string> keys);
+
+        /// <summary>
         /// Sets a field in a Redis hash.
         /// </summary>
         Task SetHashFieldAsync<T>(string key, string fieldName, T value);
@@ -54,5 +62,10 @@
         /// Delete all keys matching a pattern (e.g., "OHLCV:FPT:*")
         /// </summary>
         Task<long> DeleteByPatternAsync(string pattern);
+
+        /// <summary>
+        /// Get all keys matching a pattern (e.g., "HEATMAP:*")
+        /// </summary>
+        Task<string[]> GetKeysAsync(string pattern);
     }
 }

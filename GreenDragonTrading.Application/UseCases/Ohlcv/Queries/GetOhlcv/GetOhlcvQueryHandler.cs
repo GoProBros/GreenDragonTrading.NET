@@ -16,18 +16,15 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
     {
         private readonly IOhlcvUnitOfWork _ohlcvUow;
         private readonly IRedisService _redisService;
-        private readonly IOhlcvAggregationService _ohlcvAggregationService;
         private readonly ILogger<GetOhlcvQueryHandler> _logger;
 
         public GetOhlcvQueryHandler(
             IOhlcvUnitOfWork ohlcvUow,
             IRedisService redisService,
-            IOhlcvAggregationService ohlcvAggregationService,
             ILogger<GetOhlcvQueryHandler> logger)
         {
             _ohlcvUow = ohlcvUow;
             _redisService = redisService;
-            _ohlcvAggregationService = ohlcvAggregationService;
             _logger = logger;
         }
 
@@ -71,9 +68,10 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
                     ohlcvData = await QueryFromDatabase(request, cancellationToken);
                     source = "Database";
                     
-                    // CRITICAL: Append in-memory current candle if it exists and has data
-                    // This ensures D1 chart shows today's candle (in-progress) before market close
-                    var currentCandle = _ohlcvAggregationService.GetCurrentCandle(request.Ticker, request.Timeframe);
+                    // CRITICAL: Append current candle from Redis if it exists and has data
+                    // This ensures charts show in-progress candle (realtime)
+                    var redisKey = $"OHLCV:{request.Ticker}:{request.Timeframe}";
+                    var currentCandle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
                     if (currentCandle != null && currentCandle.Volume > 0)
                     {
                         // Check if this candle is not already in DB results (avoid duplicates)
@@ -236,9 +234,10 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
                 aggregated = OhlcvAggregationHelper.AggregateFromD1(sourceData, request.Timeframe);
             }
 
-            // CRITICAL: Append in-memory current candle if exists
+            // CRITICAL: Append current candle from Redis if exists
             // For computed timeframes (M5, M15, H1, H4), include the current in-progress candle
-            var currentCandle = _ohlcvAggregationService.GetCurrentCandle(request.Ticker, request.Timeframe);
+            var redisKey = $"OHLCV:{request.Ticker}:{request.Timeframe}";
+            var currentCandle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
             if (currentCandle != null && currentCandle.Volume > 0)
             {
                 // Check if this candle is not already in aggregated results (avoid duplicates)
