@@ -31,6 +31,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         // Loaded once at startup and reused for heatmap broadcasting
         private readonly ConcurrentDictionary<string, SymbolMetadata> _symbolMetadataCache = new();
 
+        // Redis update locks to prevent race conditions
+        // Key: "OHLCV:{ticker}:{timeframe}", Value: SemaphoreSlim for locking
+        private readonly ConcurrentDictionary<string, SemaphoreSlim> _redisLocks = new();
+
         // No more state dictionaries! Redis is the single source of truth
         // All candle states stored in Redis with key pattern: OHLCV:{ticker}:{timeframe}
 
@@ -184,12 +188,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     var response = JsonSerializer.Deserialize<SecuritiesSnapshot>(wrapperResponse.Content!);
                     await HandleSnapshot(_redis, response);
                 }
-                // TODO: Uncomment when ready to enable OHLCV realtime processing
-                //else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_B))
-                //{
-                //    var response = JsonSerializer.Deserialize<OhlcvDataResponse>(wrapperResponse.Content!);
-                //    await HandleOhlcvData(_redis, response);
-                //}
+                else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_B))
+                {
+                    var response = JsonSerializer.Deserialize<OhlcvDataResponse>(wrapperResponse.Content!);
+                    await HandleOhlcvData(_redis, response);
+                }
             }
             catch (Exception ex)
             {
@@ -600,16 +603,15 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
                 
-                // TODO: Uncomment when ready to enable heatmap realtime processing
-                //// Update Heatmap Redis key (single source of truth)
-                //// Returns true if heatmap actually changed (price, volume, etc)
-                //var heatmapChanged = await UpdateHeatmapRedisAsync(redis, response.Symbol!, updates, existingData);
-                //
-                //// Only broadcast if heatmap-relevant fields changed (not just Bid/Ask)
-                //if (heatmapChanged)
-                //{
-                //    await BroadcastHeatmapItemFromRedisAsync(redis, response.Symbol!);
-                //}
+                // Update Heatmap Redis key (single source of truth)
+                // Returns true if heatmap actually changed (price, volume, etc)
+                var heatmapChanged = await UpdateHeatmapRedisAsync(redis, response.Symbol!, updates, existingData);
+                
+                // Only broadcast if heatmap-relevant fields changed (not just Bid/Ask)
+                if (heatmapChanged)
+                {
+                    await BroadcastHeatmapItemFromRedisAsync(redis, response.Symbol!);
+                }
             }
 
             updates["Ticker"] = response.Symbol!;
@@ -662,12 +664,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             };
             await redis.SetHashAsync(redisKey, newData);
             
-            // TODO: Uncomment when ready to enable heatmap realtime processing
-            //// Create initial Heatmap Redis entry
-            //await CreateInitialHeatmapRedisAsync(redis, response.Symbol!, newData);
-            //
-            //// Broadcast heatmap item to SignalR from Redis
-            //await BroadcastHeatmapItemFromRedisAsync(redis, response.Symbol!);
+            // Create initial Heatmap Redis entry
+            await CreateInitialHeatmapRedisAsync(redis, response.Symbol!, newData);
+            
+            // Broadcast heatmap item to SignalR from Redis
+            await BroadcastHeatmapItemFromRedisAsync(redis, response.Symbol!);
             
             // Broadcast in background - don't let failures block data updates
             await SafeBroadcastAsync(
@@ -694,7 +695,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             catch (Exception ex)
             {
                 // Log but don't throw - broadcast failures should not stop data processing
-                _logger.LogWarning(ex, "⚠️ Broadcast failed for {Context}. Data saved but clients not notified.", context);
+                _logger.LogWarning(ex, "Broadcast failed for {Context}. Data saved but clients not notified.", context);
             }
         }
 
@@ -734,19 +735,6 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         
         #endregion Helper Methods
 
-        /// <summary>
-        /// Symbol metadata cached from database to avoid repeated queries
-        /// </summary>
-        private class SymbolMetadata
-        {
-            public required string Ticker { get; set; }
-            public required string CompanyName { get; set; }
-            public required string Exchange { get; set; }
-            public string? SectorId { get; set; }
-            public string? SectorName { get; set; }
-        }
-
-        /* TODO: Uncomment when ready to enable OHLCV realtime processing
         #region Handle OHLCV (Channel B)
 
         /// <summary>
@@ -766,14 +754,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     return;
                 }
 
-                // Parse trading time (format: "HH:mm:ss")
-                if (!TimeOnly.TryParse(response.TradingTime, out var tradingTime))
-                {
-                    _logger.LogWarning("Invalid TradingTime format: {Time} for {Symbol}",
-                        response.TradingTime, response.Symbol);
-                    return;
-                }
-
+                // TradingTime is optional - SSI may not always send it
+                // We use DateTime.UtcNow instead of TradingTime for candle calculations
                 var now = DateTime.UtcNow;
                 var ticker = response.Symbol.ToUpper();
 
@@ -786,6 +768,14 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     Volume: (long)(response.Volume ?? 0),
                     TotalValue: (decimal)(response.Value ?? 0)
                 );
+
+                // Log incoming SSI data for specific tickers (debugging)
+                if (ticker == "FPT" || ticker == "VNM" || ticker == "CTG")
+                {
+                    _logger.LogInformation(
+                        "📥 SSI Channel B received: {Ticker} @ {TradingTime} | O:{Open} H:{High} L:{Low} C:{Close} V:{Volume}",
+                        ticker, response.TradingTime ?? "N/A", ohlcvUpdate.Open, ohlcvUpdate.High, ohlcvUpdate.Low, ohlcvUpdate.Close, ohlcvUpdate.Volume);
+                }
 
                 // Update ALL 9 timeframes directly from SSI data
                 var timeframes = new[] { "M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1" };
@@ -820,8 +810,22 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             {
                 string redisKey = $"OHLCV:{ticker}:{timeframe}";
 
-                // Get current candle from Redis (single source of truth)
-                var existingCandle = await redis.GetAsync<CurrentCandleDto>(redisKey);
+                // CRITICAL: Use SemaphoreSlim lock to prevent race conditions
+                // Multiple threads processing different SSI updates for same ticker+timeframe
+                // must not overwrite each other's volume accumulation
+                var semaphore = _redisLocks.GetOrAdd(redisKey, _ => new SemaphoreSlim(1, 1));
+                
+                // Wait with timeout (max 5 seconds)
+                if (!await semaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+                {
+                    _logger.LogWarning("Timeout waiting for lock {RedisKey}, skipping update", redisKey);
+                    return;
+                }
+
+                try
+                {
+                    // Get current candle from Redis (single source of truth)
+                    var existingCandle = await redis.GetAsync<CurrentCandleDto>(redisKey);
 
                 // Calculate period start time for this timeframe
                 var periodStart = GetPeriodStartTime(now, timeframe);
@@ -832,14 +836,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 if (existingCandle == null)
                 {
                     // No existing candle, create new one
+                    // CRITICAL: ohlcvData.Open/High/Low are DAILY values (from 9:00 AM)
+                    // For period candles (M1, M5, etc.), use Close price as initial O/H/L
                     candle = new CurrentCandleDto
                     {
                         Ticker = ticker,
                         Timeframe = timeframe,
                         StartTime = periodStart,
-                        Open = ohlcvData.Open,
-                        High = ohlcvData.High,
-                        Low = ohlcvData.Low,
+                        Open = ohlcvData.Close,   // ✅ First price of this period
+                        High = ohlcvData.Close,   // ✅ First price of this period
+                        Low = ohlcvData.Close,    // ✅ First price of this period
                         Close = ohlcvData.Close,
                         Volume = ohlcvData.Volume,
                         TotalValue = ohlcvData.TotalValue,
@@ -861,14 +867,17 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                         await SaveCandleToDatabase(existingCandle);
                     }
 
+                    // CRITICAL: Open = FIRST MATCHED PRICE of new period (ohlcvData.Close)
+                    // NOT previous candle's Close, because there may be gaps (no trades)
+                    // When we detect new period, current trade IS the first trade of that period
                     candle = new CurrentCandleDto
                     {
                         Ticker = ticker,
                         Timeframe = timeframe,
                         StartTime = periodStart,
-                        Open = ohlcvData.Open,
-                        High = ohlcvData.High,
-                        Low = ohlcvData.Low,
+                        Open = ohlcvData.Close,       // ✅ First matched price of new period
+                        High = ohlcvData.Close,       // ✅ First price of new period
+                        Low = ohlcvData.Close,        // ✅ First price of new period
                         Close = ohlcvData.Close,
                         Volume = ohlcvData.Volume,
                         TotalValue = ohlcvData.TotalValue,
@@ -884,12 +893,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 {
                     // Same period, update existing candle incrementally
                     candle = existingCandle;
-                    candle.High = Math.Max(candle.High, ohlcvData.High);
-                    candle.Low = candle.Low == 0 ? ohlcvData.Low : Math.Min(candle.Low, ohlcvData.Low);
+                    candle.High = Math.Max(candle.High, ohlcvData.Close);  // ✅ Compare with current price
+                    candle.Low = candle.Low == 0 ? ohlcvData.Close : Math.Min(candle.Low, ohlcvData.Close);  // ✅ Compare with current price
                     candle.Close = ohlcvData.Close;
                     candle.Volume += ohlcvData.Volume;
                     candle.TotalValue += ohlcvData.TotalValue;
                     candle.LastUpdateTime = now;
+                    
+                    _logger.LogDebug(
+                        "📈 Update {Timeframe}: {Ticker} | C:{Close} V+:{Volume} Total:{TotalVolume}",
+                        timeframe, ticker, candle.Close, ohlcvData.Volume, candle.Volume);
                 }
 
                 // Save back to Redis (single source of truth)
@@ -900,6 +913,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 await SafeBroadcastAsync(
                     () => _broadcaster.BroadcastOhlcvUpdateAsync(candle),
                     $"OHLCV {timeframe} for {ticker}");
+                }
+                finally
+                {
+                    // Always release semaphore
+                    semaphore.Release();
+                }
             }
             catch (Exception ex)
             {
@@ -1070,9 +1089,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         }
 
         #endregion Handle OHLCV (Channel B)
-        */
 
-        /* TODO: Uncomment when ready to enable Heatmap realtime processing
         #region Heatmap Realtime Broadcasting (Per Symbol)
 
         /// <summary>
@@ -1314,6 +1331,5 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         }
 
         #endregion
-        */
     }
 }
