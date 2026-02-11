@@ -43,16 +43,16 @@ namespace GreenDragonTrading.Infrastructure.Services
                     .Group(groupName)
                     .SendAsync("ReceiveOhlcvUpdate", candle, cancellationToken);
 
-                _logger.LogInformation(
-                    "📊 Broadcasted {Status} {Timeframe} candle for {Ticker} - O:{Open} H:{High} L:{Low} C:{Close} V:{Volume}",
-                    candle.IsComplete ? "completed" : "in-progress",
-                    candle.Timeframe,
-                    candle.Ticker,
-                    candle.Open,
-                    candle.High,
-                    candle.Low,
-                    candle.Close,
-                    candle.Volume);
+                // _logger.LogInformation(
+                //     "📊 Broadcasted {Status} {Timeframe} candle for {Ticker} - O:{Open} H:{High} L:{Low} C:{Close} V:{Volume}",
+                //     candle.IsComplete ? "completed" : "in-progress",
+                //     candle.Timeframe,
+                //     candle.Ticker,
+                //     candle.Open,
+                //     candle.High,
+                //     candle.Low,
+                //     candle.Close,
+                //     candle.Volume);
             }
             catch (Exception ex)
             {
