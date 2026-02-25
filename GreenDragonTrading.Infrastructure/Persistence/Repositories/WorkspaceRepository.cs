@@ -36,5 +36,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             return await _context.Set<Workspace>()
                 .AnyAsync(w => w.ShareCode == shareCode, cancellationToken);
         }
+
+        public async Task<Workspace?> GetSystemDefaultWorkspaceAsync(CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<Workspace>()
+                .FirstOrDefaultAsync(w => w.UserId == null && w.IsDefault, cancellationToken);
+        }
     }
 }

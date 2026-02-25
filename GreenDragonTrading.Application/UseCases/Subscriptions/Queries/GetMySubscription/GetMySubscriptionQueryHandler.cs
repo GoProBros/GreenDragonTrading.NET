@@ -2,10 +2,8 @@ using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Enums;
-using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -17,52 +15,24 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySub
     public class GetMySubscriptionQueryHandler : IRequestHandler<GetMySubscriptionQuery, ApiResponse<UserSubscriptionDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IJwtService _jwtService;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<GetMySubscriptionQueryHandler> _logger;
 
         public GetMySubscriptionQueryHandler(
             IUnitOfWork uow,
-            IJwtService jwtService,
-            IHttpContextAccessor httpContextAccessor,
+            ICurrentUserService currentUserService,
             ILogger<GetMySubscriptionQueryHandler> logger)
         {
             _uow = uow;
-            _jwtService = jwtService;
-            _httpContextAccessor = httpContextAccessor;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
         public async Task<ApiResponse<UserSubscriptionDto>> Handle(GetMySubscriptionQuery request, CancellationToken cancellationToken)
         {
-            // Get access token from Authorization header
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext == null)
-            {
-                throw new UnauthenticatedException("Không tìm thấy HTTP context.");
-            }
+            var userId = _currentUserService.GetRequiredUserId();
 
-            var authHeaderValue = httpContext.Request.Headers["Authorization"].ToString();
-            if (string.IsNullOrEmpty(authHeaderValue) || !authHeaderValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new UnauthenticatedException("Không tìm thấy Authorization header.");
-            }
-
-            var accessToken = authHeaderValue.Substring("Bearer ".Length).Trim();
-
-            var tokenInfo = _jwtService.GetTokenInfo(accessToken);
-            if (tokenInfo == null)
-            {
-                throw new UnauthenticatedException("Access token không hợp lệ.");
-            }
-
-            var user = await _uow.Users.GetByIdAsync(tokenInfo.UserId, cancellationToken);
-            if (user == null)
-            {
-                throw new NotFoundException("Người dùng không tồn tại.");
-            }
-
-            var userSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+            var userSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
 
             UserSubscriptionDto dto;
 
@@ -87,7 +57,7 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySub
             {
                 var subscription = userSubscription.Subscription;
 
-                var allActiveSubscriptions = await _uow.UserSubscriptions.GetAllActiveByUserIdAsync(user.Id, cancellationToken);
+                var allActiveSubscriptions = await _uow.UserSubscriptions.GetAllActiveByUserIdAsync(userId, cancellationToken);
                 var sameTypeSubscriptions = allActiveSubscriptions
                     .Where(us => us.SubscriptionId == subscription.Id)
                     .ToList();
@@ -111,7 +81,7 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySub
                 };
             }
 
-            _logger.LogInformation("Successfully retrieved subscription information for user: {UserId}", tokenInfo.UserId);
+            _logger.LogInformation("Successfully retrieved subscription information for user: {UserId}", userId);
             return ApiResponse<UserSubscriptionDto>.Success(dto, "Lấy thông tin gói đăng ký thành công.");
         }
     }

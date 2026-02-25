@@ -52,6 +52,9 @@ namespace GreenDragonTrading.Infrastructure
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();
 
+            // Register Current User Service
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
+
             // Register Token Blacklist Service
             services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
 
@@ -60,6 +63,9 @@ namespace GreenDragonTrading.Infrastructure
 
             // Register Local File Storage Service
             services.AddScoped<ILocalFileStorageService, LocalFileStorageService>();
+
+            // Register Workspace Duplication Service
+            services.AddScoped<IWorkspaceDuplicationService, WorkspaceDuplicationService>();
 
             // Register Background Service for handling streaming events
             services.AddHostedService<SsiStreamingBackgroundService>();

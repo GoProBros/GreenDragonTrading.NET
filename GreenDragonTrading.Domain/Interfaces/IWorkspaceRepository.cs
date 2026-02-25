@@ -18,5 +18,10 @@ namespace GreenDragonTrading.Domain.Interfaces
         /// Check if share code exists
         /// </summary>
         Task<bool> ShareCodeExistsAsync(string shareCode, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get the system default workspace (UserId is null and IsDefault is true)
+        /// </summary>
+        Task<Workspace?> GetSystemDefaultWorkspaceAsync(CancellationToken cancellationToken = default);
     }
 }

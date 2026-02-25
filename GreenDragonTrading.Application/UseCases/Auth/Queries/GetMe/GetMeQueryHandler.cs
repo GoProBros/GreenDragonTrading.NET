@@ -5,82 +5,53 @@ using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
 {
+    /// <summary>
+    /// Handler for GetMeQuery
+    /// </summary>
     public class GetMeQueryHandler : IRequestHandler<GetMeQuery, ApiResponse<UserDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IJwtService _jwtService;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<GetMeQueryHandler> _logger;
 
         public GetMeQueryHandler(
             IUnitOfWork uow,
-            IJwtService jwtService,
-            IHttpContextAccessor httpContextAccessor,
+            ICurrentUserService currentUserService,
             ILogger<GetMeQueryHandler> logger)
         {
             _uow = uow;
-            _jwtService = jwtService;
-            _httpContextAccessor = httpContextAccessor;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
         public async Task<ApiResponse<UserDto>> Handle(GetMeQuery request, CancellationToken cancellationToken)
         {
-            try
+            var userId = _currentUserService.GetRequiredUserId();
+
+            var user = await _uow.Users.GetByIdAsync(userId, cancellationToken);
+            if (user == null)
             {
-                // Lấy access token từ Authorization header
-                var httpContext = _httpContextAccessor.HttpContext;
-                if (httpContext == null)
-                {
-                    throw new UnauthenticatedException("Không tìm thấy HTTP context.");
-                }
-
-                var authHeaderValue = httpContext.Request.Headers["Authorization"].ToString();
-                if (string.IsNullOrEmpty(authHeaderValue) || !authHeaderValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new UnauthenticatedException("Không tìm thấy Authorization header.");
-                }
-
-                var accessToken = authHeaderValue.Substring("Bearer ".Length).Trim();
-
-                // Sử dụng JwtService để lấy thông tin từ token
-                var tokenInfo = _jwtService.GetTokenInfo(accessToken);
-                if (tokenInfo == null)
-                {
-                    throw new UnauthenticatedException("Access token không hợp lệ.");
-                }
-
-                // Lấy thông tin user từ database
-                var user = await _uow.Users.GetByIdAsync(tokenInfo.UserId, cancellationToken);
-                if (user == null)
-                {
-                    throw new NotFoundException("Người dùng không tồn tại.");
-                }
-                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
-                var userDto = new UserDto
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    FullName = user.Username,
-                    PhoneNumber = user.PhoneNumber,
-                    Role = user.Role.GetDisplayName(),
-                    IsEmailVerified = user.IsEmailVerified,
-                    SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
-                };
-
-                _logger.LogInformation("Successfully retrieved user information: {UserId}", tokenInfo.UserId);
-                return ApiResponse<UserDto>.Success(userDto, "Lấy thông tin người dùng thành công.");
+                throw new NotFoundException("Người dùng không tồn tại.");
             }
-            catch (Exception ex)
+
+            var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+            var userDto = new UserDto
             {
-                _logger.LogError(ex, "Error retrieving user information.");
-                throw;
-            }
+                Id = user.Id,
+                Email = user.Email,
+                FullName = user.Username,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role.GetDisplayName(),
+                IsEmailVerified = user.IsEmailVerified,
+                SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
+            };
+
+            _logger.LogInformation("Successfully retrieved user information: {UserId}", userId);
+            return ApiResponse<UserDto>.Success(userDto, "Lấy thông tin người dùng thành công.");
         }
     }
 }

@@ -18,6 +18,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
         private readonly IEmailService _emailService;
         private readonly IRedisService _redisService;
         private readonly IConfiguration _configuration;
+        private readonly IWorkspaceDuplicationService _workspaceDuplicationService;
         private readonly ILogger<RegisterCommandHandler> _logger;
 
         public RegisterCommandHandler(
@@ -25,12 +26,14 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
             IEmailService emailService,
             IRedisService redisService,
             IConfiguration configuration,
+            IWorkspaceDuplicationService workspaceDuplicationService,
             ILogger<RegisterCommandHandler> logger)
         {
             _uow = uow;
             _emailService = emailService;
             _redisService = redisService;
             _configuration = configuration;
+            _workspaceDuplicationService = workspaceDuplicationService;
             _logger = logger;
         }
 
@@ -58,6 +61,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
 
                 await _uow.Users.AddAsync(user, cancellationToken);
                 await _uow.SaveChangesAsync(cancellationToken);
+
+                // Create a copy of the system default workspace for the new user
+                await CreateDefaultWorkspaceForUserAsync(user.Id, cancellationToken);
 
                 var verificationToken = GenerateSecureToken();
                 
@@ -88,6 +94,36 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
                 .Replace("+", "-")
                 .Replace("/", "_")
                 .Replace("=", "");
+        }
+
+        /// <summary>
+        /// Creates a copy of the system default workspace for the newly registered user
+        /// </summary>
+        private async Task CreateDefaultWorkspaceForUserAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var systemDefaultWorkspace = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(cancellationToken);
+                
+                if (systemDefaultWorkspace == null)
+                {
+                    _logger.LogWarning("System default workspace not found. Skipping default workspace creation for user {UserId}", userId);
+                    return;
+                }
+
+                await _workspaceDuplicationService.DuplicateWorkspaceAsync(
+                    systemDefaultWorkspace,
+                    userId,
+                    "(Sao chép)",
+                    cancellationToken);
+
+                _logger.LogInformation("Default workspace created successfully for user {UserId}", userId);
+            }
+            catch (Exception ex)
+            {
+                // Log warning but don't fail registration if workspace creation fails
+                _logger.LogWarning(ex, "Failed to create default workspace for user {UserId}. User registration will continue.", userId);
+            }
         }
     }
 }
