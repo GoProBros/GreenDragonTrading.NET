@@ -30,6 +30,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// Get current user's workspaces
         /// </summary>
         [HttpGet("my-workspaces")]
+        [Authorize]
         public async Task<ActionResult<ApiResponse<List<WorkspaceDto>>>> GetMyWorkspaces(CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new GetMyWorkspaceQuery(), cancellationToken);
