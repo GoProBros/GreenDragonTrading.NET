@@ -1,12 +1,13 @@
-﻿using GreenDragonTrading.Application.Common.Options;
-using GreenDragonTrading.Application.Interfaces;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System.Net;
-using System.Net.Mail;
-
-namespace GreenDragonTrading.Infrastructure.Services
+﻿namespace GreenDragonTrading.Infrastructure.Services
 {
+    using GreenDragonTrading.Application.Common.Options;
+    using GreenDragonTrading.Application.Interfaces;
+    using MailKit.Net.Smtp;
+    using MailKit.Security;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Options;
+    using MimeKit;
+
     public class EmailService : IEmailService
     {
         private readonly EmailOptions _emailOptions;
@@ -87,23 +88,40 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
-                using var message = new MailMessage();
-                message.From = new MailAddress(_emailOptions.SenderEmail, _emailOptions.SenderName);
-                message.To.Add(toEmail);
-                message.Subject = subject;
-                message.Body = body;
-                message.IsBodyHtml = true;
+                var email = new MimeMessage();
+                email.From.Add(new MailboxAddress(_emailOptions.SenderName, _emailOptions.SenderEmail));
+                email.To.Add(MailboxAddress.Parse(toEmail));
+                email.Subject = subject;
 
-                using var client = new SmtpClient(_emailOptions.SmtpHost, _emailOptions.SmtpPort);
-                client.Credentials = new NetworkCredential(_emailOptions.Username, _emailOptions.Password);
-                client.EnableSsl = _emailOptions.EnableSsl;
+                var builder = new BodyBuilder { HtmlBody = body };
+                email.Body = builder.ToMessageBody();
 
-                await client.SendMailAsync(message, cancellationToken);
-                _logger.LogInformation("Gửi email thành công {Email}", toEmail);
+                using var smtp = new SmtpClient();
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+                _logger.LogInformation("Connecting to SMTP {Host}:{Port}", _emailOptions.SmtpHost, _emailOptions.SmtpPort);
+
+                await smtp.ConnectAsync(
+                    _emailOptions.SmtpHost,
+                    _emailOptions.SmtpPort,
+                    SecureSocketOptions.StartTls,
+                    timeoutCts.Token);
+
+                _logger.LogInformation("Authenticating with username: {Username}", _emailOptions.Username);
+
+                await smtp.AuthenticateAsync(
+                    _emailOptions.Username,
+                    _emailOptions.Password,
+                    timeoutCts.Token);
+
+                await smtp.SendAsync(email, timeoutCts.Token);
+                await smtp.DisconnectAsync(true, timeoutCts.Token);
+
+                _logger.LogInformation("Email sent successfully to {Email}", toEmail);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Gửi email không thành công {Email}", toEmail);
+                _logger.LogError(ex, "Failed to send email to {Email}", toEmail);
                 throw;
             }
         }
