@@ -176,7 +176,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X_TRADE))
                 {
                     var response = JsonSerializer.Deserialize<XTradeResponse>(wrapperResponse.Content!);
-                    //await HandleXTrade(_redis, response);
+                    await HandleXTrade(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_FOREIGN))
                 {
@@ -391,12 +391,22 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 await redis.SetHashFieldsAsync(redisKey, updates);
             }
 
-            updates["Ticker"] = response.Symbol!;
-            
-            // Broadcast in background - don't let failures block data updates  
-            await SafeBroadcastAsync(
-                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
-                $"trade data for {response.Symbol}");
+            // Store in recent trades list (max 20 per ticker)
+            if (response.LastPrice.HasValue && response.LastVol.HasValue && response.LastPrice > 0)
+            {
+                var trade = new RecentTradeDto
+                {
+                    Ticker = response.Symbol!,
+                    Price = response.LastPrice.Value,
+                    Volume = response.LastVol.Value,
+                    Side = response.Side ?? string.Empty,
+                    Time = DateTime.Now.ToString("HH:mm:ss")
+                };
+                await redis.ListPushTrimAsync($"TRADES:{response.Symbol!.ToUpper()}", trade, 200);
+                await SafeBroadcastAsync(
+                    () => _broadcaster.BroadcastTradeAsync(trade),
+                    $"trade for {response.Symbol}");
+            }
         }
 
         /// <summary>
@@ -404,7 +414,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         /// </summary>
         /// <param name="redis">Redis service</param>
         /// <param name="redisKey">Redis key to retrieve symbol data</param>
-        /// <param name="response">X-TRADE data from SSI</param
+        /// <param name="response">X-TRADE data from SSI</param>
         private async Task CreateNewTradeData(IRedisService redis, string redisKey, XTradeResponse response)
         {
             var newData = new MarketSymbolDto
@@ -426,11 +436,23 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 PriorVal = response.PriorVal ?? default
             };
             await redis.SetHashAsync(redisKey, newData);
-            
-            // Broadcast in background - don't let failures block data updates
-            await SafeBroadcastAsync(
-                () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData),
-                $"new trade data for {response.Symbol}");
+
+            // Store in recent trades list (max 20 per ticker)
+            if (newData.LastPrice > 0)
+            {
+                var trade = new RecentTradeDto
+                {
+                    Ticker = response.Symbol!,
+                    Price = newData.LastPrice,
+                    Volume = newData.LastVol,
+                    Side = newData.Side,
+                    Time = DateTime.Now.ToString("HH:mm:ss")
+                };
+                await redis.ListPushTrimAsync($"TRADES:{response.Symbol!.ToUpper()}", trade, 200);
+                await SafeBroadcastAsync(
+                    () => _broadcaster.BroadcastTradeAsync(trade),
+                    $"trade for {response.Symbol}");
+            }
         }
 
         #endregion Handle X-TRADE

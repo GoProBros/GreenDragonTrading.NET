@@ -40,5 +40,12 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="item">Single heatmap item</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastHeatmapItemAsync(HeatmapItemDto item, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast a single matched order to all clients subscribed to TRADE:{ticker} group.
+        /// </summary>
+        /// <param name="trade">The matched order to broadcast</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastTradeAsync(RecentTradeDto trade, CancellationToken cancellationToken = default);
     }
 }

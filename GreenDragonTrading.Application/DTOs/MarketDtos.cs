@@ -73,6 +73,19 @@
         public string? TradingStatus { get; set; }
     }
 
+    /// <summary>
+    /// A single matched order record stored in Redis (TRADES:{ticker} list)
+    /// </summary>
+    public class RecentTradeDto
+    {
+        public string Ticker { get; set; } = string.Empty;
+        public double Price { get; set; }
+        public double Volume { get; set; }
+        /// <summary>B = Sell (Bán), M = Buy (Mua), N = Neutral</summary>
+        public string Side { get; set; } = string.Empty;
+        public string Time { get; set; } = string.Empty;
+    }
+
     public class IntradayOhlc
     {
         public string Symbol { get; set; } = string.Empty;

@@ -390,5 +390,54 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                 };
             }
         }
+
+        /// <summary>
+        /// Subscribe to real-time matched orders for a specific ticker.
+        /// Immediately sends the last 20 trades from Redis, then pushes new trades via ReceiveTradeData.
+        /// </summary>
+        /// <param name="ticker">Stock ticker symbol (e.g. "FPT")</param>
+        public async Task SubscribeToTradeUpdates(string ticker)
+        {
+            if (string.IsNullOrWhiteSpace(ticker)) return;
+
+            var upper = ticker.ToUpper();
+            var groupName = $"TRADE:{upper}";
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation("Client {ConnectionId} subscribed to trade updates for {Ticker}",
+                Context.ConnectionId, upper);
+
+            // Send initial trade history from Redis
+            try
+            {
+                var key = $"TRADES:{upper}";
+                var trades = await _redisService.ListRangeAsync<RecentTradeDto>(key, 200);
+                if (trades.Count > 0)
+                {
+                    await Clients.Caller.SendAsync("ReceiveRecentTrades", trades);
+                    _logger.LogDebug("Sent {Count} recent trades for {Ticker} to {ConnectionId}",
+                        trades.Count, upper, Context.ConnectionId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send initial trades for {Ticker}", upper);
+            }
+        }
+
+        /// <summary>
+        /// Unsubscribe from real-time matched orders for a specific ticker.
+        /// </summary>
+        /// <param name="ticker">Stock ticker symbol</param>
+        public async Task UnsubscribeFromTradeUpdates(string ticker)
+        {
+            if (string.IsNullOrWhiteSpace(ticker)) return;
+
+            var groupName = $"TRADE:{ticker.ToUpper()}";
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation("Client {ConnectionId} unsubscribed from trade updates for {Ticker}",
+                Context.ConnectionId, ticker.ToUpper());
+        }
     }
 }

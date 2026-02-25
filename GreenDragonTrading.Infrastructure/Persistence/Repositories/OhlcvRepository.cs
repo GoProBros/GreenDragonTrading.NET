@@ -279,5 +279,42 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .Where(o => o.Ticker == ticker.ToUpper() && o.Timeframe == timeframe.ToUpper())
                 .ExecuteDeleteAsync(cancellationToken);
         }
+
+        public async Task<int> DeleteByTickerTimeframeAndRangeAsync(
+            string ticker,
+            string timeframe,
+            DateTime? fromTime = null,
+            DateTime? toTime = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.Ohlcv
+                .Where(o => o.Ticker == ticker.ToUpper() && o.Timeframe == timeframe.ToUpper());
+
+            if (fromTime.HasValue)
+                query = query.Where(o => o.Time >= fromTime.Value);
+
+            if (toTime.HasValue)
+                query = query.Where(o => o.Time <= toTime.Value);
+
+            return await query.ExecuteDeleteAsync(cancellationToken);
+        }
+
+        public async Task<int> DeleteByTimeframeAndRangeAsync(
+            string timeframe,
+            DateTime? fromTime = null,
+            DateTime? toTime = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.Ohlcv
+                .Where(o => o.Timeframe == timeframe.ToUpper());
+
+            if (fromTime.HasValue)
+                query = query.Where(o => o.Time >= fromTime.Value);
+
+            if (toTime.HasValue)
+                query = query.Where(o => o.Time <= toTime.Value);
+
+            return await query.ExecuteDeleteAsync(cancellationToken);
+        }
     }
 }
