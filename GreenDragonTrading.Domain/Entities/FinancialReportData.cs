@@ -239,6 +239,21 @@ namespace GreenDragonTrading.Domain.Entities
 
         [JsonPropertyName("longTerm")]
         public decimal? LongTerm { get; set; }
+
+        [JsonPropertyName("govAndCentralBankDebt")]
+        public decimal? GovAndCentralBankDebt { get; set; }
+
+        [JsonPropertyName("borrowingsFromOtherCreditInstitutions")]
+        public decimal? BorrowingsFromOtherCreditInstitutions { get; set; }
+
+        [JsonPropertyName("customerDeposits")]
+        public decimal? CustomerDeposits { get; set; }
+
+        [JsonPropertyName("issuedValuePapers")]
+        public decimal? IssuedValuePapers { get; set; }
+
+        [JsonPropertyName("otherLiabilities")]
+        public decimal? OtherLiabilities { get; set; }
     }
 
     /// <summary>
@@ -269,6 +284,9 @@ namespace GreenDragonTrading.Domain.Entities
 
         [JsonPropertyName("otherCapital")]
         public decimal? OtherCapital { get; set; }
+
+        [JsonPropertyName("creditInstitutionFunds")]
+        public decimal? CreditInstitutionFunds { get; set; }
     }
 
     #endregion
@@ -384,6 +402,18 @@ namespace GreenDragonTrading.Domain.Entities
 
         [JsonPropertyName("managementExpenses")]
         public decimal? ManagementExpenses { get; set; }
+
+        /// <summary>
+        /// Chi phí dự phòng
+        /// </summary>
+        [JsonPropertyName("provisionExpenses")]
+        public decimal? ProvisionExpenses { get; set; }
+
+        /// <summary>
+        /// Chi phí hoạt động
+        /// </summary>
+        [JsonPropertyName("operatingExpenses")]
+        public decimal? OperatingExpenses { get; set; }
     }
 
     /// <summary>

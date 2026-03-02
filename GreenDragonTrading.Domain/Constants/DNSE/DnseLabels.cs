@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GreenDragonTrading.Domain.Constants.DNSE;
 
 /// <summary>
@@ -71,6 +73,11 @@ public static class DnseLabels
     {
         public const string ShortTerm = "Ngắn hạn";
         public const string LongTerm = "Dài hạn";
+        public const string GovAndCentralBankDebt = "Nợ Chính phủ và NHNN";
+        public const string BorrowingsFromOtherCreditInstitutions = "Vay các TCTD khác";
+        public const string CustomerDeposits = "Tiền gửi của khách hàng";
+        public const string IssuedValuePapers = "Phát hành giấy tờ có giá";
+        public const string OtherLiabilities = "Nợ khác";
     }
 
     /// <summary>
@@ -89,6 +96,7 @@ public static class DnseLabels
     {
         public const string ContributedCapital = "Vốn góp";
         public const string RetainedEarnings = "LNST chưa phân phối";
+        public const string CreditInstitutionFunds = "Quỹ của TCTD";
         public const string TreasuryShares = "Cổ phiếu quỹ";
         public const string OtherCapital = "Vốn khác";
     }
@@ -153,14 +161,18 @@ public static class DnseLabels
     public static class ProfitBeforeTax
     {
         public const string Value = "LN trước thuế";
+        public const string ValueBank = "Lợi nhuận trước thuế";
         public const string OperatingProfit = "Lợi nhuận HĐKD";
         public const string OperatingProfitAlt = "LN kinh doanh";
+        public const string OperatingProfitBank = "Thu nhập hoạt động";
         public const string FinancialProfit = "Lợi nhuận tài chính";
         public const string FinancialProfitAlt = "LN tài chính";
         public const string OtherProfit = "Lợi nhuận khác";
         public const string OtherProfitAlt = "LN khác";
         public const string ManagementExpenses = "Chi phí quản lý";
         public const string ShareProfitOfAssociatesAndJoint = "LN liên doanh, liên kết";
+        public const string ProvisionExpenses = "Chi phí dự phòng";
+        public const string OperatingExpenses = "Chi phí hoạt động";
     }
 
     /// <summary>
@@ -194,4 +206,5 @@ public static class DnseLabels
         public const string InvestingActivities = "Hoạt động đầu tư";
         public const string FinancingActivities = "Hoạt động tài chính";
     }
+
 }

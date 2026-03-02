@@ -147,7 +147,12 @@ public class DnseDataMapper : IDnseDataMapper
             balanceSheet.Liabilities = new LiabilitiesDto
             {
                 ShortTerm = GetValueByLabel(liabilities, DnseLabels.Liabilities.ShortTerm),
-                LongTerm = GetValueByLabel(liabilities, DnseLabels.Liabilities.LongTerm)
+                LongTerm = GetValueByLabel(liabilities, DnseLabels.Liabilities.LongTerm),
+                BorrowingsFromOtherCreditInstitutions = GetValueByLabel(liabilities, DnseLabels.Liabilities.BorrowingsFromOtherCreditInstitutions),
+                CustomerDeposits = GetValueByLabel(liabilities, DnseLabels.Liabilities.CustomerDeposits),
+                GovAndCentralBankDebt = GetValueByLabel(liabilities, DnseLabels.Liabilities.GovAndCentralBankDebt),
+                IssuedValuePapers = GetValueByLabel(liabilities, DnseLabels.Liabilities.IssuedValuePapers),
+                OtherLiabilities = GetValueByLabel(liabilities, DnseLabels.Liabilities.OtherLiabilities),
             };
         }
 
@@ -169,7 +174,8 @@ public class DnseDataMapper : IDnseDataMapper
                 ContributedCapital = GetValueByLabel(equity, DnseLabels.Equity.ContributedCapital),
                 RetainedEarnings = GetValueByLabel(equity, DnseLabels.Equity.RetainedEarnings),
                 TreasuryShares = GetValueByLabel(equity, DnseLabels.Equity.TreasuryShares),
-                OtherCapital = GetValueByLabel(equity, DnseLabels.Equity.OtherCapital)
+                OtherCapital = GetValueByLabel(equity, DnseLabels.Equity.OtherCapital),
+                CreditInstitutionFunds = GetValueByLabel(equity, DnseLabels.Equity.CreditInstitutionFunds),
             };
         }
 
@@ -244,12 +250,14 @@ public class DnseDataMapper : IDnseDataMapper
         {
             incomeStatement.ProfitBeforeTax = new ProfitBeforeTaxDto
             {
-                ProfitBeforeTax = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.Value),
-                OperatingProfit = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OperatingProfit) ?? GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OperatingProfitAlt),
+                ProfitBeforeTax = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.Value) ?? GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.ValueBank),
+                OperatingProfit = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OperatingProfit) ?? GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OperatingProfitAlt) ?? GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OperatingProfitBank),
                 FinancialProfit = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.FinancialProfit) ?? GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.FinancialProfitAlt),
                 OtherProfit = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OtherProfit) ?? GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OtherProfitAlt),
                 ManagementExpenses = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.ManagementExpenses),
-                ShareProfitOfAssociatesAndJoint = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.ShareProfitOfAssociatesAndJoint)
+                ShareProfitOfAssociatesAndJoint = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.ShareProfitOfAssociatesAndJoint),
+                OperatingExpenses = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.OperatingExpenses),
+                ProvisionExpenses = GetValueByLabel(profitBeforeTax, DnseLabels.ProfitBeforeTax.ProvisionExpenses),
             };
         }
 
