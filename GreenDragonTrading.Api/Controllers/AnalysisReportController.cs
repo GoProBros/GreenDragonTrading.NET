@@ -134,7 +134,7 @@ public class AnalysisReportController : ControllerBase
     /// Create a new analysis report source
     /// </summary>
     [HttpPost("sources")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
     public async Task<IActionResult> CreateSource(
         [FromBody] CreateAnalysisReportSourceDto request,
         CancellationToken cancellationToken = default)
@@ -156,7 +156,7 @@ public class AnalysisReportController : ControllerBase
     /// Update an existing analysis report source
     /// </summary>
     [HttpPut("sources/{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
     public async Task<IActionResult> UpdateSource(
         string id,
         [FromBody] UpdateAnalysisReportSourceDto request,
@@ -180,7 +180,7 @@ public class AnalysisReportController : ControllerBase
     /// Delete an analysis report source
     /// </summary>
     [HttpDelete("sources/{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
     public async Task<IActionResult> DeleteSource(string id, CancellationToken cancellationToken = default)
     {
         var command = new DeleteSourceCommand { Id = id };
@@ -218,7 +218,7 @@ public class AnalysisReportController : ControllerBase
     /// Create a new analysis report category
     /// </summary>
     [HttpPost("categories")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
     public async Task<IActionResult> CreateCategory(
         [FromBody] CreateAnalysisReportCategoryDto request,
         CancellationToken cancellationToken = default)
