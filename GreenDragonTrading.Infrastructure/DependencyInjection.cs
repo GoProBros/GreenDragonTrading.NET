@@ -58,6 +58,9 @@ namespace GreenDragonTrading.Infrastructure
             // Register Token Blacklist Service
             services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
 
+            // Register Log Reader Service
+            services.AddScoped<ILogReaderService, LogReaderService>();
+
             // Register Email Service
             services.AddScoped<IEmailService, EmailService>();
 
