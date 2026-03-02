@@ -149,6 +149,9 @@ namespace GreenDragonTrading.Domain.Entities
 
         [JsonPropertyName("otherAssets")]
         public decimal? OtherAssets { get; set; }
+
+        [JsonPropertyName("totalShortTermAssets")]
+        public decimal? TotalShortTermAssets { get; set; }
     }
 
     /// <summary>
@@ -173,6 +176,9 @@ namespace GreenDragonTrading.Domain.Entities
 
         [JsonPropertyName("otherAssets")]
         public decimal? OtherAssets { get; set; }
+
+        [JsonPropertyName("totalLongtTermAssets")]
+        public decimal? TotalLongTermAssets { get; set; }
     }
 
     /// <summary>
@@ -197,6 +203,12 @@ namespace GreenDragonTrading.Domain.Entities
 
         [JsonPropertyName("otherAssets")]
         public decimal? OtherAssets { get; set; }
+
+        [JsonPropertyName("totalLongtTermAssets")]
+        public decimal? TotalLongTermAssets { get; set; }
+
+        [JsonPropertyName("totalShortTermAssets")]
+        public decimal? TotalShortTermAssets {  get; set; }
     }
 
     /// <summary>
@@ -212,6 +224,9 @@ namespace GreenDragonTrading.Domain.Entities
 
         [JsonPropertyName("other")]
         public decimal? Other { get; set; }
+
+        [JsonPropertyName("tradingAndCapitalAssets")]
+        public decimal? TradingAndCapitalAssets { get; set; }
     }
 
     /// <summary>
@@ -403,15 +418,9 @@ namespace GreenDragonTrading.Domain.Entities
         [JsonPropertyName("managementExpenses")]
         public decimal? ManagementExpenses { get; set; }
 
-        /// <summary>
-        /// Chi phí dự phòng
-        /// </summary>
         [JsonPropertyName("provisionExpenses")]
         public decimal? ProvisionExpenses { get; set; }
 
-        /// <summary>
-        /// Chi phí hoạt động
-        /// </summary>
         [JsonPropertyName("operatingExpenses")]
         public decimal? OperatingExpenses { get; set; }
     }

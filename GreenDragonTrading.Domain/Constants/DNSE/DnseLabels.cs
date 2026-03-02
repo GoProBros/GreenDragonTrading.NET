@@ -18,6 +18,7 @@ public static class DnseLabels
         public const string Receivables = "Phải thu";
         public const string OtherAssets = "Tài sản khác";
         public const string Inventories = "Hàng tồn kho";
+        public const string TotalShortTermAssets = "Tài sản ngắn hạn";
     }
 
     /// <summary>
@@ -31,6 +32,7 @@ public static class DnseLabels
         public const string LongTermAssetsInProgress = "Tài sản dở dang";
         public const string OtherAssets = "Tài sản khác";
         public const string Receivables = "Phải thu";
+        public const string TotalLongTermAssets = "Tài sản dài hạn";
     }
 
     /// <summary>
@@ -44,6 +46,8 @@ public static class DnseLabels
         public const string LoansToCustomers = "Cho vay khách hàng";
         public const string InvestmentSecurities = "Chứng khoán đầu tư";
         public const string OtherAssets = "Tài sản khác";
+        public const string TotalLongTermAssets = "Tài sản dài hạn";
+        public const string TotalShortTermAssets = "Tài sản ngắn hạn";
     }
 
     /// <summary>
@@ -54,6 +58,7 @@ public static class DnseLabels
         public const string Cash = "Tiền";
         public const string Loans = "Các khoản cho vay";
         public const string Other = "Khác";
+        public const string TradingAndCapitalAssets = "Tài sản tự doanh và nguồn vốn";
     }
 
     /// <summary>

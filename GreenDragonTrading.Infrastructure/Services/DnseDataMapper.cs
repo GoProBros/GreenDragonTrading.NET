@@ -35,7 +35,7 @@ public class DnseDataMapper : IDnseDataMapper
     }
 
     public FinancialReportData MapToFinancialReportDataForPeriod(
-        Dictionary<string, DnseFinancialReportResponse> dnseResponses, 
+        Dictionary<string, DnseFinancialReportResponse> dnseResponses,
         string targetPeriod)
     {
         // Create filtered responses with only the target period's data
@@ -61,8 +61,8 @@ public class DnseDataMapper : IDnseDataMapper
                     Label = series.Label,
                     Type = series.Type,
                     Tooltip = series.Tooltip,
-                    Y = periodIndex < series.Y.Count 
-                        ? new List<decimal> { series.Y[periodIndex] } 
+                    Y = periodIndex < series.Y.Count
+                        ? new List<decimal> { series.Y[periodIndex] }
                         : new List<decimal> { 0 },
                     YAxisPosition = series.YAxisPosition
                 }).ToList()
@@ -87,7 +87,13 @@ public class DnseDataMapper : IDnseDataMapper
                 FinancialInvestments = GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.FinancialInvestments),
                 Receivables = GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.Receivables),
                 OtherAssets = GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.OtherAssets),
-                Inventories = GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.Inventories)
+                Inventories = GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.Inventories),
+                TotalShortTermAssets = GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.TotalShortTermAssets)
+                    ?? GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.Cash) ?? 0
+                        + GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.FinancialInvestments) ?? 0
+                        + GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.Receivables) ?? 0
+                        + GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.OtherAssets) ?? 0
+                        + GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.Inventories) ?? 0
             };
         }
 
@@ -101,11 +107,19 @@ public class DnseDataMapper : IDnseDataMapper
                 InvestmentProperty = GetValueByLabel(longTermAssets, DnseLabels.LongTermAssets.InvestmentProperty),
                 LongTermAssetsInProgress = GetValueByLabel(longTermAssets, DnseLabels.LongTermAssets.LongTermAssetsInProgress),
                 OtherAssets = GetValueByLabel(longTermAssets, DnseLabels.LongTermAssets.OtherAssets),
-                Receivables = GetValueByLabel(longTermAssets, DnseLabels.LongTermAssets.Receivables)
+                Receivables = GetValueByLabel(longTermAssets, DnseLabels.LongTermAssets.Receivables),
+                TotalLongTermAssets = GetValueByLabel(longTermAssets, DnseLabels.LongTermAssets.TotalLongTermAssets)
+                    ?? GetValueByLabel(shortTermAssets, DnseLabels.ShortTermAssets.Cash) ?? 0
+                            + GetValueByLabel(shortTermAssets, DnseLabels.LongTermAssets.FinancialInvestments) ?? 0
+                            + GetValueByLabel(shortTermAssets, DnseLabels.LongTermAssets.FixedAssets) ?? 0
+                            + GetValueByLabel(shortTermAssets, DnseLabels.LongTermAssets.InvestmentProperty) ?? 0
+                            + GetValueByLabel(shortTermAssets, DnseLabels.LongTermAssets.LongTermAssetsInProgress) ?? 0
+                            + GetValueByLabel(shortTermAssets, DnseLabels.LongTermAssets.OtherAssets) ?? 0
+                            + GetValueByLabel(shortTermAssets, DnseLabels.LongTermAssets.Receivables) ?? 0
             };
         }
 
-        // 3. Bank Assets (for banks)
+        // 3. Total Assets (for banks & finance)
         if (dnseResponses.TryGetValue(DnseConstants.ReportCodes.TOTAL_ASSETS, out var bankAssets))
         {
             balanceSheet.BankAssets = new BankAssetsDto
@@ -115,7 +129,9 @@ public class DnseDataMapper : IDnseDataMapper
                 TradingSecurities = GetValueByLabel(bankAssets, DnseLabels.BankAssets.TradingSecurities),
                 LoansToCustomers = GetValueByLabel(bankAssets, DnseLabels.BankAssets.LoansToCustomers),
                 InvestmentSecurities = GetValueByLabel(bankAssets, DnseLabels.BankAssets.InvestmentSecurities),
-                OtherAssets = GetValueByLabel(bankAssets, DnseLabels.BankAssets.OtherAssets)
+                OtherAssets = GetValueByLabel(bankAssets, DnseLabels.BankAssets.OtherAssets),
+                TotalShortTermAssets = GetValueByLabel(bankAssets, DnseLabels.BankAssets.TotalShortTermAssets),
+                TotalLongTermAssets = GetValueByLabel(bankAssets, DnseLabels.BankAssets.TotalLongTermAssets),
             };
         }
 
@@ -126,7 +142,8 @@ public class DnseDataMapper : IDnseDataMapper
             {
                 Cash = GetValueByLabel(stFinAssets, DnseLabels.ShortTermFinancialAssets.Cash),
                 Loans = GetValueByLabel(stFinAssets, DnseLabels.ShortTermFinancialAssets.Loans),
-                Other = GetValueByLabel(stFinAssets, DnseLabels.ShortTermFinancialAssets.Other)
+                Other = GetValueByLabel(stFinAssets, DnseLabels.ShortTermFinancialAssets.Other),
+                TradingAndCapitalAssets = GetValueByLabel(stFinAssets, DnseLabels.ShortTermFinancialAssets.TradingAndCapitalAssets)
             };
         }
 
@@ -314,8 +331,8 @@ public class DnseDataMapper : IDnseDataMapper
     {
         try
         {
-            var series = response.Data.FirstOrDefault(d => 
-                d.Label.Contains(label, StringComparison.OrdinalIgnoreCase));
+            var series = response.Data.FirstOrDefault(d =>
+                d.Label.Equals(label, StringComparison.OrdinalIgnoreCase));
 
             if (series == null || series.Y.Count == 0)
             {
