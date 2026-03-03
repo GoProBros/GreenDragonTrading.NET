@@ -26,18 +26,10 @@ public class CreateReportCommandHandler : IRequestHandler<CreateReportCommand, A
     public async Task<ApiResponse<AnalysisReportDto>> Handle(CreateReportCommand request, CancellationToken cancellationToken)
     {
         // Validate source
-        var source = await _uow.AnalysisReportSources.GetByIdAsync(request.SourceId, cancellationToken);
-        if (source == null)
-        {
-            throw new NotFoundException($"Nguồn '{request.SourceId}' không tồn tại");
-        }
+        var source = await _uow.AnalysisReportSources.GetByIdAsync(request.SourceId, cancellationToken) ?? throw new NotFoundException($"Nguồn '{request.SourceId}' không tồn tại");
 
         // Validate category
-        var category = await _uow.AnalysisReportCategories.GetByIdAsync(request.CategoryId, cancellationToken);
-        if (category == null)
-        {
-            throw new NotFoundException($"Danh mục '{request.CategoryId}' không tồn tại");
-        }
+        var category = await _uow.AnalysisReportCategories.GetByIdAsync(request.CategoryId, cancellationToken) ?? throw new NotFoundException($"Danh mục '{request.CategoryId}' không tồn tại");
 
         // Validate tickers if provided
         if (request.Tickers != null && request.Tickers.Length > 0)
@@ -83,7 +75,7 @@ public class CreateReportCommandHandler : IRequestHandler<CreateReportCommand, A
             MimeType = string.Empty,
             FileSize = 0,
             UploadedBy = uploadedBy,
-            Status = CommonStatus.Active,
+            Status = CommonStatus.InActive,
             CreatedAt = DateTimeOffset.UtcNow
         };
 

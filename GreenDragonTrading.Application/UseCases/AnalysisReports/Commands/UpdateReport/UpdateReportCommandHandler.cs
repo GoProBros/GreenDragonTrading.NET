@@ -27,26 +27,18 @@ public class UpdateReportCommandHandler : IRequestHandler<UpdateReportCommand, A
             throw new NotFoundException($"Báo cáo với ID '{request.Id}' không tồn tại");
         }
 
-        // Validate and update source if provided
-        if (!string.IsNullOrEmpty(request.SourceId))
+        // Validate source
+        var source = await _uow.AnalysisReportSources.GetByIdAsync(request.SourceId, cancellationToken);
+        if (source == null)
         {
-            var sourceToValidate = await _uow.AnalysisReportSources.GetByIdAsync(request.SourceId, cancellationToken);
-            if (sourceToValidate == null)
-            {
-                throw new NotFoundException($"Nguồn '{request.SourceId}' không tồn tại");
-            }
-            report.SourceId = request.SourceId;
+            throw new NotFoundException($"Nguồn '{request.SourceId}' không tồn tại");
         }
 
-        // Validate and update category if provided
-        if (!string.IsNullOrEmpty(request.CategoryId))
+        // Validate category
+        var category = await _uow.AnalysisReportCategories.GetByIdAsync(request.CategoryId, cancellationToken);
+        if (category == null)
         {
-            var categoryToValidate = await _uow.AnalysisReportCategories.GetByIdAsync(request.CategoryId, cancellationToken);
-            if (categoryToValidate == null)
-            {
-                throw new NotFoundException($"Danh mục '{request.CategoryId}' không tồn tại");
-            }
-            report.CategoryId = request.CategoryId;
+            throw new NotFoundException($"Danh mục '{request.CategoryId}' không tồn tại");
         }
 
         // Validate tickers if provided
@@ -60,52 +52,31 @@ public class UpdateReportCommandHandler : IRequestHandler<UpdateReportCommand, A
                     throw new NotFoundException($"Mã CK '{ticker}' không tồn tại");
                 }
             }
-            report.Tickers = request.Tickers;
         }
 
         // Validate sector if provided
-        if (request.SectorId != null)
+        if (!string.IsNullOrEmpty(request.SectorId))
         {
-            if (!string.IsNullOrEmpty(request.SectorId))
+            var sector = await _uow.Sectors.GetByIdAsync(request.SectorId, cancellationToken);
+            if (sector == null)
             {
-                var sector = await _uow.Sectors.GetByIdAsync(request.SectorId, cancellationToken);
-                if (sector == null)
-                {
-                    throw new NotFoundException($"Ngành '{request.SectorId}' không tồn tại");
-                }
+                throw new NotFoundException($"Ngành '{request.SectorId}' không tồn tại");
             }
-            report.SectorId = request.SectorId;
         }
 
-        // Update other fields
-        if (!string.IsNullOrEmpty(request.Title))
-        {
-            report.Title = request.Title;
-        }
-
-        if (request.Description != null)
-        {
-            report.Description = request.Description;
-        }
-
-        if (request.PublishDate.HasValue)
-        {
-            report.PublishDate = request.PublishDate;
-        }
-
-        if (request.Status.HasValue)
-        {
-            report.Status = request.Status.Value;
-        }
-
+        // Update all fields from input
+        report.SourceId = request.SourceId;
+        report.CategoryId = request.CategoryId;
+        report.Title = request.Title;
+        report.Description = request.Description;
+        report.Tickers = request.Tickers;
+        report.SectorId = request.SectorId;
+        report.PublishDate = request.PublishDate;
+        report.Status = request.Status;
         report.UpdatedAt = DateTimeOffset.UtcNow;
 
         _uow.AnalysisReports.Update(report);
         await _uow.SaveChangesAsync(cancellationToken);
-
-        // Get related data for response
-        var source = await _uow.AnalysisReportSources.GetByIdAsync(report.SourceId, cancellationToken);
-        var category = await _uow.AnalysisReportCategories.GetByIdAsync(report.CategoryId, cancellationToken);
 
         var dto = new AnalysisReportDto
         {
