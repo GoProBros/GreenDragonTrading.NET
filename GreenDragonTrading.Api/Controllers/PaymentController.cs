@@ -2,7 +2,9 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Payments.Commands.CancelPaymentLink;
 using GreenDragonTrading.Application.UseCases.Payments.Commands.CreatePaymentLink;
+using GreenDragonTrading.Application.UseCases.Payments.Commands.ProcessMomoIpn;
 using GreenDragonTrading.Application.UseCases.Payments.Commands.ProcessPayOSWebhook;
+using GreenDragonTrading.Application.UseCases.Payments.Commands.SyncMomoPayment;
 using GreenDragonTrading.Application.UseCases.Payments.Queries.GetPaymentStatus;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -22,13 +24,17 @@ namespace GreenDragonTrading.Api.Controllers
             _mediator = mediator;
         }
 
+        /// <summary>
+        /// Creates a payment link for the authenticated user to purchase a subscription.
+        /// The user selects the payment provider via <c>paymentProvider</c>: 1 = PayOS, 2 = Momo.
+        /// </summary>
         [HttpPost("create-link")]
         [Authorize]
         public async Task<ActionResult<ApiResponse<PaymentLinkResponse>>> CreatePaymentLink(
             [FromBody] CreatePaymentLinkRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new CreatePaymentLinkCommand(request.SubscriptionId);
+            var command = new CreatePaymentLinkCommand(request.SubscriptionId, request.PaymentProvider);
             var result = await _mediator.Send(command, cancellationToken);
             return result;
         }
@@ -77,7 +83,47 @@ namespace GreenDragonTrading.Api.Controllers
             [FromBody] string reason = "User cancel")
         {
             var command = new CancelPaymentLinkCommand(orderCode, reason);
-            var result = await _mediator.Send(command,cancellationToken);
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Receives Instant Payment Notifications (IPN) from Momo after a transaction completes.
+        /// Momo calls this endpoint with the transaction result. Must be publicly accessible.
+        /// </summary>
+        [HttpPost("momo/ipn")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ApiResponse>> ProcessMomoIpn(
+            [FromBody] MomoIpnRequest ipnRequest,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var command = new ProcessMomoIpnCommand(ipnRequest);
+                var result = await _mediator.Send(command, cancellationToken);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Momo IPN Error]: {ex.Message}");
+                return Ok(new { Success = false, Message = "Internal error handled" });
+            }
+        }
+
+        /// <summary>
+        /// Manually syncs a Momo payment status by querying Momo's transactionStatus API.
+        /// Use this after completing a Momo payment when IPN is unreliable (e.g., sandbox/local testing).
+        /// If the payment was completed, the subscription will be activated immediately.
+        /// </summary>
+        /// <param name="orderCode">The order code returned when the payment link was created.</param>
+        [HttpPost("momo/sync/{orderCode}")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<WebhookUpdateResult>>> SyncMomoPayment(
+            [FromRoute] long orderCode,
+            CancellationToken cancellationToken)
+        {
+            var command = new SyncMomoPaymentCommand(orderCode);
+            var result = await _mediator.Send(command, cancellationToken);
             return result;
         }
     }
