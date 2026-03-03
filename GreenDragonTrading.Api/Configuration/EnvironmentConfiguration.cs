@@ -60,6 +60,15 @@ public static class EnvironmentConfiguration
             ["PayOS:ReturnUrl"] = Environment.GetEnvironmentVariable("PAYOS_RETURN_URL") ?? "",
             ["PayOS:CancelUrl"] = Environment.GetEnvironmentVariable("PAYOS_CANCEL_URL") ?? "",
             ["PayOS:ExpirationMinutes"] = Environment.GetEnvironmentVariable("PAYOS_EXPIRATION_MINUTES") ?? "30",
+
+            // Momo
+            ["Momo:ApiEndpoint"] = Environment.GetEnvironmentVariable("MomoAPIEndpoint") ?? "https://test-payment.momo.vn/gw_payment/transactionProcessor",
+            ["Momo:SecretKey"] = Environment.GetEnvironmentVariable("SecretKey"),
+            ["Momo:AccessKey"] = Environment.GetEnvironmentVariable("AccessKey"),
+            ["Momo:PartnerCode"] = Environment.GetEnvironmentVariable("PartnerCode") ?? "MOMO",
+            ["Momo:ReturnUrl"] = Environment.GetEnvironmentVariable("ReturnUrl") ?? "",
+            ["Momo:NotifyUrl"] = Environment.GetEnvironmentVariable("NotifyUrl") ?? "",
+            ["Momo:RequestType"] = Environment.GetEnvironmentVariable("RequestType") ?? "captureMoMoWallet",
             // File Storage R2
             ["FileStorage:R2:AccountId"] = Environment.GetEnvironmentVariable("R2_ACCOUNT_ID"),
             ["FileStorage:R2:BucketName"] = Environment.GetEnvironmentVariable("R2_BUCKET_NAME"),

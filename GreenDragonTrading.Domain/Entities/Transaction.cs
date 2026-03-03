@@ -33,6 +33,16 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("transaction_type", TypeName = "smallint")]
         public TransactionType Type { get; set; } = TransactionType.Purchase;
 
+        [Required]
+        [Column("payment_provider", TypeName = "smallint")]
+        public PaymentType PaymentProvider { get; set; }
+
+        [Column("provider_transaction_id", TypeName = "varchar(255)")]
+        public string? ProviderTransactionId { get; set; } 
+
+        [Column("checkout_url", TypeName = "varchar(255)")]
+        public string? CheckoutUrl { get; set; }
+
         [MaxLength(255)]
         [Column("description", TypeName = "varchar(255)")]
         public string? Description { get; set; }
