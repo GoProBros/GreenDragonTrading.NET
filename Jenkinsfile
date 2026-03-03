@@ -67,6 +67,10 @@ pipeline {
             echo "--- Ensure network exists: ${DOCKER_NETWORK}"
             docker network inspect "${DOCKER_NETWORK}" >/dev/null 2>&1 || docker network create "${DOCKER_NETWORK}"
 
+            echo "--- Preparing Host Mount Directories"
+            mkdir -p "\$(pwd)/GreenDragonTrading.Api/LocalStorage"
+            mkdir -p "\$(pwd)/GreenDragonTrading.Api/Logs"
+
             echo "--- Stop/remove old container (if any): ${CONTAINER_NAME}"
             docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
@@ -76,6 +80,8 @@ pipeline {
               --restart unless-stopped \
               --env-file ./.env.deploy \
               --network "${DOCKER_NETWORK}" \
+              -v "\$(pwd)/GreenDragonTrading.Api/LocalStorage:/app/LocalStorage" \
+              -v "\$(pwd)/GreenDragonTrading.Api/Logs:/app/Logs" \
               "${IMAGE_TAG}"
 
             rm -f ./.env.deploy

@@ -61,10 +61,14 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Commands.CancelPaymen
                 _logger.LogInformation("Payment link not found for OrderCode={OrderCode}", request.orderCode);
                 throw new NotFoundException("Link thanh toán không tồn tại.");
             }
-            else if (checkPayment.Status == TransactionStatus.Completed)
+
+            if (checkPayment.Status != TransactionStatus.Pending)
             {
-                _logger.LogInformation("Attempt to cancel completed payment link for OrderCode={OrderCode}", request.orderCode);
-               throw new BusinessRuleException("Link thanh toán đã được hoàn tất và không thể hủy.");
+                _logger.LogInformation(
+                    "Cannot cancel non-Pending order: OrderCode={OrderCode}, Status={Status}",
+                    request.orderCode, checkPayment.Status);
+                throw new BusinessRuleException(
+                    $"Không thể hủy đơn hàng ở trạng thái '{checkPayment.Status.GetDisplayName()}'.");
             }
             var result = await _paymentService.CancelPaymentAsync(
                 request.orderCode,

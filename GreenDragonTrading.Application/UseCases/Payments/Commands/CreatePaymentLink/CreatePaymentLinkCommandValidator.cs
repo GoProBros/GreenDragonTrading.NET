@@ -11,5 +11,8 @@ public class CreatePaymentLinkCommandValidator : AbstractValidator<CreatePayment
     {
         RuleFor(x => x.SubscriptionId)
             .GreaterThan(0).WithMessage("ID gói đăng ký phải lớn hơn 0");
+
+        RuleFor(x => x.PaymentProvider)
+            .IsInEnum().WithMessage("Phương thức thanh toán không hợp lệ. Chọn 1 (PayOS) hoặc 2 (Momo).");
     }
 }

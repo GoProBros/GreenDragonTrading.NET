@@ -135,6 +135,10 @@ namespace GreenDragonTrading.Infrastructure
             services.AddScoped<IPayOSService, PayOSService>();
             services.AddScoped<IPaymentService, PaymentService>();
 
+            // Register Momo Service
+            services.Configure<MomoOptions>(configuration.GetSection(MomoOptions.SectionName));
+            services.AddHttpClient<IMomoService, MomoService>();
+
             // Add JWT Authentication
             var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
             if (jwtOptions != null)
