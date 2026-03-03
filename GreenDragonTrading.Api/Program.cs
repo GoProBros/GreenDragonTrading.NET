@@ -64,6 +64,22 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
+        // Build metadata
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var assemblyVersion = assembly.GetName().Version?.ToString() ?? "1.0.0";
+        var buildTime = File.GetLastWriteTimeUtc(assembly.Location);
+        var utcPlus7 = TimeZoneInfo.FindSystemTimeZoneById(
+            OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Ho_Chi_Minh");
+        var buildTimeLocal = TimeZoneInfo.ConvertTimeFromUtc(buildTime, utcPlus7);
+        var buildTimeStr = $"{buildTime:yyyy-MM-dd HH:mm:ss} UTC  /  {buildTimeLocal:yyyy-MM-dd HH:mm:ss} UTC+7";
+
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "GreenDragonTrading API",
+            Version = $"v{assemblyVersion}",
+            Description = $"Last build: **{buildTimeStr}**",
+        });
+
         // Include XML comments from API project
         var apiXmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
         var apiXmlPath = Path.Combine(AppContext.BaseDirectory, apiXmlFile);
