@@ -53,19 +53,35 @@ namespace GreenDragonTrading.Infrastructure.Services
             var dates = new List<DateOnly>();
 
             if (!Directory.Exists(_logDirectory))
+            {
+                _logger.LogWarning("GetAvailableDates: log directory does not exist. Directory={LogDirectory}", _logDirectory);
                 return Task.FromResult(dates);
+            }
 
             // JSON log files follow pattern: {prefix}yyyyMMdd.json (possibly with _NNN suffix for size-rolled files)
-            var files = Directory.GetFiles(_logDirectory, $"{_jsonFilePrefix}*.json");
+            var searchPattern = $"{_jsonFilePrefix}*.json";
+            var files = Directory.GetFiles(_logDirectory, searchPattern);
+
+            _logger.LogDebug("GetAvailableDates: scanning Directory={LogDirectory}, Pattern={Pattern}, Found={Count} file(s)",
+                _logDirectory, searchPattern, files.Length);
 
             foreach (var file in files)
             {
-                var dateStr = ExtractDateFromFileName(Path.GetFileNameWithoutExtension(file), _jsonFilePrefix);
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(file);
+                var dateStr = ExtractDateFromFileName(nameWithoutExt, _jsonFilePrefix);
                 if (dateStr is not null && DateOnly.TryParseExact(dateStr, "yyyyMMdd", out var date))
+                {
                     dates.Add(date);
+                }
+                else
+                {
+                    _logger.LogDebug("GetAvailableDates: could not parse date from file name={FileName}", nameWithoutExt);
+                }
             }
 
             dates = dates.Distinct().OrderByDescending(d => d).ToList();
+            _logger.LogInformation("GetAvailableDates: resolved {Count} date(s): {Dates}",
+                dates.Count, string.Join(", ", dates));
             return Task.FromResult(dates);
         }
 
@@ -114,23 +130,31 @@ namespace GreenDragonTrading.Infrastructure.Services
             var entries = new List<LogEntryDto>();
 
             if (!Directory.Exists(_logDirectory))
+            {
+                _logger.LogWarning("ReadEntries: log directory does not exist. Directory={LogDirectory}", _logDirectory);
                 return entries;
+            }
 
             var datePattern = date.ToString("yyyyMMdd");
-            // Collect all files for the date (including size-rolled e.g. log-json-20260302_001.json)
-            var files = Directory.GetFiles(_logDirectory, $"{_jsonFilePrefix}{datePattern}*.json")
+            var searchPattern = $"{_jsonFilePrefix}{datePattern}*.json";
+            var files = Directory.GetFiles(_logDirectory, searchPattern)
                                  .OrderBy(f => f)
                                  .ToArray();
+
+            _logger.LogDebug("ReadEntries: Date={Date}, Pattern={Pattern}, Found={Count} file(s)",
+                date, searchPattern, files.Length);
 
             foreach (var file in files)
             {
                 try
                 {
-                    entries.AddRange(await ParseLogFileAsync(file, cancellationToken));
+                    var parsed = await ParseLogFileAsync(file, cancellationToken);
+                    _logger.LogDebug("ReadEntries: parsed {Count} lines from {File}", parsed.Count, Path.GetFileName(file));
+                    entries.AddRange(parsed);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to parse log file {File}", file);
+                    _logger.LogWarning(ex, "ReadEntries: failed to parse log file {File}", file);
                 }
             }
 
