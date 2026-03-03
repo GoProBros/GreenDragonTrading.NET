@@ -7,6 +7,8 @@ using GreenDragonTrading.Application.UseCases.AnalysisReportSources.Commands.Upd
 using GreenDragonTrading.Application.UseCases.AnalysisReportSources.Queries.GetSourceById;
 using GreenDragonTrading.Application.UseCases.AnalysisReportSources.Queries.GetSources;
 using GreenDragonTrading.Application.UseCases.AnalysisReports.Commands.CreateReport;
+using GreenDragonTrading.Application.UseCases.AnalysisReports.Commands.UpdateReport;
+using GreenDragonTrading.Application.UseCases.AnalysisReports.Queries.GetReportById;
 using GreenDragonTrading.Application.UseCases.AnalysisReports.Queries.GetReports;
 using GreenDragonTrading.Domain.Enums;
 using MediatR;
@@ -69,13 +71,24 @@ public class AnalysisReportController : ControllerBase
     }
 
     /// <summary>
+    /// Get a single analysis report by ID
+    /// </summary>
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetReportById(Guid id, CancellationToken cancellationToken = default)
+    {
+        var query = new GetReportByIdQuery { Id = id };
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Create a new analysis report (without file)
     /// </summary>
     /// <remarks>
     /// After creating the report, use the returned ID to upload the file via /api/file/upload endpoint with category=2
     /// </remarks>
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
     public async Task<IActionResult> CreateReport(
         [FromBody] CreateAnalysisReportDto request,
         CancellationToken cancellationToken = default)
@@ -89,6 +102,33 @@ public class AnalysisReportController : ControllerBase
             Tickers = request.Tickers,
             SectorId = request.SectorId,
             PublishDate = request.PublishDate
+        };
+
+        var result = await _mediator.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Update an existing analysis report
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
+    public async Task<IActionResult> UpdateReport(
+        Guid id,
+        [FromBody] UpdateAnalysisReportDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new UpdateReportCommand
+        {
+            Id = id,
+            SourceId = request.SourceId,
+            CategoryId = request.CategoryId,
+            Title = request.Title,
+            Description = request.Description,
+            Tickers = request.Tickers,
+            SectorId = request.SectorId,
+            PublishDate = request.PublishDate,
+            Status = request.Status
         };
 
         var result = await _mediator.Send(command, cancellationToken);

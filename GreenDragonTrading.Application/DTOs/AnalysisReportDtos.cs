@@ -133,14 +133,14 @@ public class CreateAnalysisReportDto
 /// </summary>
 public class UpdateAnalysisReportDto
 {
-    public string? SourceId { get; set; }
-    public string? CategoryId { get; set; }
-    public string? Title { get; set; }
+    public string SourceId { get; set; } = null!;
+    public string CategoryId { get; set; } = null!;
+    public string Title { get; set; } = null!;
     public string? Description { get; set; }
     public string[]? Tickers { get; set; }
     public string? SectorId { get; set; }
     public DateTimeOffset? PublishDate { get; set; }
-    public CommonStatus? Status { get; set; }
+    public CommonStatus Status { get; set; }
 }
 
 /// <summary>
