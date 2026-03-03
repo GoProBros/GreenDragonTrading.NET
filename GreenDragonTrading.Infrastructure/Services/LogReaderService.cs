@@ -1,8 +1,9 @@
+using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
@@ -13,6 +14,7 @@ namespace GreenDragonTrading.Infrastructure.Services
     public class LogReaderService : ILogReaderService
     {
         private readonly string _logDirectory;
+        private readonly string _jsonFilePrefix;
         private readonly ILogger<LogReaderService> _logger;
 
         // Log level severity order for "minimum level" filtering
@@ -26,17 +28,23 @@ namespace GreenDragonTrading.Infrastructure.Services
             ["Fatal"] = 5,
         };
 
-        public LogReaderService(IHostEnvironment hostEnvironment, ILogger<LogReaderService> logger, IConfiguration configuration)
+        public LogReaderService(
+            IHostEnvironment hostEnvironment,
+            ILogger<LogReaderService> logger,
+            IOptions<LogOptions> logOptions)
         {
             _logger = logger;
 
-            // Resolve log directory from the configured file path or default to Logs/
-            var configuredPath = configuration["Serilog:WriteTo:2:Args:path"] ?? "Logs/log-json-.json";
-            var dirPart = Path.GetDirectoryName(configuredPath) ?? "Logs";
+            var options = logOptions.Value;
+            _jsonFilePrefix = options.JsonFilePrefix;
 
-            _logDirectory = Path.IsPathRooted(dirPart)
-                ? dirPart
-                : Path.Combine(hostEnvironment.ContentRootPath, dirPart);
+            var dir = options.Directory;
+            _logDirectory = Path.IsPathRooted(dir)
+                ? dir
+                : Path.Combine(hostEnvironment.ContentRootPath, dir);
+
+            _logger.LogInformation("LogReaderService initialized. Directory={LogDirectory}, Prefix={Prefix}",
+                _logDirectory, _jsonFilePrefix);
         }
 
         /// <inheritdoc />
@@ -47,12 +55,12 @@ namespace GreenDragonTrading.Infrastructure.Services
             if (!Directory.Exists(_logDirectory))
                 return Task.FromResult(dates);
 
-            // JSON log files follow pattern: log-json-yyyyMMdd.json (possibly with _NNN suffix for size-rolled files)
-            var files = Directory.GetFiles(_logDirectory, "log-json-*.json");
+            // JSON log files follow pattern: {prefix}yyyyMMdd.json (possibly with _NNN suffix for size-rolled files)
+            var files = Directory.GetFiles(_logDirectory, $"{_jsonFilePrefix}*.json");
 
             foreach (var file in files)
             {
-                var dateStr = ExtractDateFromFileName(Path.GetFileNameWithoutExtension(file));
+                var dateStr = ExtractDateFromFileName(Path.GetFileNameWithoutExtension(file), _jsonFilePrefix);
                 if (dateStr is not null && DateOnly.TryParseExact(dateStr, "yyyyMMdd", out var date))
                     dates.Add(date);
             }
@@ -109,8 +117,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 return entries;
 
             var datePattern = date.ToString("yyyyMMdd");
-            // Collect all files for the date (including size-rolled: log-json-20260302_001.json, etc.)
-            var files = Directory.GetFiles(_logDirectory, $"log-json-{datePattern}*.json")
+            // Collect all files for the date (including size-rolled e.g. log-json-20260302_001.json)
+            var files = Directory.GetFiles(_logDirectory, $"{_jsonFilePrefix}{datePattern}*.json")
                                  .OrderBy(f => f)
                                  .ToArray();
 
@@ -227,10 +235,8 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// <summary>
         /// Extracts the 8-digit date string from a file name like "log-json-20260302" or "log-json-20260302_001".
         /// </summary>
-        private static string? ExtractDateFromFileName(string fileNameWithoutExt)
+        private static string? ExtractDateFromFileName(string fileNameWithoutExt, string prefix)
         {
-            // Expected: log-json-20260302  or  log-json-20260302_001
-            const string prefix = "log-json-";
             if (!fileNameWithoutExt.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
             var rest = fileNameWithoutExt[prefix.Length..];
             // Take first 8 chars (yyyyMMdd)

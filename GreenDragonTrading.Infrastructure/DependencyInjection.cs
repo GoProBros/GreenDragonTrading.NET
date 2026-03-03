@@ -60,6 +60,7 @@ namespace GreenDragonTrading.Infrastructure
 
             // Register Log Reader Service
             services.AddScoped<ILogReaderService, LogReaderService>();
+            services.Configure<LogOptions>(configuration.GetSection(LogOptions.SectionName));
 
             // Register Email Service
             services.AddScoped<IEmailService, EmailService>();
