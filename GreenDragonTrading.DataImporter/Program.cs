@@ -1,14 +1,19 @@
 ﻿using DotNetEnv;
 using GreenDragonTrading.Application;
+using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.DataImporter;
 using GreenDragonTrading.DataImporter.Models;
 using GreenDragonTrading.DataImporter.Services;
 using GreenDragonTrading.Domain.Interfaces;
-using GreenDragonTrading.Infrastructure;
+using GreenDragonTrading.Infrastructure.Persistence;
+using GreenDragonTrading.Infrastructure.Persistence.Repositories;
+using GreenDragonTrading.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 // Load environment variables from .env file
@@ -43,8 +48,36 @@ try
             // Register Application layer services
             services.AddApplication();
 
-            // Register Infrastructure layer services (without Redis/Streaming - not needed for importer)
-            services.AddInfrastructure(configuration, includeRealtimeServices: false);
+            // Register Infrastructure layer services (minimal - no Redis/Streaming needed for importer)
+            services.AddMemoryCache();
+            // DbContexts
+            services.AddDbContext<GdtPostgreSqlDbContext>(options =>
+                options.UseNpgsql(configuration.GetConnectionString("GdtPostgreSqlConnection")));
+            services.AddDbContext<OhlcvTimescaleDbContext>(options =>
+                options.UseNpgsql(configuration.GetConnectionString("OhlcvTimescaleDbConnection")));
+            // Unit of Work and Repositories
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped(typeof(IPostgreSqlGenericRepository<>), typeof(PostgreSqlGenericRepository<>));
+            services.AddScoped<IOhlcvUnitOfWork, OhlcvUnitOfWork>();
+            services.AddScoped<IOhlcvRepository, OhlcvRepository>();
+            // SSI V2 options and HTTP clients
+            services.Configure<SsiApiOptionsV2>(configuration.GetSection(SsiApiOptionsV2.SectionName));
+            services.AddHttpClient<ISsiAuthService, SsiAuthService>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
+                client.BaseAddress = new Uri(options.FastConnectUrl);
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+            services.AddHttpClient<ISsiServiceV2, SsiServiceV2>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<SsiApiOptionsV2>>().Value;
+                client.BaseAddress = new Uri(options.FastConnectUrl);
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/x-www-form-urlencoded");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
 
             // Register importer services
             services.AddScoped<DailyOhlcvImporter>();
@@ -277,21 +310,19 @@ static async Task ImportAllSymbolsAsync(IHost host)
     Console.WriteLine($"⏳ Starting batch import for {tickers.Count} symbols from {fromDate:dd/MM/yyyy} to {toDate:dd/MM/yyyy}...");
     Console.WriteLine("💡 Press Ctrl+C to stop gracefully and save progress");
 
+    var cts = new CancellationTokenSource();
+    ConsoleCancelEventHandler ctrlCHandler = (sender, e) =>
+    {
+        e.Cancel = true;
+        Console.WriteLine("\n⚠️  Stopping... Saving progress...");
+        progress.Cancel();
+        cts.Cancel();
+    };
+    Console.CancelKeyPress += ctrlCHandler;
     try
     {
-        var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (sender, e) =>
-        {
-            e.Cancel = true;
-            Console.WriteLine("\n⚠️  Stopping... Saving progress...");
-            progress.Cancel();
-            cts.Cancel();
-        };
-
         var batchResult = await importer.ImportBatchAsync(tickers, fromDate, toDate, progress, cts.Token);
-        
         progress.Complete();
-        
         PrintImportSummary(batchResult);
     }
     catch (OperationCanceledException)
@@ -299,6 +330,10 @@ static async Task ImportAllSymbolsAsync(IHost host)
         Console.WriteLine("\n✅ Import stopped gracefully. Progress saved.");
         Console.WriteLine($"📊 Processed: {progress.ProcessedSymbols}/{progress.TotalSymbols} symbols");
         Console.WriteLine($"💾 Progress file: Progress/current_import.json");
+    }
+    finally
+    {
+        Console.CancelKeyPress -= ctrlCHandler;
     }
 }
 
@@ -335,26 +370,24 @@ static async Task ResumeImportAsync(IHost host, ImportProgress progress)
     Console.WriteLine($"▶️  Resuming import for {progress.RemainingTickers.Count} remaining symbols...");
     Console.WriteLine("💡 Press Ctrl+C to stop gracefully and save progress");
 
+    var cts = new CancellationTokenSource();
+    ConsoleCancelEventHandler ctrlCHandler = (sender, e) =>
+    {
+        e.Cancel = true;
+        Console.WriteLine("\n⚠️  Stopping... Saving progress...");
+        progress.Cancel();
+        cts.Cancel();
+    };
+    Console.CancelKeyPress += ctrlCHandler;
     try
     {
-        var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (sender, e) =>
-        {
-            e.Cancel = true;
-            Console.WriteLine("\n⚠️  Stopping... Saving progress...");
-            progress.Cancel();
-            cts.Cancel();
-        };
-
         var batchResult = await importer.ImportBatchAsync(
-            progress.RemainingTickers, 
-            progress.FromDate, 
+            progress.RemainingTickers,
+            progress.FromDate,
             progress.ToDate,
             progress,
             cts.Token);
-        
         progress.Complete();
-        
         PrintImportSummary(batchResult);
     }
     catch (OperationCanceledException)
@@ -362,6 +395,10 @@ static async Task ResumeImportAsync(IHost host, ImportProgress progress)
         Console.WriteLine("\n✅ Import stopped gracefully. Progress saved.");
         Console.WriteLine($"📊 Processed: {progress.ProcessedSymbols}/{progress.TotalSymbols} symbols");
         Console.WriteLine($"💾 Progress file: Progress/current_import.json");
+    }
+    finally
+    {
+        Console.CancelKeyPress -= ctrlCHandler;
     }
 }
 
@@ -549,16 +586,6 @@ static async Task ImportAllIntradaySymbolsAsync(IHost host)
     var symbols = await uow.Symbols.GetAllAsync();
     var tickers = symbols.Select(s => s.Ticker).ToList();
 
-    // Setup cancellation token
-    using var cts = new CancellationTokenSource();
-    Console.CancelKeyPress += (s, e) =>
-    {
-        e.Cancel = true;
-        Console.WriteLine();
-        Console.WriteLine("⚠️  Cancellation requested. Finishing current symbol and saving progress...");
-        cts.Cancel();
-    };
-
     // Create progress tracker
     var progress = new ImportProgress
     {
@@ -574,7 +601,31 @@ static async Task ImportAllIntradaySymbolsAsync(IHost host)
     Console.WriteLine();
     Console.WriteLine($"⏳ Starting import for {tickers.Count} symbols from {fromDate:dd/MM/yyyy} to {toDate:dd/MM/yyyy}...");
 
-    var batchResult = await importer.ImportBatchAsync(tickers, fromDate, toDate, progress, cts.Token);
+    // Setup cancellation token
+    using var cts = new CancellationTokenSource();
+    ConsoleCancelEventHandler ctrlCHandler = (s, e) =>
+    {
+        e.Cancel = true;
+        Console.WriteLine();
+        Console.WriteLine("⚠️  Cancellation requested. Finishing current symbol and saving progress...");
+        cts.Cancel();
+    };
+    Console.CancelKeyPress += ctrlCHandler;
+    ImportBatchResult batchResult;
+    try
+    {
+        batchResult = await importer.ImportBatchAsync(tickers, fromDate, toDate, progress, cts.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("\n✅ Import stopped gracefully. Progress saved.");
+        Console.WriteLine($"📊 Processed: {progress.ProcessedSymbols}/{progress.TotalSymbols} symbols");
+        return;
+    }
+    finally
+    {
+        Console.CancelKeyPress -= ctrlCHandler;
+    }
 
     // Mark as completed
     progress.Complete();
@@ -662,25 +713,38 @@ static async Task ResumeIntradayImportAsync(IHost host, ImportProgress progress)
     using var scope = host.Services.CreateScope();
     var importer = scope.ServiceProvider.GetRequiredService<IntradayOhlcvImporter>();
 
+    Console.WriteLine();
+    Console.WriteLine($"⏳ Resuming import for {progress.RemainingTickers.Count} remaining symbols...");
+
     // Setup cancellation token
     using var cts = new CancellationTokenSource();
-    Console.CancelKeyPress += (s, e) =>
+    ConsoleCancelEventHandler ctrlCHandler = (s, e) =>
     {
         e.Cancel = true;
         Console.WriteLine();
         Console.WriteLine("⚠️  Cancellation requested. Finishing current symbol and saving progress...");
         cts.Cancel();
     };
-
-    Console.WriteLine();
-    Console.WriteLine($"⏳ Resuming import for {progress.RemainingTickers.Count} remaining symbols...");
-
-    var batchResult = await importer.ImportBatchAsync(
-        progress.RemainingTickers, 
-        progress.FromDate, 
-        progress.ToDate, 
-        progress, 
-        cts.Token);
+    Console.CancelKeyPress += ctrlCHandler;
+    ImportBatchResult batchResult;
+    try
+    {
+        batchResult = await importer.ImportBatchAsync(
+            progress.RemainingTickers,
+            progress.FromDate,
+            progress.ToDate,
+            progress,
+            cts.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("\n✅ Import stopped gracefully. Progress saved.");
+        return;
+    }
+    finally
+    {
+        Console.CancelKeyPress -= ctrlCHandler;
+    }
 
     if (progress.RemainingTickers.Count == 0)
     {
@@ -707,14 +771,16 @@ static async Task ResumeMissingSymbolsImportAsync(IServiceScope scope, ImportPro
         Console.WriteLine($"📅 Date range: {progress.FromDate:dd/MM/yyyy} to {progress.ToDate:dd/MM/yyyy}");
         Console.WriteLine("💡 Press Ctrl+C to stop gracefully and save progress");
 
-        var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (s, e) =>
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler ctrlCHandler = (s, e) =>
         {
             e.Cancel = true;
             Console.WriteLine("\n⚠️  Cancellation requested. Finishing current symbol...");
             cts.Cancel();
         };
-
+        Console.CancelKeyPress += ctrlCHandler;
+        try
+        {
         if (timeframe == "D1")
         {
             var importer = scope.ServiceProvider.GetRequiredService<DailyOhlcvImporter>();
@@ -748,6 +814,15 @@ static async Task ResumeMissingSymbolsImportAsync(IServiceScope scope, ImportPro
             Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
             Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
             Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
+        }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("\n✅ Import stopped gracefully. Progress saved.");
+        }
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
         }
     }
     catch (Exception ex)
@@ -967,14 +1042,16 @@ static async Task CheckAndImportMissingSymbolsAsync(IHost host, string timeframe
         Console.WriteLine($"\n⏳ Starting import for {missingTickers.Count} missing symbols from {fromDate:dd/MM/yyyy} to {toDate:dd/MM/yyyy}...");
         Console.WriteLine("💡 Press Ctrl+C to stop gracefully and save progress");
 
-        var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (s, e) =>
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler ctrlCHandler = (s, e) =>
         {
             e.Cancel = true;
             Console.WriteLine("\n⚠️  Cancellation requested. Finishing current symbol...");
             cts.Cancel();
         };
-
+        Console.CancelKeyPress += ctrlCHandler;
+        try
+        {
         if (timeframe == "D1")
         {
             var importer = scope.ServiceProvider.GetRequiredService<DailyOhlcvImporter>();
@@ -1032,6 +1109,15 @@ static async Task CheckAndImportMissingSymbolsAsync(IHost host, string timeframe
             Console.WriteLine($"✅ Successful Symbols: {progress.SuccessSymbols}");
             Console.WriteLine($"❌ Failed Symbols: {progress.FailedSymbols}");
             Console.WriteLine($"📄 No Data Symbols: {progress.NoDataSymbols} (processed but no new records)");
+        }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("\n✅ Import stopped gracefully. Progress saved.");
+        }
+        finally
+        {
+            Console.CancelKeyPress -= ctrlCHandler;
         }
     }
     catch (Exception ex)

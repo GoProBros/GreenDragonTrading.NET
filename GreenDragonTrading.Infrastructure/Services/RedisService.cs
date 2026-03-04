@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Interfaces;
 using StackExchange.Redis;
+using System.Globalization;
 using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
@@ -146,9 +147,13 @@ namespace GreenDragonTrading.Infrastructure.Services
                 var value = prop.GetValue(obj);
                 if (value != null)
                 {
-                    string stringValue = value is string || value.GetType().IsPrimitive
-                        ? value.ToString()!
-                        : JsonSerializer.Serialize(value, _jsonOptions);
+                    // Use InvariantCulture for all numeric primitives so numbers are always
+                    // stored with '.' as decimal separator regardless of the server's locale.
+                    string stringValue = value is string s
+                        ? s
+                        : value is IConvertible
+                            ? Convert.ToString(value, CultureInfo.InvariantCulture)!
+                            : JsonSerializer.Serialize(value, _jsonOptions);
 
                     entries.Add(new HashEntry(prop.Name, stringValue));
                 }
@@ -170,16 +175,44 @@ namespace GreenDragonTrading.Infrastructure.Services
                     {
                         prop.SetValue(obj, value);
                     }
-                    else if (prop.PropertyType == typeof(int))
+                    else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(int?))
                     {
-                        prop.SetValue(obj, int.Parse(value));
+                        if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var iv))
+                            prop.SetValue(obj, iv);
                     }
-                    else if (prop.PropertyType == typeof(bool))
+                    else if (prop.PropertyType == typeof(long) || prop.PropertyType == typeof(long?))
                     {
-                        prop.SetValue(obj, bool.Parse(value));
+                        if (long.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var lv))
+                            prop.SetValue(obj, lv);
+                    }
+                    else if (prop.PropertyType == typeof(double) || prop.PropertyType == typeof(double?))
+                    {
+                        if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var dv))
+                            prop.SetValue(obj, dv);
+                    }
+                    else if (prop.PropertyType == typeof(decimal) || prop.PropertyType == typeof(decimal?))
+                    {
+                        if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var mv))
+                            prop.SetValue(obj, mv);
+                    }
+                    else if (prop.PropertyType == typeof(float) || prop.PropertyType == typeof(float?))
+                    {
+                        if (float.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var fv))
+                            prop.SetValue(obj, fv);
+                    }
+                    else if (prop.PropertyType == typeof(bool) || prop.PropertyType == typeof(bool?))
+                    {
+                        if (bool.TryParse(value, out var bv))
+                            prop.SetValue(obj, bv);
+                    }
+                    else if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(DateTime?))
+                    {
+                        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dtv))
+                            prop.SetValue(obj, dtv);
                     }
                     else
                     {
+                        // Complex/object types: stored as JSON by ConvertToHashEntries
                         var complexObj = JsonSerializer.Deserialize(value, prop.PropertyType, _jsonOptions);
                         prop.SetValue(obj, complexObj);
                     }
