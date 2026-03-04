@@ -439,5 +439,112 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             _logger.LogInformation("Client {ConnectionId} unsubscribed from trade updates for {Ticker}",
                 Context.ConnectionId, ticker.ToUpper());
         }
+
+        /// <summary>
+        /// Subscribe to price depth (3 bước giá) updates for a specific ticker.
+        /// Server sends a snapshot of the current price depth immediately via ReceivePriceDepth,
+        /// then pushes on every bid/ask or snapshot change.
+        /// </summary>
+        /// <param name="ticker">Stock ticker symbol (e.g. "FPT")</param>
+        public async Task SubscribeToPriceDepth(string ticker)
+        {
+            if (string.IsNullOrWhiteSpace(ticker)) return;
+
+            var upper = ticker.ToUpper();
+            var groupName = $"DEPTH:{upper}";
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation("Client {ConnectionId} subscribed to price depth for {Ticker}",
+                Context.ConnectionId, upper);
+
+            // Send current price depth snapshot from Redis
+            try
+            {
+                string redisKey = $"{RedisConstants.REDIS_KEY_PREFIX_MARKET_DATA}:{upper}";
+                var marketData = await _redisService.GetHashAsync<MarketSymbolDto>(redisKey);
+
+                if (marketData != null)
+                {
+                    var depth = BuildPriceDepthDto(upper, marketData);
+                    await Clients.Caller.SendAsync("ReceivePriceDepth", depth);
+                    _logger.LogDebug("Sent initial price depth for {Ticker} to {ConnectionId}", upper, Context.ConnectionId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send initial price depth for {Ticker}", upper);
+            }
+        }
+
+        /// <summary>
+        /// Unsubscribe from price depth updates for a specific ticker.
+        /// </summary>
+        /// <param name="ticker">Stock ticker symbol</param>
+        public async Task UnsubscribeFromPriceDepth(string ticker)
+        {
+            if (string.IsNullOrWhiteSpace(ticker)) return;
+
+            var groupName = $"DEPTH:{ticker.ToUpper()}";
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogInformation("Client {ConnectionId} unsubscribed from price depth for {Ticker}",
+                Context.ConnectionId, ticker.ToUpper());
+        }
+
+        /// <summary>
+        /// Builds a PriceDepthDto from a MarketSymbolDto by calculating per-level changes.
+        /// </summary>
+        private static PriceDepthDto BuildPriceDepthDto(string ticker, MarketSymbolDto d)
+        {
+            var refPrice = d.ReferencePrice;
+
+            double Chg(double price) => price > 0 && refPrice > 0 ? price - refPrice : 0;
+            double ChgPct(double price) => price > 0 && refPrice > 0 ? ((price - refPrice) / refPrice) * 100 : 0;
+
+            // Bull / Bear depth ratio
+            var bidSum = d.BidVol1 + d.BidVol2 + d.BidVol3;
+            var askSum = d.AskVol1 + d.AskVol2 + d.AskVol3;
+            var depthTotal = bidSum + askSum;
+            var bullPct = depthTotal > 0 ? (int)Math.Round((bidSum / depthTotal) * 100) : 50;
+
+            // Foreign investor ratio vs total session volume
+            var fBuyPct  = d.TotalVol > 0 ? Math.Round((d.FBuyVol  / d.TotalVol) * 100, 1) : 0.0;
+            var fSellPct = d.TotalVol > 0 ? Math.Round((d.FSellVol / d.TotalVol) * 100, 1) : 0.0;
+
+            // Max single-level depth volume (for bar width scaling)
+            var maxDepthVol = Math.Max(1, new[] { d.AskVol1, d.AskVol2, d.AskVol3, d.BidVol1, d.BidVol2, d.BidVol3 }.Max());
+
+            return new PriceDepthDto
+            {
+                Ticker = ticker,
+                AskPrice1 = d.AskPrice1, AskVol1 = d.AskVol1,
+                AskPrice2 = d.AskPrice2, AskVol2 = d.AskVol2,
+                AskPrice3 = d.AskPrice3, AskVol3 = d.AskVol3,
+                BidPrice1 = d.BidPrice1, BidVol1 = d.BidVol1,
+                BidPrice2 = d.BidPrice2, BidVol2 = d.BidVol2,
+                BidPrice3 = d.BidPrice3, BidVol3 = d.BidVol3,
+                ReferencePrice = refPrice,
+                CeilingPrice = d.CeilingPrice,
+                FloorPrice = d.FloorPrice,
+                Change = d.Change,
+                RatioChange = d.RatioChange,
+                TotalVol = d.TotalVol,
+                AskChange1 = Chg(d.AskPrice1), AskChangePct1 = ChgPct(d.AskPrice1),
+                AskChange2 = Chg(d.AskPrice2), AskChangePct2 = ChgPct(d.AskPrice2),
+                AskChange3 = Chg(d.AskPrice3), AskChangePct3 = ChgPct(d.AskPrice3),
+                BidChange1 = Chg(d.BidPrice1), BidChangePct1 = ChgPct(d.BidPrice1),
+                BidChange2 = Chg(d.BidPrice2), BidChangePct2 = ChgPct(d.BidPrice2),
+                BidChange3 = Chg(d.BidPrice3), BidChangePct3 = ChgPct(d.BidPrice3),
+                FBuyVol = d.FBuyVol, FSellVol = d.FSellVol,
+                FBuyVal = d.FBuyVal, FSellVal = d.FSellVal,
+                TotalBuyVol = d.TotalBuyVol,
+                TotalSellVol = d.TotalSellVol,
+                BullPct = bullPct, BearPct = 100 - bullPct,
+                FBuyPct = fBuyPct, FSellPct = fSellPct,
+                MaxDepthVol = maxDepthVol,
+                Side = d.Side,
+                TradingSession = d.TradingSession,
+            };
+        }
     }
 }

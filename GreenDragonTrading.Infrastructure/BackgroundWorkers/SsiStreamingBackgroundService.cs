@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 {
@@ -34,6 +35,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         // Redis update locks to prevent race conditions
         // Key: "OHLCV:{ticker}:{timeframe}", Value: SemaphoreSlim for locking
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _redisLocks = new();
+
+        // Bounded channel used to batch-save completed candles.
+        // Producers (event handlers) enqueue candles; a single consumer loop bulk-upserts them.
+        private readonly Channel<CurrentCandleDto> _saveCandleChannel =
+            Channel.CreateBounded<CurrentCandleDto>(new BoundedChannelOptions(2000)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = false
+            });
 
         // No more state dictionaries! Redis is the single source of truth
         // All candle states stored in Redis with key pattern: OHLCV:{ticker}:{timeframe}
@@ -114,6 +125,71 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             string ohlcvFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_B}:{tickersString}";
             _logger.LogInformation("Subscribing to OHLCV (Channel B) for {Count} symbols", tickers.Count());
             await _streamingService.SwitchChannelsAsync(ohlcvFilter);
+
+            // Start the background candle-batch-save loop
+            _ = Task.Run(() => ProcessCandleSaveQueueAsync(stoppingToken), stoppingToken);
+        }
+
+        /// <summary>
+        /// Drains the candle save channel in batches and bulk-upserts them with a single DB scope.
+        /// Keeps the connection count low regardless of how many candles close simultaneously.
+        /// </summary>
+        private async Task ProcessCandleSaveQueueAsync(CancellationToken stoppingToken)
+        {
+            _logger.LogInformation("Candle batch-save loop started.");
+            var reader = _saveCandleChannel.Reader;
+            var batch = new List<Ohlcv>(200);
+            var now = DateTime.UtcNow;
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    // Wait for at least one item
+                    await reader.WaitToReadAsync(stoppingToken);
+
+                    // Drain everything currently available (up to 200 items per save cycle)
+                    batch.Clear();
+                    now = DateTime.UtcNow;
+                    while (batch.Count < 200 && reader.TryRead(out var candle))
+                    {
+                        batch.Add(new Ohlcv
+                        {
+                            Time        = candle.StartTime,
+                            Ticker      = candle.Ticker,
+                            Timeframe   = candle.Timeframe,
+                            Open        = candle.Open,
+                            High        = candle.High,
+                            Low         = candle.Low,
+                            Close       = candle.Close,
+                            Volume      = candle.Volume,
+                            Value       = candle.TotalValue,
+                            CreatedAt   = now,
+                            Source      = "SSI_STREAMING",
+                            IsPreliminary = false
+                        });
+                    }
+
+                    if (batch.Count == 0) continue;
+
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var ohlcvUow = scope.ServiceProvider.GetRequiredService<IOhlcvUnitOfWork>();
+                    await ohlcvUow.Ohlcv.BulkUpsertAsync(batch, stoppingToken);
+
+                    _logger.LogDebug("Batch-saved {Count} candles to DB.", batch.Count);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in candle batch-save loop.");
+                    await Task.Delay(1000, stoppingToken); // brief back-off on error
+                }
+            }
+
+            _logger.LogInformation("Candle batch-save loop stopped.");
         }
 
         /// <summary>
@@ -181,7 +257,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_FOREIGN))
                 {
                     var response = JsonSerializer.Deserialize<ForeignRoomResponse>(wrapperResponse.Content!);
-                    //await HandleForeignRoom(_redis, response);
+                    await HandleForeignRoom(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X))
                 {
@@ -290,11 +366,21 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
                 updates["Ticker"] = response.Symbol!;
-                
-                // Broadcast in background - don't let failures block data updates
+
+                // Broadcast market data to ReceiveMarketData listeners
                 await SafeBroadcastAsync(
                     () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
                     $"market data for {response.Symbol}");
+
+                // Re-read full snapshot to build PriceDepthDto with all fields (ref, ceiling, etc.)
+                var fullData = await redis.GetHashAsync<MarketSymbolDto>(redisKey);
+                if (fullData != null)
+                {
+                    var depth = BuildPriceDepthDto(response.Symbol!, fullData);
+                    await SafeBroadcastAsync(
+                        () => _broadcaster.BroadcastPriceDepthAsync(depth),
+                        $"price depth for {response.Symbol}");
+                }
             }
         }
 
@@ -323,11 +409,17 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 AskVol3 = response.AskVol3 ?? default,
             };
             await redis.SetHashAsync(redisKey, newData);
-            
-            // Broadcast in background - don't let failures block data updates
+
+            // Broadcast market data
             await SafeBroadcastAsync(
                 () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData),
                 $"new quote data for {response.Symbol}");
+
+            // Broadcast price depth (limited data on new creation, no ref/ceiling yet)
+            var depth = BuildPriceDepthDto(response.Symbol!, newData);
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastPriceDepthAsync(depth),
+                $"price depth for {response.Symbol}");
         }
 
         #endregion Handle X-QUOTE
@@ -386,12 +478,27 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             AddIfChanged(updates, nameof(MarketSymbolDto.AvgPrice), response.AvgPrice, existingData.AvgPrice);
             AddIfChanged(updates, nameof(MarketSymbolDto.PriorVal), response.PriorVal, existingData.PriorVal);
 
+            // Tích lũy TotalBuyVol / TotalSellVol theo chiều khớp lệnh
+            // SSI convention: Side = "M" (Mua/Buy), "B" (Bán/Sell), "N" (Neutral)
+            var lastVol = response.LastVol ?? 0;
+            var newBuyVol  = existingData.TotalBuyVol;
+            var newSellVol = existingData.TotalSellVol;
+            if (lastVol > 0)
+            {
+                if (string.Equals(response.Side, "M", StringComparison.OrdinalIgnoreCase))
+                    newBuyVol += lastVol;
+                else if (string.Equals(response.Side, "B", StringComparison.OrdinalIgnoreCase))
+                    newSellVol += lastVol;
+            }
+            // Always write both fields (initializes them in old hashes + accumulates correctly)
+            updates[nameof(MarketSymbolDto.TotalBuyVol)]  = newBuyVol;
+            updates[nameof(MarketSymbolDto.TotalSellVol)] = newSellVol;
+
             if (updates.Count > 0)
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
             }
 
-            // Store in recent trades list (max 20 per ticker)
             if (response.LastPrice.HasValue && response.LastVol.HasValue && response.LastPrice > 0)
             {
                 var trade = new RecentTradeDto
@@ -433,11 +540,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 Lowest = response.Lowest ?? default,
                 Side = response.Side ?? string.Empty,
                 AvgPrice = response.AvgPrice ?? default,
-                PriorVal = response.PriorVal ?? default
+                PriorVal = response.PriorVal ?? default,
+                // SSI convention: Side = "M" (Mua/Buy), "B" (Bán/Sell)
+                TotalBuyVol  = string.Equals(response.Side, "M", StringComparison.OrdinalIgnoreCase) ? (response.LastVol ?? 0) : 0,
+                TotalSellVol = string.Equals(response.Side, "B", StringComparison.OrdinalIgnoreCase) ? (response.LastVol ?? 0) : 0,
             };
             await redis.SetHashAsync(redisKey, newData);
 
-            // Store in recent trades list (max 20 per ticker)
             if (newData.LastPrice > 0)
             {
                 var trade = new RecentTradeDto
@@ -629,7 +738,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             // Trading session and status
             AddIfChanged(updates, nameof(MarketSymbolDto.TradingSession), response.TradingSession, existingData.TradingSession ?? string.Empty);
             AddIfChanged(updates, nameof(MarketSymbolDto.TradingStatus), response.TradingStatus, existingData.TradingStatus ?? string.Empty);
-            AddIfChanged(updates, nameof(MarketSymbolDto.Side), response.Side, existingData.Side);
+            // NOTE: Side is NOT updated from Snapshot — only X-Trade sets Side ("M"=Mua/Buy, "B"=Bán/Sell)
+
+            // Always write TotalBuyVol/TotalSellVol to ensure these fields exist in Redis
+            // (old hashes created before these fields were added will not have them)
+            updates[nameof(MarketSymbolDto.TotalBuyVol)]  = existingData.TotalBuyVol;
+            updates[nameof(MarketSymbolDto.TotalSellVol)] = existingData.TotalSellVol;
 
             if (updates.Count > 0)
             {
@@ -648,10 +762,20 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
             updates["Ticker"] = response.Symbol!;
             
-            // Broadcast in background - don't let failures block data updates
+            // Broadcast market data to ReceiveMarketData listeners
             await SafeBroadcastAsync(
                 () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
                 $"snapshot data for {response.Symbol}");
+
+            // Broadcast fresh price depth from full Redis entry
+            var latestData = await redis.GetHashAsync<MarketSymbolDto>(redisKey);
+            if (latestData != null)
+            {
+                var depth = BuildPriceDepthDto(response.Symbol!, latestData);
+                await SafeBroadcastAsync(
+                    () => _broadcaster.BroadcastPriceDepthAsync(depth),
+                    $"price depth for {response.Symbol}");
+            }
         }
 
         /// <summary>
@@ -702,10 +826,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             // Broadcast heatmap item to SignalR from Redis
             await BroadcastHeatmapItemFromRedisAsync(redis, response.Symbol!);
             
-            // Broadcast in background - don't let failures block data updates
+            // Broadcast market data
             await SafeBroadcastAsync(
                 () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, newData),
                 $"new snapshot data for {response.Symbol}");
+
+            // Broadcast initial price depth
+            var depth = BuildPriceDepthDto(response.Symbol!, newData);
+            await SafeBroadcastAsync(
+                () => _broadcaster.BroadcastPriceDepthAsync(depth),
+                $"price depth for {response.Symbol}");
         }
 
         #endregion Handle Snapshot
@@ -729,6 +859,62 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 // Log but don't throw - broadcast failures should not stop data processing
                 _logger.LogWarning(ex, "Broadcast failed for {Context}. Data saved but clients not notified.", context);
             }
+        }
+
+        /// <summary>
+        /// Build a PriceDepthDto from a MarketSymbolDto, computing per-level change vs reference.
+        /// </summary>
+        private static PriceDepthDto BuildPriceDepthDto(string ticker, MarketSymbolDto d)
+        {
+            var refPrice = d.ReferencePrice;
+
+            double Chg(double price) => price > 0 && refPrice > 0 ? price - refPrice : 0;
+            double ChgPct(double price) => price > 0 && refPrice > 0 ? ((price - refPrice) / refPrice) * 100 : 0;
+
+            // Bull / Bear depth ratio
+            var bidSum = d.BidVol1 + d.BidVol2 + d.BidVol3;
+            var askSum = d.AskVol1 + d.AskVol2 + d.AskVol3;
+            var depthTotal = bidSum + askSum;
+            var bullPct = depthTotal > 0 ? (int)Math.Round((bidSum / depthTotal) * 100) : 50;
+
+            // Foreign investor ratio vs total session volume
+            var fBuyPct  = d.TotalVol > 0 ? Math.Round((d.FBuyVol  / d.TotalVol) * 100, 1) : 0.0;
+            var fSellPct = d.TotalVol > 0 ? Math.Round((d.FSellVol / d.TotalVol) * 100, 1) : 0.0;
+
+            // Max single-level depth volume (for bar width scaling)
+            var maxDepthVol = Math.Max(1, new[] { d.AskVol1, d.AskVol2, d.AskVol3, d.BidVol1, d.BidVol2, d.BidVol3 }.Max());
+
+            return new PriceDepthDto
+            {
+                Ticker = ticker,
+                AskPrice1 = d.AskPrice1, AskVol1 = d.AskVol1,
+                AskPrice2 = d.AskPrice2, AskVol2 = d.AskVol2,
+                AskPrice3 = d.AskPrice3, AskVol3 = d.AskVol3,
+                BidPrice1 = d.BidPrice1, BidVol1 = d.BidVol1,
+                BidPrice2 = d.BidPrice2, BidVol2 = d.BidVol2,
+                BidPrice3 = d.BidPrice3, BidVol3 = d.BidVol3,
+                ReferencePrice = refPrice,
+                CeilingPrice = d.CeilingPrice,
+                FloorPrice = d.FloorPrice,
+                Change = d.Change,
+                RatioChange = d.RatioChange,
+                TotalVol = d.TotalVol,
+                AskChange1 = Chg(d.AskPrice1), AskChangePct1 = ChgPct(d.AskPrice1),
+                AskChange2 = Chg(d.AskPrice2), AskChangePct2 = ChgPct(d.AskPrice2),
+                AskChange3 = Chg(d.AskPrice3), AskChangePct3 = ChgPct(d.AskPrice3),
+                BidChange1 = Chg(d.BidPrice1), BidChangePct1 = ChgPct(d.BidPrice1),
+                BidChange2 = Chg(d.BidPrice2), BidChangePct2 = ChgPct(d.BidPrice2),
+                BidChange3 = Chg(d.BidPrice3), BidChangePct3 = ChgPct(d.BidPrice3),
+                FBuyVol = d.FBuyVol, FSellVol = d.FSellVol,
+                FBuyVal = d.FBuyVal, FSellVal = d.FSellVal,
+                TotalBuyVol = d.TotalBuyVol,
+                TotalSellVol = d.TotalSellVol,
+                BullPct = bullPct, BearPct = 100 - bullPct,
+                FBuyPct = fBuyPct, FSellPct = fSellPct,
+                MaxDepthVol = maxDepthVol,
+                Side = d.Side,
+                TradingSession = d.TradingSession,
+            };
         }
 
         /// <summary>
@@ -893,7 +1079,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 {
                     if (ShouldSaveCompletedCandle(timeframe, existingCandle, now))
                     {
-                        await SaveCandleToDatabase(existingCandle);
+                        _saveCandleChannel.Writer.TryWrite(existingCandle);
                     }
 
                     candle = new CurrentCandleDto
@@ -948,45 +1134,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
         }
 
-        /// <summary>
-        /// Save completed candle to database
-        /// Only M1 (every minute) and D1 (end of day) are saved
-        /// </summary>
-        private async Task SaveCandleToDatabase(CurrentCandleDto candle)
-        {
-            try
-            {
-                var entity = new Ohlcv
-                {
-                    Time = candle.StartTime,
-                    Ticker = candle.Ticker,
-                    Timeframe = candle.Timeframe,
-                    Open = candle.Open,
-                    High = candle.High,
-                    Low = candle.Low,
-                    Close = candle.Close,
-                    Volume = candle.Volume,
-                    Value = candle.TotalValue,
-                    CreatedAt = DateTime.UtcNow,
-                    Source = "SSI_STREAMING"
-                };
-
-                using var scope = _serviceScopeFactory.CreateScope();
-                var ohlcvUow = scope.ServiceProvider.GetRequiredService<IOhlcvUnitOfWork>();
-
-                await ohlcvUow.Ohlcv.UpsertAsync(entity);
-                await ohlcvUow.SaveChangesAsync();
-
-                // _logger.LogInformation(
-                //     "💾 Saved {Timeframe}: {Ticker} @ {Time} | O:{Open} H:{High} L:{Low} C:{Close} V:{Volume}",
-                //     entity.Timeframe, entity.Ticker, entity.Time, entity.Open, entity.High, entity.Low, entity.Close, entity.Volume);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to save {Timeframe} to DB: {Ticker} @ {Time}",
-                    candle.Timeframe, candle.Ticker, candle.StartTime);
-            }
-        }
+        // SaveCandleToDatabase removed — candles are now enqueued to _saveCandleChannel
+        // and flushed in batches by ProcessCandleSaveQueueAsync.
 
         /// <summary>
         /// Calculate period start time for a timeframe

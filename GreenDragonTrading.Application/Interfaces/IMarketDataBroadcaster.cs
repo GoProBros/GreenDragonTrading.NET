@@ -47,5 +47,13 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="trade">The matched order to broadcast</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastTradeAsync(RecentTradeDto trade, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast price depth snapshot (3 bước giá) to clients subscribed to DEPTH:{ticker} group.
+        /// Event name: ReceivePriceDepth
+        /// </summary>
+        /// <param name="depth">Price depth data</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastPriceDepthAsync(PriceDepthDto depth, CancellationToken cancellationToken = default);
     }
 }

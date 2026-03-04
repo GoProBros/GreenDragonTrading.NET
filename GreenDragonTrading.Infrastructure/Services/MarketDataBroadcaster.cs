@@ -140,6 +140,26 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
         }
 
+        /// <inheritdoc/>
+        public async Task BroadcastPriceDepthAsync(PriceDepthDto depth, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var groupName = $"DEPTH:{depth.Ticker.ToUpper()}";
+                await _hubContext.Clients
+                    .Group(groupName)
+                    .SendAsync("ReceivePriceDepth", depth, cancellationToken);
+
+                _logger.LogDebug("Broadcasted price depth for {Ticker}: Bid1={Bid1} Ask1={Ask1}",
+                    depth.Ticker, depth.BidPrice1, depth.AskPrice1);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting price depth for {Ticker}", depth.Ticker);
+                throw;
+            }
+        }
+
         /// <summary>
         /// Get heatmap group name for SignalR groups
         /// </summary>
