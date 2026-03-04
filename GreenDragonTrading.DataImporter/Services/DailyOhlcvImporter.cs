@@ -154,6 +154,10 @@ public class DailyOhlcvImporter
                     progress.RemainingTickers.Remove(ticker);
                     progress.Save();
                 }
+
+                // Respect SSI rate limit (1 req/s)
+                if (!cancellationToken.IsCancellationRequested)
+                    await Task.Delay(_settings.DelayBetweenSymbolsMs, cancellationToken);
             }
 
             // Delay between batches
@@ -184,6 +188,10 @@ public class DailyOhlcvImporter
             }
             catch (Exception ex)
             {
+                // If the user cancelled, propagate immediately — do not retry
+                if (cancellationToken.IsCancellationRequested)
+                    throw;
+
                 if (attempt == _settings.MaxRetries)
                 {
                     _logger.LogError(ex, "Failed to import {Ticker} after {Attempts} attempts", 

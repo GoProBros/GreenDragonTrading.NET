@@ -54,7 +54,7 @@ public class IntradayOhlcvImporter
                     PageIndex = 1,
                     PageSize = 5000,
                     Ascending = true,
-                    Resollution = 1 // 1 minute
+                    Resolution = 1 // 1 minute
                 };
 
                 // Retry logic with exponential backoff
@@ -231,6 +231,10 @@ public class IntradayOhlcvImporter
                     progress.RemainingTickers.Remove(ticker);
                     progress.Save();
                 }
+
+                // Respect SSI rate limit (1 req/s)
+                if (!cancellationToken.IsCancellationRequested)
+                    await Task.Delay(_settings.DelayBetweenSymbolsMs, cancellationToken);
             }
 
             // Delay between batches
@@ -261,6 +265,10 @@ public class IntradayOhlcvImporter
             }
             catch (Exception ex)
             {
+                // If the user cancelled, propagate immediately — do not retry
+                if (cancellationToken.IsCancellationRequested)
+                    throw;
+
                 if (attempt == _settings.MaxRetries)
                 {
                     _logger.LogError(ex, "Failed to import {Ticker} after {Attempts} attempts", 
