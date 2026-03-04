@@ -45,7 +45,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
 
                 if (!BCrypt.Net.BCrypt.Verify(request.Password, user.HashedPassword))
                 {
-                    throw new UnauthenticatedException("Mật khẩu không đúng");
+                    throw new UnauthenticatedException("Mật khẩu không chính xác.");
                 }
 
                 if (!user.IsEmailVerified)

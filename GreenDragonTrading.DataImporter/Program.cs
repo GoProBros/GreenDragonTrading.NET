@@ -1,4 +1,5 @@
-﻿using GreenDragonTrading.Application;
+﻿using DotNetEnv;
+using GreenDragonTrading.Application;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.DataImporter;
 using GreenDragonTrading.DataImporter.Models;
@@ -10,11 +11,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
+// Load environment variables from .env file
+Env.Load();
+
 // Build configuration
 var basePath = AppContext.BaseDirectory;
 var configuration = new ConfigurationBuilder()
     .SetBasePath(basePath)
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddInMemoryCollection(BuildEnvConfig())
     .Build();
 
 // Configure Serilog
@@ -38,8 +43,8 @@ try
             // Register Application layer services
             services.AddApplication();
 
-            // Register Infrastructure layer services
-            services.AddInfrastructure(configuration);
+            // Register Infrastructure layer services (without Redis/Streaming - not needed for importer)
+            services.AddInfrastructure(configuration, includeRealtimeServices: false);
 
             // Register importer services
             services.AddScoped<DailyOhlcvImporter>();
@@ -87,6 +92,7 @@ static async Task RunInteractiveModeAsync(IHost host)
         Console.WriteLine("  [8] Resume incomplete import");
         Console.WriteLine("  [9] Check & Import missing symbols (D1)");
         Console.WriteLine("  [10] Check & Import missing symbols (M1)");
+        Console.WriteLine("  [11] Delete OHLCV records");
         Console.WriteLine("  [0] Exit");
         Console.WriteLine();
         Console.Write("Select option: ");
@@ -126,6 +132,9 @@ static async Task RunInteractiveModeAsync(IHost host)
                     break;
                 case "10":
                     await CheckAndImportMissingSymbolsAsync(host, "M1");
+                    break;
+                case "11":
+                    await DeleteRecordsAsync(host);
                     break;
                 case "0":
                     Log.Information("User requested exit");
@@ -1030,4 +1039,188 @@ static async Task CheckAndImportMissingSymbolsAsync(IHost host, string timeframe
         Log.Error(ex, "Error checking missing symbols");
         Console.WriteLine($"\n❌ Error: {ex.Message}");
     }
+}
+
+static async Task DeleteRecordsAsync(IHost host)
+{
+    var dateFormat = "dd/MM/yyyy";
+    var validTimeframes = new[] { "M1", "D1" };
+
+    Console.WriteLine();
+    Console.WriteLine("─────────────────────────────────────────────");
+    Console.WriteLine("  Delete OHLCV Records");
+    Console.WriteLine("─────────────────────────────────────────────");
+    Console.WriteLine();
+    Console.WriteLine("  [1] Delete by ticker + timeframe (all data)");
+    Console.WriteLine("  [2] Delete by ticker + timeframe + date range");
+    Console.WriteLine("  [3] Delete ALL tickers by timeframe + date range");
+    Console.WriteLine("  [0] Back");
+    Console.WriteLine();
+    Console.Write("Select option: ");
+
+    var subOption = Console.ReadLine()?.Trim();
+    if (subOption == "0") return;
+
+    // Option 3: all tickers, only need timeframe + date range
+    if (subOption == "3")
+    {
+        Console.Write("Enter timeframe (M1/D1): ");
+        var tf = Console.ReadLine()?.Trim().ToUpper();
+        if (string.IsNullOrEmpty(tf) || !validTimeframes.Contains(tf))
+        { Console.WriteLine("❌ Invalid timeframe. Only M1 or D1 allowed"); return; }
+
+        Console.Write("Enter from date (dd/MM/yyyy, leave blank for no lower bound): ");
+        var fromInput3 = Console.ReadLine()?.Trim();
+        DateTime? from3 = null;
+        if (!string.IsNullOrEmpty(fromInput3))
+        {
+            if (!DateTime.TryParseExact(fromInput3, dateFormat, null, System.Globalization.DateTimeStyles.None, out var f3))
+            { Console.WriteLine("❌ Invalid date format. Use dd/MM/yyyy"); return; }
+            from3 = DateTime.SpecifyKind(f3, DateTimeKind.Utc);
+        }
+
+        Console.Write("Enter to date   (dd/MM/yyyy, leave blank for no upper bound): ");
+        var toInput3 = Console.ReadLine()?.Trim();
+        DateTime? to3 = null;
+        if (!string.IsNullOrEmpty(toInput3))
+        {
+            if (!DateTime.TryParseExact(toInput3, dateFormat, null, System.Globalization.DateTimeStyles.None, out var t3))
+            { Console.WriteLine("❌ Invalid date format. Use dd/MM/yyyy"); return; }
+            to3 = DateTime.SpecifyKind(t3.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("⚠️  About to DELETE the following records:");
+        Console.WriteLine($"   Ticker    : ALL tickers");
+        Console.WriteLine($"   Timeframe : {tf}");
+        if (from3.HasValue) Console.WriteLine($"   From      : {from3:dd/MM/yyyy}");
+        if (to3.HasValue)   Console.WriteLine($"   To        : {to3:dd/MM/yyyy}");
+        if (!from3.HasValue && !to3.HasValue) Console.WriteLine("   Scope     : ALL records for this timeframe");
+        Console.WriteLine();
+        Console.Write("Type YES to confirm: ");
+        if (Console.ReadLine()?.Trim() != "YES") { Console.WriteLine("❌ Cancelled"); return; }
+
+        using var scope3 = host.Services.CreateScope();
+        var ohlcvUow3 = scope3.ServiceProvider.GetRequiredService<IOhlcvUnitOfWork>();
+        try
+        {
+            var deleted = await ohlcvUow3.Ohlcv.DeleteByTimeframeAndRangeAsync(tf, from3, to3);
+            await ohlcvUow3.SaveChangesAsync();
+            Console.WriteLine($"✅ Deleted {deleted} records for ALL tickers {tf}" +
+                (from3.HasValue ? $" from {from3:dd/MM/yyyy}" : "") +
+                (to3.HasValue ? $" to {to3:dd/MM/yyyy}" : ""));
+            Log.Information("Deleted {Count} records for ALL tickers {Timeframe} [{From} - {To}]", deleted, tf, from3, to3);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error deleting records for ALL tickers {Timeframe}", tf);
+            Console.WriteLine($"❌ Error: {ex.Message}");
+        }
+        return;
+    }
+
+    Console.Write("Enter ticker (e.g. FPT): ");
+    var ticker = Console.ReadLine()?.Trim().ToUpper();
+    if (string.IsNullOrEmpty(ticker)) { Console.WriteLine("❌ Ticker is required"); return; }
+
+    Console.Write("Enter timeframe (M1/D1): ");
+    var timeframe = Console.ReadLine()?.Trim().ToUpper();
+    if (string.IsNullOrEmpty(timeframe) || !validTimeframes.Contains(timeframe))
+    { Console.WriteLine("❌ Invalid timeframe. Only M1 or D1 allowed"); return; }
+
+    DateTime? fromDate = null;
+    DateTime? toDate = null;
+
+    if (subOption == "2")
+    {
+        Console.Write("Enter from date (dd/MM/yyyy, leave blank for no lower bound): ");
+        var fromInput = Console.ReadLine()?.Trim();
+        if (!string.IsNullOrEmpty(fromInput))
+        {
+            if (!DateTime.TryParseExact(fromInput, dateFormat, null, System.Globalization.DateTimeStyles.None, out var from))
+            { Console.WriteLine("❌ Invalid date format. Use dd/MM/yyyy"); return; }
+            fromDate = DateTime.SpecifyKind(from, DateTimeKind.Utc);
+        }
+
+        Console.Write("Enter to date   (dd/MM/yyyy, leave blank for no upper bound): ");
+        var toInput = Console.ReadLine()?.Trim();
+        if (!string.IsNullOrEmpty(toInput))
+        {
+            if (!DateTime.TryParseExact(toInput, dateFormat, null, System.Globalization.DateTimeStyles.None, out var to))
+            { Console.WriteLine("❌ Invalid date format. Use dd/MM/yyyy"); return; }
+            toDate = DateTime.SpecifyKind(to.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine("⚠️  About to DELETE the following records:");
+    Console.WriteLine($"   Ticker    : {ticker}");
+    Console.WriteLine($"   Timeframe : {timeframe}");
+    if (fromDate.HasValue) Console.WriteLine($"   From      : {fromDate:dd/MM/yyyy}");
+    if (toDate.HasValue)   Console.WriteLine($"   To        : {toDate:dd/MM/yyyy}");
+    if (subOption == "1")  Console.WriteLine("   Scope     : ALL records for this ticker+timeframe");
+    Console.WriteLine();
+    Console.Write("Type YES to confirm: ");
+    var confirm = Console.ReadLine()?.Trim();
+
+    if (confirm != "YES")
+    {
+        Console.WriteLine("❌ Cancelled");
+        return;
+    }
+
+    using var scope = host.Services.CreateScope();
+    var ohlcvUow = scope.ServiceProvider.GetRequiredService<IOhlcvUnitOfWork>();
+
+    try
+    {
+        if (subOption == "1")
+        {
+            var count = await ohlcvUow.Ohlcv.CountAsync(ticker, timeframe);
+            await ohlcvUow.Ohlcv.DeleteByTickerAndTimeframeAsync(ticker, timeframe);
+            await ohlcvUow.SaveChangesAsync();
+            Console.WriteLine($"✅ Deleted {count} records for {ticker} {timeframe}");
+            Log.Information("Deleted {Count} records for {Ticker} {Timeframe}", count, ticker, timeframe);
+        }
+        else
+        {
+            var deleted = await ohlcvUow.Ohlcv.DeleteByTickerTimeframeAndRangeAsync(ticker, timeframe, fromDate, toDate);
+            await ohlcvUow.SaveChangesAsync();
+            Console.WriteLine($"✅ Deleted {deleted} records for {ticker} {timeframe}" +
+                (fromDate.HasValue ? $" from {fromDate:dd/MM/yyyy}" : "") +
+                (toDate.HasValue ? $" to {toDate:dd/MM/yyyy}" : ""));
+            Log.Information("Deleted {Count} records for {Ticker} {Timeframe} [{From} - {To}]",
+                deleted, ticker, timeframe, fromDate, toDate);
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Error deleting records for {Ticker} {Timeframe}", ticker, timeframe);
+        Console.WriteLine($"❌ Error: {ex.Message}");
+    }
+}
+
+static Dictionary<string, string?> BuildEnvConfig(){
+    var host = Environment.GetEnvironmentVariable("DATABASE_HOST");
+    var dbName = Environment.GetEnvironmentVariable("DATABASE_NAME");
+    var username = Environment.GetEnvironmentVariable("DATABASE_USERNAME");
+    var password = Environment.GetEnvironmentVariable("DATABASE_PASSWORD");
+    var ohlcvDbName = Environment.GetEnvironmentVariable("OHLCV_TIMESCALE_DB_NAME")
+                      ?? Environment.GetEnvironmentVariable("OHLCV_DATABASE_NAME")
+                      ?? "ohlcv_db";
+
+    string? postgresConn = null;
+    string? timescaleConn = null;
+
+    if (!string.IsNullOrEmpty(host) && !string.IsNullOrEmpty(dbName))
+        postgresConn = $"Host={host};Database={dbName};Username={username};Password={password}";
+
+    if (!string.IsNullOrEmpty(host))
+        timescaleConn = $"Host={host};Database={ohlcvDbName};Username={username};Password={password}";
+
+    return new Dictionary<string, string?>
+    {
+        ["ConnectionStrings:GdtPostgreSqlConnection"] = postgresConn,
+        ["ConnectionStrings:OhlcvTimescaleDbConnection"] = timescaleConn,
+    };
 }

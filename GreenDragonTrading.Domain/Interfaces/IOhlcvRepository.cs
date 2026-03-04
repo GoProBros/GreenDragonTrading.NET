@@ -119,5 +119,24 @@ namespace GreenDragonTrading.Domain.Interfaces
             string ticker,
             string timeframe,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Delete OHLCV data by ticker, timeframe and date range
+        /// </summary>
+        Task<int> DeleteByTickerTimeframeAndRangeAsync(
+            string ticker,
+            string timeframe,
+            DateTime? fromTime = null,
+            DateTime? toTime = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Delete OHLCV data for ALL tickers by timeframe and date range
+        /// </summary>
+        Task<int> DeleteByTimeframeAndRangeAsync(
+            string timeframe,
+            DateTime? fromTime = null,
+            DateTime? toTime = null,
+            CancellationToken cancellationToken = default);
     }
 }
