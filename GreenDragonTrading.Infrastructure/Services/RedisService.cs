@@ -212,5 +212,27 @@ namespace GreenDragonTrading.Infrastructure.Services
             
             return await Task.FromResult(keys);
         }
+
+        /// <inheritdoc/>
+        public async Task ListPushTrimAsync<T>(string key, T value, int maxLength)
+        {
+            var json = JsonSerializer.Serialize(value, _jsonOptions);
+            var batch = _db.CreateBatch();
+            var pushTask = batch.ListLeftPushAsync(key, json);
+            var trimTask = batch.ListTrimAsync(key, 0, maxLength - 1);
+            batch.Execute();
+            await Task.WhenAll(pushTask, trimTask);
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<T>> ListRangeAsync<T>(string key, int count)
+        {
+            var values = await _db.ListRangeAsync(key, 0, count - 1);
+            return values
+                .Where(v => !v.IsNullOrEmpty)
+                .Select(v => JsonSerializer.Deserialize<T>(v!, _jsonOptions)!)
+                .Where(v => v != null)
+                .ToList();
+        }
     }
 }

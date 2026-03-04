@@ -1,6 +1,8 @@
 ﻿using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using NpgsqlTypes;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
@@ -28,79 +30,98 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             var entities = ohlcvList.ToList();
             if (entities.Count == 0) return 0;
 
-            // Use raw SQL with INSERT ... ON CONFLICT DO NOTHING for proper UPSERT
-            // This efficiently handles duplicates without exceptions
-            var insertedCount = 0;
-            
-            // Process in smaller batches of 500 to avoid memory issues
-            var batchSize = 500;
-            var now = DateTime.UtcNow; // Single timestamp for entire batch
-            
-            for (int i = 0; i < entities.Count; i += batchSize)
-            {
-                var batch = entities.Skip(i).Take(batchSize).ToList();
-                
-                // Build the SQL command for batch insert - include created_at and source (required NOT NULL columns)
-                var sql = @"INSERT INTO ohlcv (time, ticker, timeframe, open, high, low, close, volume, is_preliminary, created_at, source) 
-                           VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10) 
-                           ON CONFLICT (time, ticker, timeframe) DO NOTHING";
+            // Build a single multi-row INSERT … ON CONFLICT DO UPDATE statement per batch.
+            // All rows share one round-trip and one DB connection.
+            var totalInserted = 0;
+            const int batchSize = 200;
+            var now = DateTime.UtcNow;
 
-                // Execute each entity in the batch
-                foreach (var entity in batch)
+            for (int offset = 0; offset < entities.Count; offset += batchSize)
+            {
+                var batch = entities.Skip(offset).Take(batchSize).ToList();
+
+                var sqlBuilder = new System.Text.StringBuilder();
+                sqlBuilder.Append(
+                    "INSERT INTO ohlcv (time, ticker, timeframe, open, high, low, close, volume, value, trades_count, is_preliminary, created_at, source) VALUES ");
+
+                var parameters = new List<NpgsqlParameter>();
+                for (int i = 0; i < batch.Count; i++)
                 {
-                    var rowsAffected = await _context.Database.ExecuteSqlRawAsync(
-                        sql,
-                        new object[] 
-                        {
-                            entity.Time,
-                            entity.Ticker,
-                            entity.Timeframe,
-                            entity.Open,
-                            entity.High,
-                            entity.Low,
-                            entity.Close,
-                            entity.Volume,
-                            entity.IsPreliminary,
-                            entity.CreatedAt == default ? now : entity.CreatedAt, // Use entity's CreatedAt or fallback to now
-                            string.IsNullOrEmpty(entity.Source) ? "SSI" : entity.Source // Default to "SSI" if not set
-                        },
-                        cancellationToken);
-                    
-                    insertedCount += rowsAffected;
+                    var e = batch[i];
+                    int b = i * 13; // 13 params per row
+                    if (i > 0) sqlBuilder.Append(", ");
+                    sqlBuilder.Append(
+                        $"(@p{b}, @p{b+1}, @p{b+2}, @p{b+3}, @p{b+4}, @p{b+5}, @p{b+6}, @p{b+7}, @p{b+8}, @p{b+9}, @p{b+10}, @p{b+11}, @p{b+12})");
+
+                    var t = e.Time.Kind == DateTimeKind.Utc ? e.Time : DateTime.SpecifyKind(e.Time, DateTimeKind.Utc);
+                    parameters.Add(new NpgsqlParameter($"p{b}",   NpgsqlDbType.TimestampTz) { Value = t });
+                    parameters.Add(new NpgsqlParameter($"p{b+1}", NpgsqlDbType.Text)        { Value = e.Ticker });
+                    parameters.Add(new NpgsqlParameter($"p{b+2}", NpgsqlDbType.Text)        { Value = e.Timeframe });
+                    parameters.Add(new NpgsqlParameter($"p{b+3}", NpgsqlDbType.Numeric)     { Value = e.Open });
+                    parameters.Add(new NpgsqlParameter($"p{b+4}", NpgsqlDbType.Numeric)     { Value = e.High });
+                    parameters.Add(new NpgsqlParameter($"p{b+5}", NpgsqlDbType.Numeric)     { Value = e.Low });
+                    parameters.Add(new NpgsqlParameter($"p{b+6}", NpgsqlDbType.Numeric)     { Value = e.Close });
+                    parameters.Add(new NpgsqlParameter($"p{b+7}", NpgsqlDbType.Bigint)      { Value = e.Volume });
+                    parameters.Add(new NpgsqlParameter($"p{b+8}", NpgsqlDbType.Numeric)     { Value = e.Value.HasValue ? (object)e.Value.Value : DBNull.Value, IsNullable = true });
+                    parameters.Add(new NpgsqlParameter($"p{b+9}", NpgsqlDbType.Integer)     { Value = e.TradesCount.HasValue ? (object)e.TradesCount.Value : DBNull.Value, IsNullable = true });
+                    parameters.Add(new NpgsqlParameter($"p{b+10}",NpgsqlDbType.Boolean)     { Value = e.IsPreliminary });
+                    parameters.Add(new NpgsqlParameter($"p{b+11}",NpgsqlDbType.TimestampTz) { Value = e.CreatedAt == default ? now : e.CreatedAt });
+                    parameters.Add(new NpgsqlParameter($"p{b+12}",NpgsqlDbType.Text)        { Value = string.IsNullOrEmpty(e.Source) ? "SSI" : e.Source });
                 }
+
+                sqlBuilder.Append(@"
+ON CONFLICT (time, ticker, timeframe) DO UPDATE SET
+    open         = EXCLUDED.open,
+    high         = EXCLUDED.high,
+    low          = EXCLUDED.low,
+    close        = EXCLUDED.close,
+    volume       = EXCLUDED.volume,
+    value        = EXCLUDED.value,
+    trades_count = EXCLUDED.trades_count,
+    source       = EXCLUDED.source");
+
+                totalInserted += await _context.Database.ExecuteSqlRawAsync(
+                    sqlBuilder.ToString(), parameters, cancellationToken);
             }
 
-            return insertedCount;
+            return totalInserted;
         }
 
         public async Task UpsertAsync(Ohlcv ohlcv, CancellationToken cancellationToken = default)
         {
-            // Check if exists
-            var existing = await _context.Ohlcv
-                .FirstOrDefaultAsync(o =>
-                    o.Time == ohlcv.Time &&
-                    o.Ticker == ohlcv.Ticker &&
-                    o.Timeframe == ohlcv.Timeframe,
-                    cancellationToken);
+            // Use atomic INSERT ... ON CONFLICT DO UPDATE to avoid race conditions
+            // when multiple candles for the same (ticker, time, timeframe) arrive concurrently.
+            var sql = @"
+                INSERT INTO ohlcv (time, ticker, timeframe, open, high, low, close, volume, value, trades_count, is_preliminary, created_at, source)
+                VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12)
+                ON CONFLICT (time, ticker, timeframe) DO UPDATE SET
+                    open         = EXCLUDED.open,
+                    high         = EXCLUDED.high,
+                    low          = EXCLUDED.low,
+                    close        = EXCLUDED.close,
+                    volume       = EXCLUDED.volume,
+                    value        = EXCLUDED.value,
+                    trades_count = EXCLUDED.trades_count,
+                    source       = EXCLUDED.source";
 
-            if (existing != null)
+            var parameters = new List<NpgsqlParameter>
             {
-                // Update existing
-                existing.Open = ohlcv.Open;
-                existing.High = ohlcv.High;
-                existing.Low = ohlcv.Low;
-                existing.Close = ohlcv.Close;
-                existing.Volume = ohlcv.Volume;
-                existing.Value = ohlcv.Value;
-                existing.TradesCount = ohlcv.TradesCount;
-                existing.Source = ohlcv.Source;
-                // Don't update CreatedAt
-            }
-            else
-            {
-                // Insert new
-                await _context.Ohlcv.AddAsync(ohlcv, cancellationToken);
-            }
+                new("p0",  NpgsqlDbType.TimestampTz) { Value = ohlcv.Time.Kind == DateTimeKind.Utc ? ohlcv.Time : DateTime.SpecifyKind(ohlcv.Time, DateTimeKind.Utc) },
+                new("p1",  NpgsqlDbType.Text)        { Value = ohlcv.Ticker },
+                new("p2",  NpgsqlDbType.Text)        { Value = ohlcv.Timeframe },
+                new("p3",  NpgsqlDbType.Numeric)     { Value = ohlcv.Open },
+                new("p4",  NpgsqlDbType.Numeric)     { Value = ohlcv.High },
+                new("p5",  NpgsqlDbType.Numeric)     { Value = ohlcv.Low },
+                new("p6",  NpgsqlDbType.Numeric)     { Value = ohlcv.Close },
+                new("p7",  NpgsqlDbType.Bigint)      { Value = ohlcv.Volume },
+                new("p8",  NpgsqlDbType.Numeric)     { Value = ohlcv.Value.HasValue ? (object)ohlcv.Value.Value : DBNull.Value, IsNullable = true },
+                new("p9",  NpgsqlDbType.Integer)     { Value = ohlcv.TradesCount.HasValue ? (object)ohlcv.TradesCount.Value : DBNull.Value, IsNullable = true },
+                new("p10", NpgsqlDbType.Boolean)     { Value = ohlcv.IsPreliminary },
+                new("p11", NpgsqlDbType.TimestampTz) { Value = ohlcv.CreatedAt == default ? DateTime.UtcNow : ohlcv.CreatedAt },
+                new("p12", NpgsqlDbType.Text)        { Value = string.IsNullOrEmpty(ohlcv.Source) ? "SSI_STREAMING" : ohlcv.Source }
+            };
+
+            await _context.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
         }
 
         public async Task<List<Ohlcv>> GetByTickerAndTimeRangeAsync(
@@ -278,6 +299,43 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             await _context.Ohlcv
                 .Where(o => o.Ticker == ticker.ToUpper() && o.Timeframe == timeframe.ToUpper())
                 .ExecuteDeleteAsync(cancellationToken);
+        }
+
+        public async Task<int> DeleteByTickerTimeframeAndRangeAsync(
+            string ticker,
+            string timeframe,
+            DateTime? fromTime = null,
+            DateTime? toTime = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.Ohlcv
+                .Where(o => o.Ticker == ticker.ToUpper() && o.Timeframe == timeframe.ToUpper());
+
+            if (fromTime.HasValue)
+                query = query.Where(o => o.Time >= fromTime.Value);
+
+            if (toTime.HasValue)
+                query = query.Where(o => o.Time <= toTime.Value);
+
+            return await query.ExecuteDeleteAsync(cancellationToken);
+        }
+
+        public async Task<int> DeleteByTimeframeAndRangeAsync(
+            string timeframe,
+            DateTime? fromTime = null,
+            DateTime? toTime = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.Ohlcv
+                .Where(o => o.Timeframe == timeframe.ToUpper());
+
+            if (fromTime.HasValue)
+                query = query.Where(o => o.Time >= fromTime.Value);
+
+            if (toTime.HasValue)
+                query = query.Where(o => o.Time <= toTime.Value);
+
+            return await query.ExecuteDeleteAsync(cancellationToken);
         }
     }
 }

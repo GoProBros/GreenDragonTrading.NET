@@ -67,5 +67,16 @@
         /// Get all keys matching a pattern (e.g., "HEATMAP:*")
         /// </summary>
         Task<string[]> GetKeysAsync(string pattern);
+
+        /// <summary>
+        /// Prepend a value to a Redis list and trim to maxLength.
+        /// Use for maintaining fixed-size recent-items lists.
+        /// </summary>
+        Task ListPushTrimAsync<T>(string key, T value, int maxLength);
+
+        /// <summary>
+        /// Get the first <paramref name="count"/> items from a Redis list.
+        /// </summary>
+        Task<List<T>> ListRangeAsync<T>(string key, int count);
     }
 }
