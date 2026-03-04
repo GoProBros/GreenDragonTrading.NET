@@ -499,13 +499,22 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 await redis.SetHashFieldsAsync(redisKey, updates);
             }
 
-            if (response.LastPrice.HasValue && response.LastVol.HasValue && response.LastPrice > 0)
+            // Only record a trade when TotalVol actually increased.
+            // SSI replays the last trade on every reconnect (server restart / network drop),
+            // so we must not push to TRADES list unless new volume was matched.
+            var newTotalVol = response.TotalVol ?? 0;
+            var isNewTrade  = response.LastPrice.HasValue
+                              && response.LastVol.HasValue
+                              && response.LastPrice > 0
+                              && newTotalVol > existingData.TotalVol;
+
+            if (isNewTrade)
             {
                 var trade = new RecentTradeDto
                 {
                     Ticker = response.Symbol!,
-                    Price = response.LastPrice.Value,
-                    Volume = response.LastVol.Value,
+                    Price = response.LastPrice!.Value,
+                    Volume = response.LastVol!.Value,
                     Side = response.Side ?? string.Empty,
                     Time = DateTime.Now.ToString("HH:mm:ss")
                 };
@@ -546,22 +555,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 TotalSellVol = string.Equals(response.Side, "B", StringComparison.OrdinalIgnoreCase) ? (response.LastVol ?? 0) : 0,
             };
             await redis.SetHashAsync(redisKey, newData);
-
-            if (newData.LastPrice > 0)
-            {
-                var trade = new RecentTradeDto
-                {
-                    Ticker = response.Symbol!,
-                    Price = newData.LastPrice,
-                    Volume = newData.LastVol,
-                    Side = newData.Side,
-                    Time = DateTime.Now.ToString("HH:mm:ss")
-                };
-                await redis.ListPushTrimAsync($"TRADES:{response.Symbol!.ToUpper()}", trade, 200);
-                await SafeBroadcastAsync(
-                    () => _broadcaster.BroadcastTradeAsync(trade),
-                    $"trade for {response.Symbol}");
-            }
+            // NOTE: Do NOT push to TRADES list here.
+            // CreateNewTradeData only initializes the Redis hash with the first X-Trade payload
+            // (SSI replays last known data on reconnect). Writing to TRADES here would create
+            // a spurious record every time the server restarts or the key is missing.
+            // Real trade records are only written in UpdateExistingTradeData.
         }
 
         #endregion Handle X-TRADE
