@@ -290,16 +290,21 @@ public class IntradayOhlcvImporter
         return new ImportResult { Ticker = ticker, ErrorMessage = "Unexpected error" };
     }
 
+    // SSI returns timestamps in Vietnam time (UTC+7). Use this zone for conversion.
+    private static readonly TimeZoneInfo _vnZone =
+        TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+
     private Domain.Entities.Ohlcv ConvertToEntity(IntradayOhlcResponseModel data)
     {
-        // Parse TradingDate (dd/MM/yyyy) and Time (HH:mm:ss)
+        // Parse TradingDate (dd/MM/yyyy) and Time (HH:mm:ss) — both in Vietnam time (UTC+7)
         var tradingDate = DateTime.ParseExact(data.TradingDate!, "dd/MM/yyyy", CultureInfo.InvariantCulture);
         var time = TimeSpan.ParseExact(data.Time!, @"hh\:mm\:ss", CultureInfo.InvariantCulture);
-        var dateTime = tradingDate.Add(time);
+        // Combine into a Vietnam-local DateTime, then convert to UTC for storage.
+        var vnDateTime = DateTime.SpecifyKind(tradingDate.Add(time), DateTimeKind.Unspecified);
         
         return new Domain.Entities.Ohlcv
         {
-            Time = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc),
+            Time = TimeZoneInfo.ConvertTimeToUtc(vnDateTime, _vnZone),
             Ticker = data.Symbol!.ToUpper(),
             Timeframe = OhlcvConstants.Timeframes.M1,
             Open = decimal.Parse(data.Open!),
