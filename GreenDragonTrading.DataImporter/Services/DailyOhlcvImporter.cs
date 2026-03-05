@@ -154,6 +154,10 @@ public class DailyOhlcvImporter
                     progress.RemainingTickers.Remove(ticker);
                     progress.Save();
                 }
+
+                // Respect SSI rate limit (1 req/s)
+                if (!cancellationToken.IsCancellationRequested)
+                    await Task.Delay(_settings.DelayBetweenSymbolsMs, cancellationToken);
             }
 
             // Delay between batches
@@ -184,6 +188,10 @@ public class DailyOhlcvImporter
             }
             catch (Exception ex)
             {
+                // If the user cancelled, propagate immediately — do not retry
+                if (cancellationToken.IsCancellationRequested)
+                    throw;
+
                 if (attempt == _settings.MaxRetries)
                 {
                     _logger.LogError(ex, "Failed to import {Ticker} after {Attempts} attempts", 
@@ -205,13 +213,20 @@ public class DailyOhlcvImporter
         return new ImportResult { Ticker = ticker, ErrorMessage = "Unexpected error" };
     }
 
+    // SSI returns trading dates in Vietnam time (UTC+7).
+    private static readonly TimeZoneInfo _vnZone =
+        TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+
     private Domain.Entities.Ohlcv ConvertToEntity(DailyOhlcResponseModel data)
     {
+        // TradingDate is a Vietnam calendar date — store as midnight Vietnam time converted to UTC.
+        // e.g. "04/03/2026" Vietnam midnight = 2026-03-03 17:00:00 UTC → displays as 2026-03-04 00:00 +0700
         var tradingDate = DateTime.ParseExact(data.TradingDate, "dd/MM/yyyy", CultureInfo.InvariantCulture);
+        var vnMidnight = DateTime.SpecifyKind(tradingDate, DateTimeKind.Unspecified);
         
         return new Domain.Entities.Ohlcv
         {
-            Time = DateTime.SpecifyKind(tradingDate, DateTimeKind.Utc),
+            Time = TimeZoneInfo.ConvertTimeToUtc(vnMidnight, _vnZone),
             Ticker = data.Symbol.ToUpper(),
             Timeframe = OhlcvConstants.Timeframes.D1,
             Open = decimal.Parse(data.Open),

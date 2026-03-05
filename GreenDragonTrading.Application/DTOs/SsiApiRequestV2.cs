@@ -22,7 +22,7 @@
         public int PageIndex { get; set; }
         public int PageSize { get; set; }
         public bool? Ascending { get; set; }
-        public int? Resollution { get; set; }
+        public int? Resolution { get; set; }
     }
 
     public class DailyOhlcRequest

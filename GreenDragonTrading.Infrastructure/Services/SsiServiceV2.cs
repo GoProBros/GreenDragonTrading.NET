@@ -64,7 +64,10 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
             
             int actualCount = result.Data.Count;
-            _logger.LogInformation("Fetch successfully {Count} SSI Intraday OHLC records.", actualCount);
+            if (actualCount == 0)
+                _logger.LogWarning("SSI Intraday OHLC returned 0 records. Status: {Status}, Message: {Message}", result.Status, result.Message);
+            else
+                _logger.LogInformation("Fetch successfully {Count} SSI Intraday OHLC records.", actualCount);
 
             return (result, actualCount);
         }
@@ -90,7 +93,10 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
             
             int actualCount = result.Data.Count;
-            _logger.LogInformation("Fetch successfully {Count} SSI Daily OHLC records.", actualCount);
+            if (actualCount == 0)
+                _logger.LogWarning("SSI Daily OHLC returned 0 records. Status: {Status}, Message: {Message}", result.Status, result.Message);
+            else
+                _logger.LogInformation("Fetch successfully {Count} SSI Daily OHLC records.", actualCount);
 
             return (result, actualCount);
         }

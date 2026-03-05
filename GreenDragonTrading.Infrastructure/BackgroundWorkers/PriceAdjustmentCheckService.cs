@@ -377,7 +377,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                             PageIndex = 1,
                             PageSize = 10000,
                             Ascending = true,
-                            Resollution = 1 // 1 minute
+                            Resolution = 1 // 1 minute
                         };
                         var (intradayResponse, _) = await ssiService.FetchIntradayOhlcAsync(intradayRequest, ct);
                         var m1Data = intradayResponse.Data?.Select(d => new Ohlcv

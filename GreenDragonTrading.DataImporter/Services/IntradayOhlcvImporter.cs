@@ -54,7 +54,7 @@ public class IntradayOhlcvImporter
                     PageIndex = 1,
                     PageSize = 5000,
                     Ascending = true,
-                    Resollution = 1 // 1 minute
+                    Resolution = 1 // 1 minute
                 };
 
                 // Retry logic with exponential backoff
@@ -231,6 +231,10 @@ public class IntradayOhlcvImporter
                     progress.RemainingTickers.Remove(ticker);
                     progress.Save();
                 }
+
+                // Respect SSI rate limit (1 req/s)
+                if (!cancellationToken.IsCancellationRequested)
+                    await Task.Delay(_settings.DelayBetweenSymbolsMs, cancellationToken);
             }
 
             // Delay between batches
@@ -261,6 +265,10 @@ public class IntradayOhlcvImporter
             }
             catch (Exception ex)
             {
+                // If the user cancelled, propagate immediately — do not retry
+                if (cancellationToken.IsCancellationRequested)
+                    throw;
+
                 if (attempt == _settings.MaxRetries)
                 {
                     _logger.LogError(ex, "Failed to import {Ticker} after {Attempts} attempts", 
@@ -282,16 +290,21 @@ public class IntradayOhlcvImporter
         return new ImportResult { Ticker = ticker, ErrorMessage = "Unexpected error" };
     }
 
+    // SSI returns timestamps in Vietnam time (UTC+7). Use this zone for conversion.
+    private static readonly TimeZoneInfo _vnZone =
+        TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+
     private Domain.Entities.Ohlcv ConvertToEntity(IntradayOhlcResponseModel data)
     {
-        // Parse TradingDate (dd/MM/yyyy) and Time (HH:mm:ss)
+        // Parse TradingDate (dd/MM/yyyy) and Time (HH:mm:ss) — both in Vietnam time (UTC+7)
         var tradingDate = DateTime.ParseExact(data.TradingDate!, "dd/MM/yyyy", CultureInfo.InvariantCulture);
         var time = TimeSpan.ParseExact(data.Time!, @"hh\:mm\:ss", CultureInfo.InvariantCulture);
-        var dateTime = tradingDate.Add(time);
+        // Combine into a Vietnam-local DateTime, then convert to UTC for storage.
+        var vnDateTime = DateTime.SpecifyKind(tradingDate.Add(time), DateTimeKind.Unspecified);
         
         return new Domain.Entities.Ohlcv
         {
-            Time = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc),
+            Time = TimeZoneInfo.ConvertTimeToUtc(vnDateTime, _vnZone),
             Ticker = data.Symbol!.ToUpper(),
             Timeframe = OhlcvConstants.Timeframes.M1,
             Open = decimal.Parse(data.Open!),

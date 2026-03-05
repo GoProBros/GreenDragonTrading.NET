@@ -478,16 +478,17 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             AddIfChanged(updates, nameof(MarketSymbolDto.AvgPrice), response.AvgPrice, existingData.AvgPrice);
             AddIfChanged(updates, nameof(MarketSymbolDto.PriorVal), response.PriorVal, existingData.PriorVal);
 
-            // Tích lũy TotalBuyVol / TotalSellVol theo chiều khớp lệnh
-            // SSI convention: Side = "M" (Mua/Buy), "B" (Bán/Sell), "N" (Neutral)
+            // Tích lũy TotalBuyVol / TotalSellVol theo chiều khớp lệnh.
+            // SSI gửi Side dạng multi-char: "BU" / "BD" = Buy, "SD" / "SU" = Sell.
             var lastVol = response.LastVol ?? 0;
             var newBuyVol  = existingData.TotalBuyVol;
             var newSellVol = existingData.TotalSellVol;
+            var sideUpper  = (response.Side ?? string.Empty).ToUpperInvariant();
             if (lastVol > 0)
             {
-                if (string.Equals(response.Side, "M", StringComparison.OrdinalIgnoreCase))
+                if (sideUpper.StartsWith("B"))
                     newBuyVol += lastVol;
-                else if (string.Equals(response.Side, "B", StringComparison.OrdinalIgnoreCase))
+                else if (sideUpper.StartsWith("S") || sideUpper.StartsWith("M"))
                     newSellVol += lastVol;
             }
             // Always write both fields (initializes them in old hashes + accumulates correctly)
@@ -497,6 +498,24 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (updates.Count > 0)
             {
                 await redis.SetHashFieldsAsync(redisKey, updates);
+                updates["Ticker"] = response.Symbol!;
+
+                // Broadcast updated fields (LastPrice, TotalVol, TotalBuyVol, TotalSellVol …)
+                // so ReceiveMarketData listeners on the frontend stay in sync.
+                await SafeBroadcastAsync(
+                    () => _broadcaster.BroadcastMarketDataAsync(response.Symbol!, updates),
+                    $"market data (trade) for {response.Symbol}");
+
+                // Re-read the full snapshot and broadcast PriceDepth so the
+                // "3 Bước Giá" module receives updated Tổng mua / Tổng bán values.
+                var fullData = await redis.GetHashAsync<MarketSymbolDto>(redisKey);
+                if (fullData != null)
+                {
+                    var depthDto = BuildPriceDepthDto(response.Symbol!, fullData);
+                    await SafeBroadcastAsync(
+                        () => _broadcaster.BroadcastPriceDepthAsync(depthDto),
+                        $"price depth (trade) for {response.Symbol}");
+                }
             }
 
             // Only record a trade when TotalVol actually increased.
@@ -510,13 +529,23 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
             if (isNewTrade)
             {
+                // Parse SSI time field "HHmmss" (UTC+7) → "HH:mm:ss".
+                // Fall back to current UTC+7 if the field is missing or malformed.
+                var rawTime = response.Time;
+                string formattedTime;
+                if (!string.IsNullOrWhiteSpace(rawTime) && rawTime.Length >= 6 && rawTime.All(char.IsDigit))
+                    formattedTime = $"{rawTime[0..2]}:{rawTime[2..4]}:{rawTime[4..6]}";
+                else
+                    formattedTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+                        TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time")).ToString("HH:mm:ss");
+
                 var trade = new RecentTradeDto
                 {
                     Ticker = response.Symbol!,
                     Price = response.LastPrice!.Value,
                     Volume = response.LastVol!.Value,
                     Side = response.Side ?? string.Empty,
-                    Time = DateTime.Now.ToString("HH:mm:ss")
+                    Time = formattedTime
                 };
                 await redis.ListPushTrimAsync($"TRADES:{response.Symbol!.ToUpper()}", trade, 200);
                 await SafeBroadcastAsync(
@@ -550,9 +579,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 Side = response.Side ?? string.Empty,
                 AvgPrice = response.AvgPrice ?? default,
                 PriorVal = response.PriorVal ?? default,
-                // SSI convention: Side = "M" (Mua/Buy), "B" (Bán/Sell)
-                TotalBuyVol  = string.Equals(response.Side, "M", StringComparison.OrdinalIgnoreCase) ? (response.LastVol ?? 0) : 0,
-                TotalSellVol = string.Equals(response.Side, "B", StringComparison.OrdinalIgnoreCase) ? (response.LastVol ?? 0) : 0,
+                // SSI gửi Side dạng multi-char: "BU"/"BD" = Buy, "SD"/"SU" = Sell, "M" = cũ.
+                TotalBuyVol  = (response.Side ?? string.Empty).ToUpperInvariant().StartsWith("B") ? (response.LastVol ?? 0) : 0,
+                TotalSellVol = ((response.Side ?? string.Empty).ToUpperInvariant().StartsWith("S") ||
+                                (response.Side ?? string.Empty).ToUpperInvariant().StartsWith("M")) ? (response.LastVol ?? 0) : 0,
             };
             await redis.SetHashAsync(redisKey, newData);
             // NOTE: Do NOT push to TRADES list here.
