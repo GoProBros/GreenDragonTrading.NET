@@ -204,8 +204,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 // Get all active symbols for heatmap
                 var symbols = await uow.Symbols.GetActiveSymbolsForHeatmapAsync(
-                    exchange: null, 
-                    sector: null, 
+                    exchange: null,
+                    sectorIds: null,
                     cancellationToken);
 
                 foreach (var symbol in symbols)
@@ -479,19 +479,29 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             AddIfChanged(updates, nameof(MarketSymbolDto.PriorVal), response.PriorVal, existingData.PriorVal);
 
             // Tích lũy TotalBuyVol / TotalSellVol theo chiều khớp lệnh.
-            // SSI gửi Side dạng multi-char: "BU" / "BD" = Buy, "SD" / "SU" = Sell.
-            var lastVol = response.LastVol ?? 0;
-            var newBuyVol  = existingData.TotalBuyVol;
-            var newSellVol = existingData.TotalSellVol;
-            var sideUpper  = (response.Side ?? string.Empty).ToUpperInvariant();
-            if (lastVol > 0)
+            // Dùng volDelta = TotalVol - existingData.TotalVol thay vì LastVol.
+            // SSI có thể gom nhiều lệnh khớp vào 1 broadcast: TotalVol tăng 50,000
+            // nhưng LastVol chỉ là lệnh cuối = 10,000 → dùng LastVol sẽ thiếu 40,000.
+            var newTotalVol = response.TotalVol ?? 0;
+            var volDelta    = Math.Max(0, newTotalVol - existingData.TotalVol);
+            var newBuyVol   = existingData.TotalBuyVol;
+            var newSellVol  = existingData.TotalSellVol;
+            var sideUpper   = (response.Side ?? string.Empty).ToUpperInvariant();
+            if (volDelta > 0)
             {
                 if (sideUpper.StartsWith("B"))
-                    newBuyVol += lastVol;
+                    newBuyVol += volDelta;
                 else if (sideUpper.StartsWith("S") || sideUpper.StartsWith("M"))
-                    newSellVol += lastVol;
+                    newSellVol += volDelta;
+                else
+                {
+                    // Diagnostic: log unrecognized Side to identify what SSI actually sends
+                    _logger.LogWarning(
+                        "Unrecognized Side='{Side}' for {Ticker} volDelta={Vol} — not counted in Buy/Sell",
+                        response.Side, response.Symbol, volDelta);
+                }
             }
-            // Always write both fields (initializes them in old hashes + accumulates correctly)
+            // Always write both fields so old hashes that pre-date these fields get them initialised
             updates[nameof(MarketSymbolDto.TotalBuyVol)]  = newBuyVol;
             updates[nameof(MarketSymbolDto.TotalSellVol)] = newSellVol;
 
@@ -518,14 +528,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 }
             }
 
-            // Only record a trade when TotalVol actually increased.
-            // SSI replays the last trade on every reconnect (server restart / network drop),
-            // so we must not push to TRADES list unless new volume was matched.
-            var newTotalVol = response.TotalVol ?? 0;
+            // Only record a trade entry when TotalVol actually increased (volDelta > 0).
+            // SSI replays the last trade on every reconnect — must not push a duplicate.
             var isNewTrade  = response.LastPrice.HasValue
                               && response.LastVol.HasValue
                               && response.LastPrice > 0
-                              && newTotalVol > existingData.TotalVol;
+                              && volDelta > 0;
 
             if (isNewTrade)
             {
@@ -1185,7 +1193,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 "M30" => RoundDownToMinutes(now, 30),
                 "H1" => new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc),
                 "H4" => RoundDownToHours(now, 4),
-                "D1" => new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc),
+                "D1" => new DateTime(now.AddHours(7).Year, now.AddHours(7).Month, now.AddHours(7).Day, 8, 0, 0, DateTimeKind.Utc),
                 "W1" => GetWeekStart(now),
                 "MN1" => new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc),
                 _ => now
@@ -1240,26 +1248,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             
             if (timeframe == "D1")
             {
-                // D1: Only save if market has closed
-                // VN market hours: 9:00-11:30, 13:00-14:50 (UTC+7)
-                // Market close: 14:50 VN time = 07:50 UTC
-                // Save D1 only after 14:50 (when day is complete)
-                
-                var vnTime = now.AddHours(7); // Convert UTC to VN time (UTC+7)
-                bool isAfterMarketClose = vnTime.Hour > 14 || (vnTime.Hour == 14 && vnTime.Minute >= 50);
-                
-                if (!isAfterMarketClose)
-                {
-                    // Market still open, don't save yet
-                    return false;
-                }
-                
-                // Check if this is truly end of day (not same day update)
-                var completedDay = completedCandle.StartTime.Date;
-                var currentDay = vnTime.Date;
-                
-                // Only save if we're moving to a new day AND market has closed
-                return currentDay > completedDay;
+                // ShouldSaveCompletedCandle is only reached when existingCandle.StartTime < periodStart,
+                // meaning the streaming engine detected a new VN calendar day has started.
+                // At that point the old D1 candle is definitively closed — always save it.
+                return true;
             }
             
             // M5-H4, W1, MN1: Don't save to database
@@ -1274,7 +1266,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         {
             return timeframe switch
             {
-                "M1" => TimeSpan.FromMinutes(10),
+                // M1 TTL phải đủ dài để sống qua khoảng nghỉ giữa 2 phiên:
+                // - Giữa sáng/chiều: 11:30 → 13:00 = 1.5 giờ
+                // - Qua đêm: 14:30 → 09:00 sáng hôm sau = ~18.5 giờ
+                // → dùng 24h để đảm bảo tick đầu phiên tiếp theo
+                //   luôn thấy candle cuối phiên trước và flush xuống DB.
+                "M1" => TimeSpan.FromHours(24),
                 "M5" => TimeSpan.FromMinutes(30),
                 "M15" => TimeSpan.FromHours(1),
                 "M30" => TimeSpan.FromHours(2),
