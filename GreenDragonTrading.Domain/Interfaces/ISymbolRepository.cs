@@ -24,7 +24,7 @@ namespace GreenDragonTrading.Domain.Interfaces
 
         Task<List<Symbol>> GetActiveSymbolsForHeatmapAsync(
             string? exchange = null,
-            string? sector = null,
+            IList<string>? sectorIds = null,
             CancellationToken cancellationToken = default);
     }
 }

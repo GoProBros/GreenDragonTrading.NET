@@ -33,10 +33,23 @@ public class HeatmapService : IHeatmapService
         {
             _logger.LogInformation("Fetching heatmap data for exchange={Exchange}, sector={Sector}", exchange, sector);
 
-            // 1. Lấy danh sách symbols active từ database
+            // 1. Lấy danh sách symbols active từ database.
+            // Symbol chỉ link tới sector level 4; nếu caller truyền sector level 2,
+            // cần expand thành tất cả level 4 IDs trước khi filter.
+            List<string>? level4SectorIds = null;
+            if (!string.IsNullOrWhiteSpace(sector))
+            {
+                level4SectorIds = await _unitOfWork.Sectors.GetAllChildLevel4SectorIdsAsync(
+                    sector, cancellationToken);
+
+                // If the sector itself is already level 4, include it directly
+                if (level4SectorIds.Count == 0)
+                    level4SectorIds.Add(sector);
+            }
+
             var symbols = await _unitOfWork.Symbols.GetActiveSymbolsForHeatmapAsync(
                 exchange,
-                sector,
+                sectorIds: level4SectorIds,
                 cancellationToken);
 
             if (!symbols.Any())
@@ -50,6 +63,12 @@ public class HeatmapService : IHeatmapService
                     Timestamp = DateTime.UtcNow
                 };
             }
+
+            // 2. Load all sectors into a flat dict to walk up the parent hierarchy
+            //    and resolve the level-2 ancestor name for each symbol.
+            var (allSectors, _) = await _unitOfWork.Sectors.GetSectorsWithSymbolsAsync(
+                level: null, status: null, pageIndex: 1, pageSize: 10000, cancellationToken);
+            var sectorDict = allSectors.ToDictionary(s => s.Id);
 
             var tickers = symbols.Select(s => s.Ticker).ToList();
             _logger.LogInformation("Found {Count} symbols to fetch market data", tickers.Count);
@@ -84,6 +103,13 @@ public class HeatmapService : IHeatmapService
                     var changeValue = currentPrice - referencePrice;
                     var changePercent = (changeValue / referencePrice) * 100;
 
+                    // Resolve level-2 sector ancestor for grouping in the heatmap.
+                    // Symbols are linked to level-4 sectors; walk up until level == 2.
+                    var level2Sector = GetLevel2Ancestor(symbol.SectorId, sectorDict);
+                    var sectorName = level2Sector?.ViName ?? level2Sector?.EnName
+                                     ?? symbol.Sector?.ViName ?? symbol.Sector?.EnName
+                                     ?? symbol.SectorId ?? "Khác";
+
                     // Map to HeatmapItemDto
                     var item = new HeatmapItemDto
                     {
@@ -93,9 +119,10 @@ public class HeatmapService : IHeatmapService
                         ChangePercent = changePercent,
                         ChangeValue = changeValue,
                         Volume = (long)marketData.TotalVol,
+                        TotalValue = (decimal)marketData.TotalVal,
                         Exchange = symbol.ExchangeCode,
-                        Sector = symbol.SectorId,
-                        SectorName = symbol.Sector?.ViName ?? symbol.Sector?.EnName ?? symbol.SectorId,
+                        Sector = level2Sector?.Id ?? symbol.SectorId,
+                        SectorName = sectorName,
                         ColorType = GetHeatmapColor(changePercent),
                         LastUpdate = DateTime.UtcNow
                     };
@@ -125,6 +152,26 @@ public class HeatmapService : IHeatmapService
                 exchange, sector);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Walks up the sector parent chain and returns the first sector at level 2.
+    /// Returns null if no level-2 ancestor is found.
+    /// </summary>
+    private static Domain.Entities.Sector? GetLevel2Ancestor(
+        string? sectorId,
+        Dictionary<string, Domain.Entities.Sector> sectorDict)
+    {
+        if (string.IsNullOrWhiteSpace(sectorId)) return null;
+
+        var current = sectorDict.GetValueOrDefault(sectorId);
+        while (current != null)
+        {
+            if (current.Level == 2) return current;
+            if (current.ParentId == null) break;
+            current = sectorDict.GetValueOrDefault(current.ParentId);
+        }
+        return null;
     }
 
     public string GetHeatmapColor(decimal changePercent)

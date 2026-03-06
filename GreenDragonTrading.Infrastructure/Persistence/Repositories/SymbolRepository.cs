@@ -82,7 +82,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 
         public async Task<List<Symbol>> GetActiveSymbolsForHeatmapAsync(
             string? exchange = null,
-            string? sector = null,
+            IList<string>? sectorIds = null,
             CancellationToken cancellationToken = default)
         {
             var query = _dbSet
@@ -95,10 +95,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 query = query.Where(s => s.ExchangeCode == exchange);
             }
 
-            // Apply sector filter
-            if (!string.IsNullOrWhiteSpace(sector))
+            // Apply sector filter — sectorIds are always level-4 IDs (already expanded by caller)
+            if (sectorIds != null && sectorIds.Count > 0)
             {
-                query = query.Where(s => s.SectorId == sector);
+                query = query.Where(s => s.SectorId != null && sectorIds.Contains(s.SectorId));
             }
 
             // Include navigation properties after filtering
