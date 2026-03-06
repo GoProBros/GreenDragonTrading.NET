@@ -73,10 +73,17 @@ public class DailyOhlcvImporter
 
             if (entities.Count > 0)
             {
-                var inserted = await _ohlcvUow.Ohlcv.BulkUpsertAsync(entities, cancellationToken);
-                result.SuccessCount = inserted;
-                _logger.LogInformation("Upserted {Inserted}/{Total} D1 records for {Ticker} ({Skipped} duplicates skipped)", 
-                    inserted, entities.Count, ticker, entities.Count - inserted);
+                // Log first record timestamp to verify correct UTC storage (should always be HH=08 UTC = 15:00 +0700)
+                var sample = entities.First();
+                _logger.LogDebug("D1 timestamp sample — TradingDate: {TradingDate}, Stored UTC: {UtcTime:O}, Kind: {Kind}",
+                    ssiResponse.Data.First().TradingDate, sample.Time, sample.Time.Kind);
+
+                var affected = await _ohlcvUow.Ohlcv.BulkUpsertAsync(entities, cancellationToken);
+                result.SuccessCount = entities.Count;
+                // Note: PostgreSQL INSERT ON CONFLICT DO UPDATE returns 1 for BOTH new inserts and updates.
+                // 'affected' always equals entities.Count — cannot distinguish inserts from updates here.
+                _logger.LogInformation("Upserted {Total} D1 records for {Ticker} (first UTC: {FirstUtc:HH:mm} UTC = {VnTime:HH:mm} +0700)",
+                    entities.Count, ticker, sample.Time, sample.Time.AddHours(7));
             }
             else
             {
@@ -158,6 +165,10 @@ public class DailyOhlcvImporter
                 // Respect SSI rate limit (1 req/s)
                 if (!cancellationToken.IsCancellationRequested)
                     await Task.Delay(_settings.DelayBetweenSymbolsMs, cancellationToken);
+
+                // Respect SSI rate limit (1 req/s)
+                if (!cancellationToken.IsCancellationRequested)
+                    await Task.Delay(_settings.DelayBetweenSymbolsMs, cancellationToken);
             }
 
             // Delay between batches
@@ -192,6 +203,10 @@ public class DailyOhlcvImporter
                 if (cancellationToken.IsCancellationRequested)
                     throw;
 
+                // If the user cancelled, propagate immediately — do not retry
+                if (cancellationToken.IsCancellationRequested)
+                    throw;
+
                 if (attempt == _settings.MaxRetries)
                 {
                     _logger.LogError(ex, "Failed to import {Ticker} after {Attempts} attempts", 
@@ -219,14 +234,15 @@ public class DailyOhlcvImporter
 
     private Domain.Entities.Ohlcv ConvertToEntity(DailyOhlcResponseModel data)
     {
-        // TradingDate is a Vietnam calendar date — store as midnight Vietnam time converted to UTC.
-        // e.g. "04/03/2026" Vietnam midnight = 2026-03-03 17:00:00 UTC → displays as 2026-03-04 00:00 +0700
+        // D1 timestamp convention: 15:00 VN (market close) = 08:00 UTC
+        // Matches the realtime streaming GetPeriodStartTime for D1.
+        // e.g. "04/03/2026" → 2026-03-04 15:00 VN = 2026-03-04 08:00:00 UTC
         var tradingDate = DateTime.ParseExact(data.TradingDate, "dd/MM/yyyy", CultureInfo.InvariantCulture);
-        var vnMidnight = DateTime.SpecifyKind(tradingDate, DateTimeKind.Unspecified);
-        
+        var vn15h = new DateTime(tradingDate.Year, tradingDate.Month, tradingDate.Day, 15, 0, 0, DateTimeKind.Unspecified);
+
         return new Domain.Entities.Ohlcv
         {
-            Time = TimeZoneInfo.ConvertTimeToUtc(vnMidnight, _vnZone),
+            Time = TimeZoneInfo.ConvertTimeToUtc(vn15h, _vnZone), // = tradingDate 08:00:00 UTC
             Ticker = data.Symbol.ToUpper(),
             Timeframe = OhlcvConstants.Timeframes.D1,
             Open = decimal.Parse(data.Open),
