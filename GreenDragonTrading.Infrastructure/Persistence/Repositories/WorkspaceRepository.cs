@@ -1,11 +1,6 @@
 ﻿using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
@@ -17,10 +12,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         public async Task<List<Workspace>> GetWorkspaceByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             return await _context.Set<Workspace>()
-                .Where(w =>
-                    w.UserId == userId ||         
-                    (w.UserId == null && w.IsDefault)
-                )
+                .Where(w => w.UserId == userId)
                 .OrderByDescending(w => w.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
