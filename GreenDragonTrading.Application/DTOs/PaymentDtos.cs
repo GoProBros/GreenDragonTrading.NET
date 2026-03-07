@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Domain.Enums;
 
 namespace GreenDragonTrading.Application.DTOs
@@ -67,6 +68,7 @@ namespace GreenDragonTrading.Application.DTOs
         public string RequestId { get; set; } = string.Empty;
 
         [JsonPropertyName("amount")]
+        [JsonConverter(typeof(JsonNumberOrStringConverter))]
         public string Amount { get; set; } = string.Empty;
 
         [JsonPropertyName("orderId")]
@@ -79,6 +81,7 @@ namespace GreenDragonTrading.Application.DTOs
         public string OrderType { get; set; } = string.Empty;
 
         [JsonPropertyName("transId")]
+        [JsonConverter(typeof(JsonNumberOrStringConverter))]
         public string TransId { get; set; } = string.Empty;
 
         [JsonPropertyName("message")]
@@ -88,9 +91,11 @@ namespace GreenDragonTrading.Application.DTOs
         public string LocalMessage { get; set; } = string.Empty;
 
         [JsonPropertyName("responseTime")]
+        [JsonConverter(typeof(JsonNumberOrStringConverter))]
         public string ResponseTime { get; set; } = string.Empty;
 
         [JsonPropertyName("errorCode")]
+        [JsonConverter(typeof(JsonNumberOrStringConverter))]
         public string ErrorCode { get; set; } = string.Empty;
 
         [JsonPropertyName("extraData")]
