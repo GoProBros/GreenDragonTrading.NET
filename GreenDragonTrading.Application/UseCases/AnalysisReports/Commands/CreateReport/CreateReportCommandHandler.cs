@@ -1,11 +1,11 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 
 namespace GreenDragonTrading.Application.UseCases.AnalysisReports.Commands.CreateReport;
 
@@ -15,12 +15,12 @@ namespace GreenDragonTrading.Application.UseCases.AnalysisReports.Commands.Creat
 public class CreateReportCommandHandler : IRequestHandler<CreateReportCommand, ApiResponse<AnalysisReportDto>>
 {
     private readonly IUnitOfWork _uow;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
 
-    public CreateReportCommandHandler(IUnitOfWork uow, IHttpContextAccessor httpContextAccessor)
+    public CreateReportCommandHandler(IUnitOfWork uow, ICurrentUserService currentUserService)
     {
         _uow = uow;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ApiResponse<AnalysisReportDto>> Handle(CreateReportCommand request, CancellationToken cancellationToken)
@@ -55,8 +55,7 @@ public class CreateReportCommandHandler : IRequestHandler<CreateReportCommand, A
         }
 
         // Get current user
-        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("sub")?.Value;
-        Guid? uploadedBy = userIdClaim != null ? Guid.Parse(userIdClaim) : null;
+        Guid? uploadedBy = _currentUserService.UserId;
 
         // Create report (without file)
         var report = new AnalysisReport

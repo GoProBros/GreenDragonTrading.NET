@@ -20,10 +20,10 @@ public class GetReportsQueryHandler : IRequestHandler<GetReportsQuery, ApiRespon
 
     public async Task<ApiResponse<PaginatedResponse<AnalysisReportDto>>> Handle(GetReportsQuery request, CancellationToken cancellationToken)
     {
-        // Get all active reports
-        var allReports = (await _uow.AnalysisReports
-            .FindAsync(r => r.Status == CommonStatus.Active, cancellationToken))
-            .ToList();
+        // Get reports, optionally filtered by status
+        var allReports = request.Status.HasValue
+            ? (await _uow.AnalysisReports.FindAsync(r => r.Status == request.Status.Value, cancellationToken)).ToList()
+            : (await _uow.AnalysisReports.GetAllAsync(cancellationToken)).ToList();
 
         // Apply filters in memory
         var filteredReports = allReports.AsEnumerable();

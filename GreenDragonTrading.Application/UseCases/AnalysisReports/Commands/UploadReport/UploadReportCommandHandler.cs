@@ -7,7 +7,6 @@ using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 
 namespace GreenDragonTrading.Application.UseCases.AnalysisReports.Commands.UploadReport;
 
@@ -18,16 +17,16 @@ public class UploadReportCommandHandler : IRequestHandler<UploadReportCommand, A
 {
     private readonly IUnitOfWork _uow;
     private readonly ILocalFileStorageService _fileStorageService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
 
     public UploadReportCommandHandler(
         IUnitOfWork uow,
         ILocalFileStorageService fileStorageService,
-        IHttpContextAccessor httpContextAccessor)
+        ICurrentUserService currentUserService)
     {
         _uow = uow;
         _fileStorageService = fileStorageService;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ApiResponse<AnalysisReportDto>> Handle(UploadReportCommand request, CancellationToken cancellationToken)
@@ -73,8 +72,7 @@ public class UploadReportCommandHandler : IRequestHandler<UploadReportCommand, A
         }
 
         // Get current user
-        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("sub")?.Value;
-        Guid? uploadedBy = userIdClaim != null ? Guid.Parse(userIdClaim) : null;
+        Guid? uploadedBy = _currentUserService.UserId;
 
         // Determine file info
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();

@@ -20,7 +20,7 @@ public class CreateSourceCommandValidator : AbstractValidator<CreateSourceComman
 
         RuleFor(x => x.Website)
             .MaximumLength(500).WithMessage("Website không được vượt quá 500 ký tự")
-            .Must(url => string.IsNullOrEmpty(url) || Uri.TryCreate(url, UriKind.Absolute, out _))
+            .Must(url => string.IsNullOrEmpty(url) || Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out _))
             .WithMessage("Website không hợp lệ");
 
         RuleFor(x => x.LogoUrl)

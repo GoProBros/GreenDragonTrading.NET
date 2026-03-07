@@ -41,6 +41,7 @@ public class AnalysisReportController : ControllerBase
     /// <param name="ticker">Filter by ticker (reports tagged with this symbol)</param>
     /// <param name="sectorId">Filter by sector ID</param>
     /// <param name="searchTerm">Search in title, description, author</param>
+    /// <param name="status">Filter by status: 0 = InActive, 1 = Active. If not provided, returns all statuses.</param>
     /// <param name="pageIndex">Page number (default: 1)</param>
     /// <param name="pageSize">Page size (default: 20)</param>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -51,6 +52,7 @@ public class AnalysisReportController : ControllerBase
         [FromQuery] string? ticker,
         [FromQuery] string? sectorId,
         [FromQuery] string? searchTerm,
+        [FromQuery] CommonStatus? status,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -62,6 +64,7 @@ public class AnalysisReportController : ControllerBase
             Ticker = ticker,
             SectorId = sectorId,
             SearchTerm = searchTerm,
+            Status = status,
             PageIndex = pageIndex,
             PageSize = pageSize
         };
