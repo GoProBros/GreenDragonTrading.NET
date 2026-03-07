@@ -1,4 +1,5 @@
 using FluentValidation;
+using GreenDragonTrading.Domain.Enums;
 
 namespace GreenDragonTrading.Application.UseCases.AnalysisReports.Queries.GetReports;
 
@@ -44,6 +45,12 @@ public class GetReportsQueryValidator : AbstractValidator<GetReportsQuery>
         {
             RuleFor(x => x.SearchTerm)
                 .MaximumLength(200).WithMessage("Search term không được vượt quá 200 ký tự");
+        });
+
+        When(x => x.Status.HasValue, () =>
+        {
+            RuleFor(x => x.Status!.Value)
+                .IsInEnum().WithMessage("Status không hợp lệ (0 = InActive, 1 = Active)");
         });
     }
 }

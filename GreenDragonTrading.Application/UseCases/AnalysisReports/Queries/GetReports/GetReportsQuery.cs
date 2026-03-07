@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Domain.Enums;
 using MediatR;
 
 namespace GreenDragonTrading.Application.UseCases.AnalysisReports.Queries.GetReports;
@@ -14,4 +15,5 @@ public record GetReportsQuery : PaginationQuery, IRequest<ApiResponse<PaginatedR
     public string? Ticker { get; init; }
     public string? SectorId { get; init; }
     public string? SearchTerm { get; init; }
+    public CommonStatus? Status { get; init; }
 }
