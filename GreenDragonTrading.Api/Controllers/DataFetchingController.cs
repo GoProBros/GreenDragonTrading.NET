@@ -1,6 +1,7 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportFromDnse;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportIndexConstituentsFromSsi;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSpecificPeriodFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
@@ -116,6 +117,18 @@ namespace GreenDragonTrading.Api.Controllers
             }
 
             return Ok(result);
+        }
+        /// <summary>
+        /// Fetches constituent symbols for all active market indices from SSI API
+        /// and syncs them into the <c>market_index_symbols</c> table.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>An API response with the number of indices processed and records upserted.</returns>
+        [HttpPost("import-index-constituents-from-ssi")]
+        public async Task<ActionResult<ApiResponse<ImportIndexConstituentsFromSsiResult>>> ImportIndexConstituentsFromSsi(CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new ImportIndexConstituentsFromSsiCommand(), cancellationToken);
+            return Ok(ApiResponse<ImportIndexConstituentsFromSsiResult>.Success(result, result.Message));
         }
     }
 }
