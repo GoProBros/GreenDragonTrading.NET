@@ -1,7 +1,6 @@
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
-using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
