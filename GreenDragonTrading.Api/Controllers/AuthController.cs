@@ -1,6 +1,7 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.ForgotPassword;
+using GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Login;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Logout;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken;
@@ -101,6 +102,16 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         [HttpPost("reset-password")]
         public async Task<ActionResult<ApiResponse>> ResetPassword([FromBody] ResetPasswordCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Login or register with Google ID token
+        /// </summary>
+        [HttpPost("google")]
+        public async Task<ActionResult<ApiResponse<AuthResponse>>> GoogleLogin([FromBody] GoogleLoginCommand command, CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
             return result;
