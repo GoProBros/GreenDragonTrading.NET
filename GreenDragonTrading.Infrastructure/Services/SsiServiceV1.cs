@@ -167,5 +167,12 @@ namespace GreenDragonTrading.Infrastructure.Services
             _logger.LogInformation("Successfully fetched {Count} industries from SSI.", result.Data?.Count ?? 0);
             return result.Data ?? [];
         }
+
+        /// <inheritdoc/>
+        public async Task<List<SsiSymbolDto>> FetchIndexConstituentsAsync(string indexCode, CancellationToken cancellationToken = default)
+        {
+            string url = $"{_ssiApiOptions.IBoardQuery}/stock/group/{indexCode}";
+            return await ParseSymbolsDataAsync(url, SymbolType.Stock, indexCode, cancellationToken);
+        }
     }
 }

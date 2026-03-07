@@ -23,6 +23,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<AnalysisReport> AnalysisReports => Set<AnalysisReport>();
         public DbSet<AnalysisReportSource> AnalysisReportSources => Set<AnalysisReportSource>();
         public DbSet<AnalysisReportCategory> AnalysisReportCategories => Set<AnalysisReportCategory>();
+        public DbSet<MarketIndex> MarketIndices => Set<MarketIndex>();
+        public DbSet<MarketIndexSymbol> MarketIndexSymbols => Set<MarketIndexSymbol>();
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -242,6 +244,43 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                        .WithMany(p => p.ChildCategories)
                        .HasForeignKey(c => c.ParentId)
                        .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<MarketIndex>(builder =>
+            {
+                builder.ToTable("market_indices");
+
+                builder.HasIndex(i => i.ExchangeCode);
+                builder.HasIndex(i => i.Status);
+                builder.HasIndex(i => i.IsBenchmark);
+
+                builder.HasOne(i => i.Exchange)
+                       .WithMany()
+                       .HasForeignKey(i => i.ExchangeCode)
+                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<MarketIndexSymbol>(builder =>
+            {
+                builder.ToTable("market_index_symbols");
+
+                // Composite primary key
+                builder.HasKey(m => new { m.IndexCode, m.Ticker });
+
+                builder.HasIndex(m => m.IndexCode);
+                builder.HasIndex(m => m.Ticker);
+                builder.HasIndex(m => m.IsActive);
+                builder.HasIndex(m => new { m.IndexCode, m.IsActive });
+
+                builder.HasOne(m => m.MarketIndex)
+                       .WithMany()
+                       .HasForeignKey(m => m.IndexCode)
+                       .OnDelete(DeleteBehavior.Cascade);
+
+                builder.HasOne(m => m.Symbol)
+                       .WithMany()
+                       .HasForeignKey(m => m.Ticker)
+                       .OnDelete(DeleteBehavior.Cascade);
             });
 
             DatabaseSeeder.SeedAll(modelBuilder);
