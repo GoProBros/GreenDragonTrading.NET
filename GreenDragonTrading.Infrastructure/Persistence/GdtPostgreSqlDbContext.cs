@@ -25,7 +25,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<AnalysisReportCategory> AnalysisReportCategories => Set<AnalysisReportCategory>();
         public DbSet<MarketIndex> MarketIndices => Set<MarketIndex>();
         public DbSet<MarketIndexSymbol> MarketIndexSymbols => Set<MarketIndexSymbol>();
-        
+        public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
+        public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+        public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
