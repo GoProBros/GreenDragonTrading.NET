@@ -71,6 +71,9 @@ namespace GreenDragonTrading.Infrastructure
             // Register Workspace Duplication Service
             services.AddScoped<IWorkspaceDuplicationService, WorkspaceDuplicationService>();
 
+            // Register Google Auth Service
+            services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+
             // Register Background Service for handling streaming events
             services.AddHostedService<SsiStreamingBackgroundService>();
 
