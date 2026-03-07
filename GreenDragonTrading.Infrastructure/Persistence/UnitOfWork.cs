@@ -36,6 +36,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private IAnalysisReportCategoryRepository? analysisReportCategories;
 
+        private IMarketIndexRepository? marketIndices;
+
+        private IMarketIndexSymbolRepository? marketIndexSymbols;
+
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
@@ -49,6 +53,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IAnalysisReportRepository AnalysisReports => analysisReports ??= new AnalysisReportRepository(_context);
         public IAnalysisReportSourceRepository AnalysisReportSources => analysisReportSources ??= new AnalysisReportSourceRepository(_context);
         public IAnalysisReportCategoryRepository AnalysisReportCategories => analysisReportCategories ??= new AnalysisReportCategoryRepository(_context);
+        public IMarketIndexRepository MarketIndices => marketIndices ??= new MarketIndexRepository(_context);
+        public IMarketIndexSymbolRepository MarketIndexSymbols => marketIndexSymbols ??= new MarketIndexSymbolRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

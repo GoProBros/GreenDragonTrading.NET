@@ -15,6 +15,8 @@
         IAnalysisReportRepository AnalysisReports { get; }
         IAnalysisReportSourceRepository AnalysisReportSources { get; }
         IAnalysisReportCategoryRepository AnalysisReportCategories { get; }
+        IMarketIndexRepository MarketIndices { get; }
+        IMarketIndexSymbolRepository MarketIndexSymbols { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);
