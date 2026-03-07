@@ -482,11 +482,35 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             // Dùng volDelta = TotalVol - existingData.TotalVol thay vì LastVol.
             // SSI có thể gom nhiều lệnh khớp vào 1 broadcast: TotalVol tăng 50,000
             // nhưng LastVol chỉ là lệnh cuối = 10,000 → dùng LastVol sẽ thiếu 40,000.
-            var newTotalVol = response.TotalVol ?? 0;
-            var volDelta    = Math.Max(0, newTotalVol - existingData.TotalVol);
-            var newBuyVol   = existingData.TotalBuyVol;
-            var newSellVol  = existingData.TotalSellVol;
-            var sideUpper   = (response.Side ?? string.Empty).ToUpperInvariant();
+            var newTotalVol = (long)(response.TotalVol ?? 0);
+
+            // Detect session boundary: TotalVol decreased means a new trading session started
+            // (SSI resets TotalVol to 0 each day). Without this check, yesterday's TotalBuyVol/
+            // TotalSellVol would persist in Redis all next day since volDelta would always be 0.
+            bool isSessionReset = newTotalVol < existingData.TotalVol && existingData.TotalVol > 1000;
+
+            long volDelta;
+            long newBuyVol;
+            long newSellVol;
+
+            if (isSessionReset)
+            {
+                // New session: reset accumulators and treat all current TotalVol as fresh delta
+                newBuyVol  = 0;
+                newSellVol = 0;
+                volDelta   = newTotalVol;
+                _logger.LogInformation(
+                    "Session reset detected for {Ticker}: TotalVol {Old} → {New}. Resetting BuyVol/SellVol.",
+                    response.Symbol, existingData.TotalVol, newTotalVol);
+            }
+            else
+            {
+                volDelta   = Math.Max(0L, newTotalVol - (long)existingData.TotalVol);
+                newBuyVol  = (long)existingData.TotalBuyVol;
+                newSellVol = (long)existingData.TotalSellVol;
+            }
+
+            var sideUpper = (response.Side ?? string.Empty).ToUpperInvariant();
             if (volDelta > 0)
             {
                 if (sideUpper.StartsWith("B"))
@@ -530,10 +554,14 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
             // Only record a trade entry when TotalVol actually increased (volDelta > 0).
             // SSI replays the last trade on every reconnect — must not push a duplicate.
+            // isSessionReset means TotalVol was reset (new day / SSI replay on restart);
+            // volDelta in that case equals the fresh TotalVol, NOT a newly matched order,
+            // so we must not push it as a real trade record.
             var isNewTrade  = response.LastPrice.HasValue
                               && response.LastVol.HasValue
                               && response.LastPrice > 0
-                              && volDelta > 0;
+                              && volDelta > 0
+                              && !isSessionReset;
 
             if (isNewTrade)
             {
@@ -1092,6 +1120,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 if (existingCandle == null)
                 {
+                    // Only initialise candle state during trading hours.
+                    // SSI sends a full-snapshot replay on every reconnect; creating a new candle
+                    // from that replay outside trading hours produces phantom records (e.g. a
+                    // Saturday D1 candle when the server restarts on a weekend).
+                    if (!IsWithinTradingHours(now))
+                        return;
+
                     candle = new CurrentCandleDto
                     {
                         Ticker = ticker,
@@ -1113,6 +1148,14 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 }
                 else if (existingCandle.StartTime < periodStart)
                 {
+                    // Only roll to a new candle period during trading hours.
+                    // On server restart outside trading hours, SSI replays the last known snapshot.
+                    // The replay's timestamp puts us in a "new" period relative to the stored candle,
+                    // which would save the old candle to DB and create a ghost candle (e.g. a blank
+                    // Saturday D1/M1 candle at restart time). Skip the roll entirely when idle.
+                    if (!IsWithinTradingHours(now))
+                        return;
+
                     if (ShouldSaveCompletedCandle(timeframe, existingCandle, now))
                     {
                         _saveCandleChannel.Writer.TryWrite(existingCandle);
@@ -1221,6 +1264,24 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         {
             var roundedHour = (time.Hour / intervalHours) * intervalHours;
             return new DateTime(time.Year, time.Month, time.Day, roundedHour, 0, 0, DateTimeKind.Utc);
+        }
+
+        /// <summary>
+        /// Returns true when the given UTC instant falls within VN stock-market trading hours.
+        /// VN market (UTC+7):
+        ///   Morning  : 09:00 – 11:30  (Mon–Fri)
+        ///   Afternoon: 13:00 – 15:15  (Mon–Fri, includes ATC)
+        /// Outside these windows SSI only sends snapshot replays, not live ticks.
+        /// </summary>
+        private static bool IsWithinTradingHours(DateTime utcNow)
+        {
+            var vn = utcNow.AddHours(7); // UTC → UTC+7
+            if (vn.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                return false;
+
+            var t = vn.TimeOfDay;
+            return (t >= new TimeSpan(9, 0, 0)  && t <= new TimeSpan(11, 30, 0))
+                || (t >= new TimeSpan(13, 0, 0) && t <= new TimeSpan(15, 15, 0));
         }
 
         /// <summary>
