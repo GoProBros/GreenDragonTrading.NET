@@ -18,16 +18,16 @@ public class UploadFileCommandHandler : IRequestHandler<UploadFileCommand, ApiRe
 {
     private readonly IUnitOfWork _uow;
     private readonly ILocalFileStorageService _fileStorageService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
 
     public UploadFileCommandHandler(
         IUnitOfWork uow,
         ILocalFileStorageService fileStorageService,
-        IHttpContextAccessor httpContextAccessor)
+        ICurrentUserService currentUserService)
     {
         _uow = uow;
         _fileStorageService = fileStorageService;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ApiResponse<FileResponseDto>> Handle(UploadFileCommand request, CancellationToken cancellationToken)
@@ -36,8 +36,7 @@ public class UploadFileCommandHandler : IRequestHandler<UploadFileCommand, ApiRe
         var metadata = request.Metadata;
 
         // Get current user ID
-        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("sub")?.Value;
-        Guid? uploadedBy = userIdClaim != null ? Guid.Parse(userIdClaim) : null;
+        Guid? uploadedBy = _currentUserService.UserId;
 
         // Determine file type and extension
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -150,15 +149,16 @@ public class UploadFileCommandHandler : IRequestHandler<UploadFileCommand, ApiRe
         existingReport.FileExtension = extension;
         existingReport.MimeType = mimeType;
         existingReport.FileSize = file.Length;
+        existingReport.UploadedBy = uploadedBy;
         existingReport.UpdatedAt = DateTimeOffset.UtcNow;
 
         _uow.AnalysisReports.Update(existingReport);
         await _uow.SaveChangesAsync(cancellationToken);
 
         string? uploaderName = null;
-        if (existingReport.UploadedBy.HasValue)
+        if (uploadedBy.HasValue)
         {
-            var uploader = await _uow.Users.GetByIdAsync(existingReport.UploadedBy.Value, cancellationToken);
+            var uploader = await _uow.Users.GetByIdAsync(uploadedBy.Value, cancellationToken);
             uploaderName = uploader?.Username;
         }
 
