@@ -40,6 +40,12 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private IMarketIndexSymbolRepository? marketIndexSymbols;
 
+        private IChatSessionRepository? chatSessions;
+
+        private IChatMessageRepository? chatMessages;
+
+        private IChatParticipantRepository? chatParticipants;
+
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
@@ -55,6 +61,9 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IAnalysisReportCategoryRepository AnalysisReportCategories => analysisReportCategories ??= new AnalysisReportCategoryRepository(_context);
         public IMarketIndexRepository MarketIndices => marketIndices ??= new MarketIndexRepository(_context);
         public IMarketIndexSymbolRepository MarketIndexSymbols => marketIndexSymbols ??= new MarketIndexSymbolRepository(_context);
+        public IChatSessionRepository ChatSessions => chatSessions ??= new ChatSessionRepository(_context);
+        public IChatMessageRepository ChatMessages => chatMessages ??= new ChatMessageRepository(_context);
+        public IChatParticipantRepository ChatParticipants => chatParticipants ??= new ChatParticipantRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
