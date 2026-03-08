@@ -1,5 +1,3 @@
-
-
 namespace GreenDragonTrading.Infrastructure.Services
 {
     using System.Security.Cryptography;
@@ -10,11 +8,6 @@ namespace GreenDragonTrading.Infrastructure.Services
     using GreenDragonTrading.Application.Interfaces;
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Options;
-
-    /// <summary>
-    /// Low-level Momo payment gateway integration service.
-    /// Handles direct communication with the Momo API using HMAC-SHA256 signatures.
-    /// </summary>
     public class MomoService : IMomoService
     {
         private readonly MomoOptions _options;
@@ -143,8 +136,6 @@ namespace GreenDragonTrading.Infrastructure.Services
             var requestId = Guid.NewGuid().ToString();
             var extraData = string.Empty;
 
-            // V2 query API signature — alphabetical order, no requestType in signature
-            // Ref: https://developers.momo.vn/v3/docs/payment/api/transaction-status
             var rawHash =
                 $"accessKey={_options.AccessKey}" +
                 $"&orderId={orderId}" +

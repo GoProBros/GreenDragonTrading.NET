@@ -142,6 +142,17 @@ namespace GreenDragonTrading.Infrastructure
             services.Configure<MomoOptions>(configuration.GetSection(MomoOptions.SectionName));
             services.AddHttpClient<IMomoService, MomoService>();
 
+            // Register AI Chat Service
+            services.Configure<AiEngineOptions>(configuration.GetSection(AiEngineOptions.SectionName));
+            services.AddHttpClient<IAiChatService, AiChatService>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<AiEngineOptions>>().Value;
+                client.BaseAddress = new Uri(options.BaseUrl);
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+
             // Add JWT Authentication
             var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
             if (jwtOptions != null)

@@ -85,6 +85,11 @@ public static class EnvironmentConfiguration
 
             // Finsc API
             ["FinscApiOptions:FinscBaseUrl"] = Environment.GetEnvironmentVariable("FINSC_BASE_URL"),
+
+            // AI Engine
+            ["AiEngine:BaseUrl"] = Environment.GetEnvironmentVariable("AI_ENGINE_BASE_URL"),
+            ["AiEngine:TimeoutSeconds"] = Environment.GetEnvironmentVariable("AI_ENGINE_TIMEOUT_SECONDS"),
+            ["AiEngine:RecentMessagesLimit"] = Environment.GetEnvironmentVariable("AI_ENGINE_RECENT_MESSAGES_LIMIT"),
         };
 
         // Add CORS allowed origins (split by comma)
