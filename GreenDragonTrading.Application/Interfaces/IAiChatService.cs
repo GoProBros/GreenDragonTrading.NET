@@ -1,0 +1,99 @@
+namespace GreenDragonTrading.Application.Interfaces
+{
+    /// <summary>
+    /// Service interface for communicating with the GreenDragonTrading AI Engine
+    /// </summary>
+    public interface IAiChatService
+    {
+        /// <summary>
+        /// Send a message to the AI engine and receive a response
+        /// </summary>
+        Task<AiChatResponse> SendMessageAsync(
+            string conversationId,
+            string message,
+            AiChatContext? context = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Compress conversation history into a bullet-point summary
+        /// </summary>
+        Task<AiConvSummaryResponse> UpdateSummaryAsync(
+            string conversationId,
+            string? existingSummary,
+            List<AiMessageInput> newMessages,
+            CancellationToken cancellationToken = default);
+    }
+
+    /// <summary>
+    /// Request payload for AI engine chat endpoint
+    /// </summary>
+    public class AiChatRequest
+    {
+        public string ConversationId { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public AiChatContext? Context { get; set; }
+    }
+
+    /// <summary>
+    /// Context passed along with each chat message (recent history + summary)
+    /// </summary>
+    public class AiChatContext
+    {
+        public string? Summary { get; set; }
+        public List<AiMessageInput> RecentMessages { get; set; } = new();
+    }
+
+    /// <summary>
+    /// A single message entry for context or summary payloads
+    /// </summary>
+    public class AiMessageInput
+    {
+        public string Role { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Response from AI engine chat endpoint
+    /// </summary>
+    public class AiChatResponse
+    {
+        public bool Success { get; set; }
+        public string? ConversationId { get; set; }
+        public List<AiIntentResult>? Intents { get; set; }
+        public string? Response { get; set; }
+        public object? ResponseData { get; set; }
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Intent classification result from AI engine
+    /// </summary>
+    public class AiIntentResult
+    {
+        public string Intent { get; set; } = string.Empty;
+        public double Confidence { get; set; }
+    }
+
+    /// <summary>
+    /// Request payload for conv-summary endpoint
+    /// </summary>
+    public class AiConvSummaryRequest
+    {
+        public string ConversationId { get; set; } = string.Empty;
+        public string? ExistingSummary { get; set; }
+        public List<AiMessageInput> NewMessages { get; set; } = new();
+        public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Response from conv-summary endpoint
+    /// </summary>
+    public class AiConvSummaryResponse
+    {
+        public bool Success { get; set; }
+        public string? ConversationId { get; set; }
+        public string? UpdatedSummary { get; set; }
+        public int ProcessedMessages { get; set; }
+        public string? Error { get; set; }
+    }
+}

@@ -36,6 +36,12 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("updated_at", TypeName = "timestamp with time zone")]
         public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+        [Column("conversation_summary", TypeName = "text")]
+        public string? ConversationSummary { get; set; }
+
+        [Column("last_summary_message_id", TypeName = "integer")]
+        public int? LastSummaryMessageId { get; set; }
+
         // Navigation Properties
         public virtual ICollection<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
         public virtual ICollection<ChatParticipant> Participants { get; set; } = new List<ChatParticipant>();

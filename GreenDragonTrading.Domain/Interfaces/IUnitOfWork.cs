@@ -17,6 +17,9 @@
         IAnalysisReportCategoryRepository AnalysisReportCategories { get; }
         IMarketIndexRepository MarketIndices { get; }
         IMarketIndexSymbolRepository MarketIndexSymbols { get; }
+        IChatSessionRepository ChatSessions { get; }
+        IChatMessageRepository ChatMessages { get; }
+        IChatParticipantRepository ChatParticipants { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);
