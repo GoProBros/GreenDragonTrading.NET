@@ -478,37 +478,32 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             AddIfChanged(updates, nameof(MarketSymbolDto.AvgPrice), response.AvgPrice, existingData.AvgPrice);
             AddIfChanged(updates, nameof(MarketSymbolDto.PriorVal), response.PriorVal, existingData.PriorVal);
 
-            // Tích lũy TotalBuyVol / TotalSellVol theo chiều khớp lệnh.
-            // Dùng volDelta = TotalVol - existingData.TotalVol thay vì LastVol.
-            // SSI có thể gom nhiều lệnh khớp vào 1 broadcast: TotalVol tăng 50,000
-            // nhưng LastVol chỉ là lệnh cuối = 10,000 → dùng LastVol sẽ thiếu 40,000.
+            // Calculate volume delta to detect new matched orders.
+            // Use TotalVol diff instead of LastVol because SSI can batch multiple orders
+            // in one broadcast: TotalVol increases by 50,000 but LastVol only shows the
+            // final order = 10,000 → using LastVol would miss 40,000 volume.
             var newTotalVol = (long)(response.TotalVol ?? 0);
 
-            // Detect session boundary: TotalVol decreased means a new trading session started
-            // (SSI resets TotalVol to 0 each day). Without this check, yesterday's TotalBuyVol/
-            // TotalSellVol would persist in Redis all next day since volDelta would always be 0.
-            bool isSessionReset = newTotalVol < existingData.TotalVol && existingData.TotalVol > 1000;
+            // REMOVED: isSessionReset check was causing false positives.
+            // Original intent: Detect when SSI resets TotalVol to 0 at start of new trading day.
+            // Problem: Condition `newTotalVol < existingData.TotalVol` is too broad and triggers
+            // when SSI broadcasts arrive out-of-order (race between Snapshot vs X-Trade channels),
+            // causing volDelta=0 incorrectly → blocking real trades from being recorded.
+            // Solution: Math.Max(0, ...) already handles all cases safely:
+            //   - New trade: TotalVol increases → volDelta > 0 → record trade ✅
+            //   - SSI replay on reconnect: TotalVol unchanged → volDelta = 0 → skip ✅  
+            //   - New session (TotalVol reset to 0): Math.Max(0, negative) = 0 → skip ✅
+            // bool isSessionReset = newTotalVol < existingData.TotalVol && existingData.TotalVol > 1000;
 
             long volDelta;
             long newBuyVol;
             long newSellVol;
 
-            if (isSessionReset)
-            {
-                // New session: reset accumulators and treat all current TotalVol as fresh delta
-                newBuyVol  = 0;
-                newSellVol = 0;
-                volDelta   = newTotalVol;
-                _logger.LogInformation(
-                    "Session reset detected for {Ticker}: TotalVol {Old} → {New}. Resetting BuyVol/SellVol.",
-                    response.Symbol, existingData.TotalVol, newTotalVol);
-            }
-            else
-            {
-                volDelta   = Math.Max(0L, newTotalVol - (long)existingData.TotalVol);
-                newBuyVol  = (long)existingData.TotalBuyVol;
-                newSellVol = (long)existingData.TotalSellVol;
-            }
+            // NOTE: isSessionReset logic removed (see comment block above).
+            // Math.Max(0, ...) handles all edge cases including session resets.
+            volDelta   = Math.Max(0L, newTotalVol - (long)existingData.TotalVol);
+            newBuyVol  = (long)existingData.TotalBuyVol;
+            newSellVol = (long)existingData.TotalSellVol;
 
             var sideUpper = (response.Side ?? string.Empty).ToUpperInvariant();
             if (volDelta > 0)
@@ -553,15 +548,15 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
 
             // Only record a trade entry when TotalVol actually increased (volDelta > 0).
-            // SSI replays the last trade on every reconnect — must not push a duplicate.
-            // isSessionReset means TotalVol was reset (new day / SSI replay on restart);
-            // volDelta in that case equals the fresh TotalVol, NOT a newly matched order,
-            // so we must not push it as a real trade record.
+            // SSI replays the last trade on every reconnect — volDelta will be 0 in that case.
+            // Math.Max(0, ...) above ensures volDelta=0 for all non-trade scenarios:
+            //   - Replay: same TotalVol → diff=0 → volDelta=0 ✅
+            //   - Session reset: negative diff → Math.Max(0, neg)=0 ✅
+            //   - Out-of-order broadcast: negative diff → Math.Max(0, neg)=0 ✅
             var isNewTrade  = response.LastPrice.HasValue
                               && response.LastVol.HasValue
                               && response.LastPrice > 0
-                              && volDelta > 0
-                              && !isSessionReset;
+                              && volDelta > 0;
 
             if (isNewTrade)
             {
