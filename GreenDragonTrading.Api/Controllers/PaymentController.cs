@@ -117,7 +117,6 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="orderCode">The order code returned when the payment link was created.</param>
         [HttpPost("momo/sync/{orderCode}")]
-        [Authorize]
         public async Task<ActionResult<ApiResponse<WebhookUpdateResult>>> SyncMomoPayment(
             [FromRoute] long orderCode,
             CancellationToken cancellationToken)

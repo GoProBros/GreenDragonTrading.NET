@@ -48,7 +48,9 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
 
             var shareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
 
-            var layoutJsonString = JsonSerializer.Serialize(request.LayoutJson);
+            // Use layout from the system default workspace, ignoring request layout
+            var systemDefault = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(cancellationToken);
+            var layoutJsonString = systemDefault?.LayoutJson ?? "{}";
 
             var workspace = new Domain.Entities.Workspace
             {
@@ -64,11 +66,18 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
             await _uow.Workspaces.AddAsync(workspace, cancellationToken);
             await _uow.SaveChangesAsync(cancellationToken);
 
+            JsonElement? layoutJsonElement = null;
+            if (!string.IsNullOrEmpty(workspace.LayoutJson))
+            {
+                using var doc = JsonDocument.Parse(workspace.LayoutJson);
+                layoutJsonElement = doc.RootElement.Clone();
+            }
+
             var workspaceDto = new WorkspaceDto
             {
                 Id = workspace.Id,
                 WorkspaceName = workspace.WorkspaceName,
-                LayoutJson = request.LayoutJson,
+                LayoutJson = layoutJsonElement,
                 IsDefault = workspace.IsDefault,
                 ShareCode = workspace.ShareCode
             };
