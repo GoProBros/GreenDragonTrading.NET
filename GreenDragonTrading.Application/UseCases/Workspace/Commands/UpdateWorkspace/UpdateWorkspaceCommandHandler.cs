@@ -30,14 +30,13 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
 
         public async Task<ApiResponse<WorkspaceDto>> Handle(UpdateWorkspaceCommand request, CancellationToken cancellationToken)
         {
-            var userId = _currentUserService.GetRequiredUserId();
-
             var workspace = await _uow.Workspaces.GetByIdAsync(request.WorkspaceId, cancellationToken);
             if (workspace == null)
             {
                 throw new NotFoundException("Không tìm thấy workspace.");
             }
 
+            var userId = _currentUserService.GetRequiredUserId();
             if (workspace.UserId != userId)
             {
                 throw new AccessDeniedException("Bạn không có quyền cập nhật workspace này.");
@@ -80,7 +79,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
                 ShareCode = workspace.ShareCode
             };
 
-            _logger.LogInformation("Workspace updated successfully: {WorkspaceId} by user: {UserId}", workspace.Id, userId);
+            _logger.LogInformation("Workspace updated successfully: {WorkspaceId} by user: {UserId}", workspace.Id, _currentUserService.UserId);
             return ApiResponse<WorkspaceDto>.Success(workspaceDto, "Cập nhật workspace thành công.");
         }
     }
