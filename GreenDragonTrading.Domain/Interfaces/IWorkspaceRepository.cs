@@ -23,5 +23,10 @@ namespace GreenDragonTrading.Domain.Interfaces
         /// Get the system default workspace (UserId is null and IsDefault is true)
         /// </summary>
         Task<Workspace?> GetSystemDefaultWorkspaceAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get all system workspaces (UserId is null)
+        /// </summary>
+        Task<List<Workspace>> GetSystemWorkspacesAsync(CancellationToken cancellationToken = default);
     }
 }

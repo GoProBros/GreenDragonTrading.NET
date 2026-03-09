@@ -32,7 +32,6 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspace
                     throw new NotFoundException($"Không tìm thấy workspace với share code: {request.ShareCode}");
                 }
 
-                // Parse LayoutJson string thành JsonElement
                 JsonElement? layoutJson = null;
                 if (!string.IsNullOrEmpty(workspace.LayoutJson))
                 {
