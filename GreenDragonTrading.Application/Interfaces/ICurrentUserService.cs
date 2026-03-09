@@ -24,6 +24,17 @@ public interface ICurrentUserService
     bool IsAuthenticated { get; }
 
     /// <summary>
+    /// Gets the current authenticated user's role.
+    /// Returns null if user is not authenticated.
+    /// </summary>
+    string? Role { get; }
+
+    /// <summary>
+    /// Indicates whether the current user has Admin or Staff role.
+    /// </summary>
+    bool IsAdminOrStaff { get; }
+
+    /// <summary>
     /// Gets the current authenticated user's ID.
     /// Throws UnauthenticatedException if user is not authenticated.
     /// </summary>

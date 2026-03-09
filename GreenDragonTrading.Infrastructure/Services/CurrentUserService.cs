@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Exceptions;
 using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 
 namespace GreenDragonTrading.Infrastructure.Services;
 
@@ -30,6 +31,12 @@ public class CurrentUserService : ICurrentUserService
 
     /// <inheritdoc/>
     public bool IsAuthenticated => UserId.HasValue;
+
+    /// <inheritdoc/>
+    public string? Role => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value;
+
+    /// <inheritdoc/>
+    public bool IsAdminOrStaff => Role == "Admin" || Role == "Staff";
 
     /// <inheritdoc/>
     public Guid GetRequiredUserId()

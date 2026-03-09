@@ -29,9 +29,24 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
 
         public async Task<ApiResponse<List<WorkspaceDto>>> Handle(GetMyWorkspaceQuery request, CancellationToken cancellationToken)
         {
+            List<Domain.Entities.Workspace> workspaces;
+
             var userId = _currentUserService.GetRequiredUserId();
 
-            var workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, cancellationToken);
+            if (_currentUserService.IsAdminOrStaff)
+            {
+                // Admin/Staff get their own workspaces plus system workspaces
+                var ownWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, cancellationToken);
+                var systemWorkspaces = await _uow.Workspaces.GetSystemWorkspacesAsync(cancellationToken);
+                workspaces = ownWorkspaces.Concat(systemWorkspaces).ToList();
+            }
+            else
+            {
+                workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, cancellationToken);
+            }
+
+            _logger.LogInformation("Workspaces retrieved successfully for user: {UserId}", userId);
+
             var result = workspaces.Select(w =>
             {
                 JsonElement? layoutJson = null;
@@ -50,7 +65,6 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                 };
             }).ToList();
 
-            _logger.LogInformation("User workspaces retrieved successfully: {UserId}", userId);
             return ApiResponse<List<WorkspaceDto>>.Success(result, "Lấy thành công danh sách workspace của người dùng.");
         }
     }

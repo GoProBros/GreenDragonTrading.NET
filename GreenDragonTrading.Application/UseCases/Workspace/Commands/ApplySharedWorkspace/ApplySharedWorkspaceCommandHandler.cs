@@ -36,6 +36,18 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplyShared
 
             ValidateNotOwnWorkspace(sharedWorkspace, userId);
 
+            // Enforce MaxWorkspaces limit before duplicating
+            var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+            if (activeSubscription != null)
+            {
+                var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, cancellationToken);
+                if (existingWorkspaces.Count >= activeSubscription.Subscription.MaxWorkspaces)
+                {
+                    throw new Domain.Exceptions.BusinessRuleException(
+                        $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace.");
+                }
+            }
+
             var newWorkspace = await _workspaceDuplicationService.DuplicateWorkspaceAsync(
                 sharedWorkspace,
                 userId,

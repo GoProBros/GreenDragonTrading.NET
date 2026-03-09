@@ -30,8 +30,21 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
 
         public async Task<ApiResponse<WorkspaceDto>> Handle(CreateWorkspaceCommand request, CancellationToken cancellationToken)
         {
-            // Get optional user ID (workspace can be created without authentication)
-            var userId = _currentUserService.UserId;
+            var userId = _currentUserService.GetRequiredUserId();
+
+            if (!_currentUserService.IsAdminOrStaff)
+            {
+                var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+                if (activeSubscription != null)
+                {
+                    var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, cancellationToken);
+                    if (existingWorkspaces.Count >= activeSubscription.Subscription.MaxWorkspaces)
+                    {
+                        throw new Domain.Exceptions.BusinessRuleException(
+                            $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace.");
+                    }
+                }
+            }
 
             var shareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
 
