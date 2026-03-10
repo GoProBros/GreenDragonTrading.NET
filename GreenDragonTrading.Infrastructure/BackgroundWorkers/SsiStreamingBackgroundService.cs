@@ -252,6 +252,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X_TRADE))
                 {
                     var response = JsonSerializer.Deserialize<XTradeResponse>(wrapperResponse.Content!);
+                    //_logger.LogInformation(wrapperResponse.Content);
                     await HandleXTrade(_redis, response);
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_FOREIGN))
