@@ -1,12 +1,12 @@
+using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Net.payOS;
+using Microsoft.Extensions.Options;
 using Net.payOS.Types;
 using Transaction = GreenDragonTrading.Domain.Entities.Transaction;
 
@@ -18,17 +18,20 @@ namespace GreenDragonTrading.Infrastructure.Services
         private readonly IMomoService _momoService;
         private readonly IUnitOfWork _uow;
         private readonly ILogger<PaymentService> _logger;
+        private readonly PayOSOptions _payOSOptions;
 
         public PaymentService(
             IPayOSService payOSService,
             IMomoService momoService,
             IUnitOfWork uow,
-            ILogger<PaymentService> logger)
+            ILogger<PaymentService> logger,
+            IOptions<PayOSOptions> payOSOptions)
         {
             _payOSService = payOSService;
             _momoService = momoService;
             _uow = uow;
             _logger = logger;
+            _payOSOptions = payOSOptions.Value;
         }
 
         public async Task<PaymentLinkResponse> CreateVipPaymentAsync(Guid userId, int subscriptionId, CancellationToken cancellationToken = default)
@@ -38,7 +41,6 @@ namespace GreenDragonTrading.Infrastructure.Services
             var newSubscription = await _uow.Subscriptions.GetByIdAsync(subscriptionId, cancellationToken)
                       ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
-            // Check for downgrade attempt
             var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
             var currentLevelOrder = currentHighestSub?.Subscription.LevelOrder ?? 0;
 
@@ -56,8 +58,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 : TransactionType.Upgrade;
 
             var description = transactionType == TransactionType.Purchase
-                ? $"Mua gói {newSubscription.Name}"
-                : $"Nâng cấp lên gói {newSubscription.Name}";
+                ? $"Mua gói {newSubscription.Id}"
+                : $"Nâng cấp lên gói {newSubscription.Id}";
 
             var transaction = new Transaction
             {
@@ -80,11 +82,10 @@ namespace GreenDragonTrading.Infrastructure.Services
                 (int)newSubscription.Price,
                 description,
                 listItems,
-                "https://success.com",
-                "https://cancel.com"
+                _payOSOptions.ReturnUrl,
+                _payOSOptions.CancelUrl
             );
 
-            // Store checkout URL returned by PayOS
             transaction.CheckoutUrl = result.checkoutUrl;
             await _uow.SaveChangesAsync(cancellationToken);
 
@@ -164,7 +165,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                         throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ.");
                     }
 
-                    // Store the PayOS provider transaction reference
                     transaction.Status = TransactionStatus.Completed;
                     transaction.ProviderTransactionId = data.reference;
                     _uow.Transactions.Update(transaction);
@@ -236,8 +236,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                 "Cancelling {Provider} order: OrderCode={OrderCode}, Reason={Reason}",
                 transaction.PaymentProvider, orderCode, reason);
 
-            // For PayOS: call the PayOS cancel API so the payment link is invalidated on PayOS side.
-            // For Momo: no cancel API exists — update DB only (Momo auto-expires the link).
             if (transaction.PaymentProvider == PaymentType.Payos)
             {
                 var payosResult = await _payOSService.CancelPaymentLink(orderCode, reason, cancellationToken);
@@ -259,8 +257,6 @@ namespace GreenDragonTrading.Infrastructure.Services
             };
         }
 
-        // Momo payment flow
-
         public async Task<MomoPaymentLinkResponse> CreateMomoVipPaymentAsync(
             Guid userId,
             int subscriptionId,
@@ -273,7 +269,6 @@ namespace GreenDragonTrading.Infrastructure.Services
             var newSubscription = await _uow.Subscriptions.GetByIdAsync(subscriptionId, cancellationToken)
                 ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
-            // Block downgrade attempts
             var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
             var currentLevelOrder = currentHighestSub?.Subscription.LevelOrder ?? 0;
 
@@ -292,8 +287,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 : TransactionType.Upgrade;
 
             var description = momoTransactionType == TransactionType.Purchase
-                ? $"Mua gói {newSubscription.Name}"
-                : $"Nâng cấp lên gói {newSubscription.Name}";
+                ? $"Mua gói {newSubscription.Id}"
+                : $"Nâng cấp lên gói {newSubscription.Id}";
 
             var transaction = new Transaction
             {
@@ -323,7 +318,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                 throw new BusinessRuleException($"Tạo thanh toán Momo thất bại: {momoResponse.LocalMessage}");
             }
 
-            // Store checkout URL returned by Momo
             transaction.CheckoutUrl = momoResponse.PayUrl;
             await _uow.SaveChangesAsync(cancellationToken);
 
@@ -362,7 +356,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                 cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<WebhookUpdateResult> SyncMomoPaymentAsync(
             long orderCode,
             CancellationToken cancellationToken = default)
@@ -384,8 +377,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                     cancellationToken);
             }
 
-            // Any non-zero code means payment is NOT confirmed as complete.
-            // Do NOT modify DB — the transaction stays Pending so the user can retry or wait for IPN.
             _logger.LogWarning(
                 "Momo sync: payment not confirmed for OrderCode={OrderCode}, ResultCode={ResultCode}, Message={Message}",
                 orderCode, queryResult.ResultCode, queryResult.Message);
@@ -397,10 +388,6 @@ namespace GreenDragonTrading.Infrastructure.Services
             };
         }
 
-        /// <summary>
-        /// Shared activation logic for both IPN and sync-query flows.
-        /// If <paramref name="isSuccess"/> is true, activates the subscription; otherwise marks the transaction as Cancelled.
-        /// </summary>
         private async Task<WebhookUpdateResult> ActivateMomoSubscriptionAsync(
             long orderCode,
             string transId,
@@ -507,7 +494,6 @@ namespace GreenDragonTrading.Infrastructure.Services
                 }
             }
 
-            // Non-zero error code means payment failed / not yet paid
             transaction.Status = TransactionStatus.Cancelled;
             _uow.Transactions.Update(transaction);
             await _uow.SaveChangesAsync(cancellationToken);
