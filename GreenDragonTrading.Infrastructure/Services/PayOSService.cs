@@ -1,5 +1,4 @@
 using GreenDragonTrading.Application.Common.Options;
-using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using Microsoft.Extensions.Options;
 using Net.payOS;
