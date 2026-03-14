@@ -74,9 +74,6 @@ namespace GreenDragonTrading.Infrastructure
             // Register Google Auth Service
             services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 
-            // Register Background Service for handling streaming events
-            services.AddHostedService<SsiStreamingBackgroundService>();
-
             // Register Api options
             // Register Api options (must be configured before registering Background Services)
             services.Configure<SsiApiOptionsV1>(configuration.GetSection(SsiApiOptionsV1.SectionName));
