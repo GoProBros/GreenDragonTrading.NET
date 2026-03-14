@@ -333,7 +333,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                 {
                     try
                     {
-                        var cacheKeyPattern = $"OHLCV:{candle.Ticker}:*";
+                        var cacheKeyPattern = RedisConstants.OhlcvPattern(candle.Ticker);
                         await redisService.DeleteByPatternAsync(cacheKeyPattern);
                         
                         _logger.LogInformation(

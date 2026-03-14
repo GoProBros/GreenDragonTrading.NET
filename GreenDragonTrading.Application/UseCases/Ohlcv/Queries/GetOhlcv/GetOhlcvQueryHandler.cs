@@ -70,7 +70,7 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
                     
                     // CRITICAL: Append current candle from Redis if it exists and has data
                     // This ensures charts show in-progress candle (realtime)
-                    var redisKey = $"OHLCV:{request.Ticker}:{request.Timeframe}";
+                    var redisKey = RedisConstants.Ohlcv(request.Ticker, request.Timeframe);
                     var currentCandle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
                     if (currentCandle != null && currentCandle.Volume > 0)
                     {
@@ -236,7 +236,7 @@ namespace GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv
 
             // CRITICAL: Append current candle from Redis if exists
             // For computed timeframes (M5, M15, H1, H4), include the current in-progress candle
-            var redisKey = $"OHLCV:{request.Ticker}:{request.Timeframe}";
+            var redisKey = RedisConstants.Ohlcv(request.Ticker, request.Timeframe);
             var currentCandle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
             if (currentCandle != null && currentCandle.Volume > 0)
             {

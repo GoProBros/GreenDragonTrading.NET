@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,14 +48,14 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                         if ((DateTime.UtcNow - _lastCheckTime).TotalHours >= 1)
                         {
                             _logger.LogInformation(
-                                "⏰ Starting price adjustment check at {Time} VN time (outside trading hours)",
+                                "Starting price adjustment check at {Time} VN time (outside trading hours)",
                                 vnTime.ToString("yyyy-MM-dd HH:mm"));
 
                             await CheckPriceAdjustmentsAsync(stoppingToken);
 
                             _lastCheckTime = DateTime.UtcNow;
 
-                            _logger.LogInformation("✅ Price adjustment check completed");
+                            _logger.LogInformation("Price adjustment check completed");
 
                             // Sleep 1 hour to avoid re-running in the same time window
                             await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
@@ -63,7 +64,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "❌ Error during price adjustment check cycle");
+                    _logger.LogError(ex, "Error during price adjustment check cycle");
                 }
             }
         }
@@ -83,7 +84,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             var randomDates = GenerateRandomTradingDates(3, 90);
 
             _logger.LogInformation(
-                "🔍 Checking price adjustments for {Count} tickers on dates: {Dates}",
+                "Checking price adjustments for {Count} tickers on dates: {Dates}",
                 tickers.Count(), string.Join(", ", randomDates.Select(d => d.ToString("yyyy-MM-dd"))));
 
             foreach (var ticker in tickers)
@@ -190,7 +191,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                         if (priceDiffPercent > 0.005m) // 0.5%
                         {
                             _logger.LogWarning(
-                                "⚠️ Price adjustment detected for {Ticker} on {Date}: " +
+                                "Price adjustment detected for {Ticker} on {Date}: " +
                                 "DB Close={DbClose} vs SSI Close={SsiClose} (Diff: {Diff:P2})",
                                 ticker, checkDate.ToString("yyyy-MM-dd"), dbCandle.Close, ssiCandle.Close, priceDiffPercent);
 
@@ -216,7 +217,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             IRedisService redisService,
             CancellationToken ct)
         {
-            _logger.LogInformation("📥 Starting re-import for {Ticker}...", ticker);
+            _logger.LogInformation("Starting re-import for {Ticker}...", ticker);
 
             // Get existing data range from database
             var oldestD1Date = await ohlcvRepository.GetOldestDateAsync(ticker, "D1", ct);
@@ -225,7 +226,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (oldestD1Date == null && oldestM1Date == null)
             {
                 _logger.LogWarning(
-                    "⚠️ No existing data for {Ticker}. Skipping re-import (nothing to adjust).",
+                    "No existing data for {Ticker}. Skipping re-import (nothing to adjust).",
                     ticker);
                 return;
             }
@@ -237,7 +238,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
             else
             {
-                _logger.LogInformation("ℹ️ No D1 data exists for {Ticker}. Skipping D1 re-import.", ticker);
+                _logger.LogInformation("No D1 data exists for {Ticker}. Skipping D1 re-import.", ticker);
             }
 
             // === Re-import M1 (MANDATORY) ===
@@ -247,23 +248,23 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             }
             else
             {
-                _logger.LogInformation("ℹ️ No M1 data exists for {Ticker}. Skipping M1 re-import.", ticker);
+                _logger.LogInformation("No M1 data exists for {Ticker}. Skipping M1 re-import.", ticker);
             }
 
             // === Invalidate Redis cache ===
             try
             {
-                var cacheKeyPattern = $"OHLCV:{ticker}:*";
+                var cacheKeyPattern = RedisConstants.OhlcvPattern(ticker);
                 await redisService.DeleteByPatternAsync(cacheKeyPattern);
 
-                _logger.LogInformation("✅ Invalidated cache for {Ticker}", ticker);
+                _logger.LogInformation("Invalidated cache for {Ticker}", ticker);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to invalidate cache for {Ticker}", ticker);
             }
 
-            _logger.LogInformation("🎉 Completed re-import for {Ticker}", ticker);
+            _logger.LogInformation("Completed re-import for {Ticker}", ticker);
         }
 
         private async Task ReImportD1Async(
@@ -316,16 +317,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     await ohlcvRepository.AddRangeAsync(d1Data, ct);
                     await ohlcvRepository.BulkUpsertAsync(d1Data, ct);
 
-                    _logger.LogInformation("✅ Re-imported {Count} D1 candles for {Ticker}", d1Data.Count, ticker);
+                    _logger.LogInformation("Re-imported {Count} D1 candles for {Ticker}", d1Data.Count, ticker);
                 }
                 else
                 {
-                    _logger.LogWarning("⚠️ No D1 data returned from SSI for {Ticker}", ticker);
+                    _logger.LogWarning("No D1 data returned from SSI for {Ticker}", ticker);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Failed to re-import D1 data for {Ticker}", ticker);
+                _logger.LogError(ex, "Failed to re-import D1 data for {Ticker}", ticker);
                 throw;
             }
         }
@@ -401,7 +402,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                             totalM1Imported += m1Data.Count;
 
                             _logger.LogInformation(
-                                "✅ Imported {Count} M1 candles for {Ticker} ({Month}) - Total: {Total}",
+                                "Imported {Count} M1 candles for {Ticker} ({Month}) - Total: {Total}",
                                 m1Data.Count, ticker, currentDate.ToString("yyyy-MM"), totalM1Imported);
                         }
 
@@ -411,7 +412,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex,
-                            "⚠️ Failed to import M1 for {Ticker} in {Month}. Continuing...",
+                            "Failed to import M1 for {Ticker} in {Month}. Continuing...",
                             ticker, currentDate.ToString("yyyy-MM"));
                     }
 
@@ -419,12 +420,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 }
 
                 _logger.LogInformation(
-                    "✅ Re-imported total {Count} M1 candles for {Ticker}",
+                    "Re-imported total {Count} M1 candles for {Ticker}",
                     totalM1Imported, ticker);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Failed to re-import M1 data for {Ticker}", ticker);
+                _logger.LogError(ex, "Failed to re-import M1 data for {Ticker}", ticker);
                 throw;
             }
         }

@@ -111,6 +111,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             if (fieldValues == null || fieldValues.Count == 0)
                 return;
 
+            // Handle legacy keys that were previously stored as string/list/set.
+            // If key type is not hash, remove it so hash write can proceed.
+            var keyType = await _db.KeyTypeAsync(key);
+            if (keyType != RedisType.None && keyType != RedisType.Hash)
+            {
+                await _db.KeyDeleteAsync(key);
+            }
+
             var hashEntries = fieldValues.Select(kvp =>
             {
                 string stringValue = kvp.Value is string s
@@ -119,7 +127,16 @@ namespace GreenDragonTrading.Infrastructure.Services
                 return new HashEntry(kvp.Key, stringValue);
             }).ToArray();
 
-            await _db.HashSetAsync(key, hashEntries);
+            try
+            {
+                await _db.HashSetAsync(key, hashEntries);
+            }
+            catch (RedisServerException ex) when (ex.Message.StartsWith("WRONGTYPE", StringComparison.OrdinalIgnoreCase))
+            {
+                // Rare race: key type changed between KeyTypeAsync and HashSetAsync.
+                await _db.KeyDeleteAsync(key);
+                await _db.HashSetAsync(key, hashEntries);
+            }
         }
 
         /// <inheritdoc/>

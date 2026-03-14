@@ -7,6 +7,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 {
     public partial class SsiStreamingBackgroundService
     {
+    private const string IndicatorTimeframe = "D1";
+
         /// <summary>
         /// Handles X snapshot channel messages and merges orderbook/price/session fields.
         /// </summary>
@@ -88,6 +90,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             {
                 QueueRedisHashFieldsWrite(redisKey, updates);
 
+                await UpdateRealtimeIndicatorFromSnapshotAsync(redis, response.Symbol!, updates, existingData);
+
                 // Keep heatmap key in sync with market snapshot updates.
                 _ = await UpdateHeatmapRedisAsync(redis, response.Symbol!, updates, existingData);
 
@@ -145,9 +149,68 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             };
 
             QueueRedisHashObjectWrite(redisKey, newData);
+
+            var initialUpdates = ConvertMarketDataToDictionary(newData);
+            await UpdateRealtimeIndicatorFromSnapshotAsync(redis, response.Symbol!, initialUpdates, newData);
+
             await CreateInitialHeatmapRedisAsync(redis, response.Symbol!, newData);
             QueueMarketBroadcast(response.Symbol!, newData);
             QueuePriceDepthBroadcast(BuildPriceDepthDto(response.Symbol!, newData));
+        }
+
+        /// <summary>
+        /// Updates realtime indicator fields from snapshot stream.
+        /// Writes Close/Volume and computes BB %B using existing Bollinger bands in indicator hash.
+        /// </summary>
+        private async Task UpdateRealtimeIndicatorFromSnapshotAsync(
+            IRedisService redis,
+            string ticker,
+            Dictionary<string, object> updates,
+            MarketSymbolDto existingData)
+        {
+            try
+            {
+                var close = Convert.ToDecimal(GetValue(updates, nameof(MarketSymbolDto.LastPrice), existingData.LastPrice));
+                var volume = Convert.ToInt64(GetValue(updates, nameof(MarketSymbolDto.TotalVol), existingData.TotalVol));
+
+                var indicatorKey = RedisConstants.Indicators(ticker, IndicatorTimeframe);
+
+                var indicatorUpdates = new Dictionary<string, object>
+                {
+                    ["Close"] = close,
+                    ["Volume"] = volume,
+                    ["CalculatedAt"] = DateTime.UtcNow
+                };
+
+                var upper = await redis.GetHashFieldAsync<decimal?>(indicatorKey, "BollingerUpper");
+                var lower = await redis.GetHashFieldAsync<decimal?>(indicatorKey, "BollingerLower");
+                var volumeMa20 = await redis.GetHashFieldAsync<decimal?>(indicatorKey, "VolumeMa20");
+                var macd = await redis.GetHashFieldAsync<decimal?>(indicatorKey, "Macd");
+                var macdSignal = await redis.GetHashFieldAsync<decimal?>(indicatorKey, "MacdSignal");
+
+                if (upper.HasValue && lower.HasValue && upper.Value > lower.Value)
+                {
+                    var percentB = (close - lower.Value) / (upper.Value - lower.Value);
+                    indicatorUpdates["BbPercentB"] = percentB;
+                }
+
+                if (volumeMa20.HasValue && volumeMa20.Value > 0)
+                {
+                    var ratio = volume / volumeMa20.Value;
+                    indicatorUpdates["VolumeToVolumeMa20Ratio"] = ratio;
+                }
+
+                if (macd.HasValue && macdSignal.HasValue)
+                {
+                    indicatorUpdates["MacdHistogram"] = macd.Value - macdSignal.Value;
+                }
+
+                QueueRedisHashFieldsWrite(indicatorKey, indicatorUpdates);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed updating realtime indicator fields for {Ticker}", ticker);
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
@@ -131,7 +132,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     LastUpdate = DateTime.UtcNow,
                 };
 
-                var heatmapKey = $"HEATMAP:{ticker.ToUpper()}";
+                var heatmapKey = RedisConstants.Heatmap(ticker);
                 QueueRedisStringWrite(heatmapKey, heatmapItem, TimeSpan.FromMinutes(10));
                 QueueHeatmapBroadcast(heatmapItem);
 
@@ -200,7 +201,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     LastUpdate = DateTime.UtcNow,
                 };
 
-                var heatmapKey = $"HEATMAP:{ticker.ToUpper()}";
+                var heatmapKey = RedisConstants.Heatmap(ticker);
                 QueueRedisStringWrite(heatmapKey, heatmapItem, TimeSpan.FromMinutes(10));
                 QueueHeatmapBroadcast(heatmapItem);
 
@@ -224,7 +225,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         {
             try
             {
-                var heatmapKey = $"HEATMAP:{ticker.ToUpper()}";
+                var heatmapKey = RedisConstants.Heatmap(ticker);
                 var heatmapItem = await redis.GetAsync<HeatmapItemDto>(heatmapKey);
 
                 if (heatmapItem != null)

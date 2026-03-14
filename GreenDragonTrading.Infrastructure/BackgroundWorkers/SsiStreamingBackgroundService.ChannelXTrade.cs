@@ -138,7 +138,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     Time = formattedTime,
                 };
 
-                QueueRedisListPushTrimWrite($"TRADES:{response.Symbol!.ToUpper()}", trade, 200);
+                QueueRedisListPushTrimWrite(RedisConstants.Trades(response.Symbol!), trade, 200);
                 QueueTradeBroadcast(trade);
             }
         }

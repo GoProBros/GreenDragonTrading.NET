@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
@@ -76,7 +77,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         {
             try
             {
-                string redisKey = $"OHLCV:{ticker}:{timeframe}";
+                string redisKey = RedisConstants.Ohlcv(ticker, timeframe);
 
                 var semaphore = _redisLocks.GetOrAdd(redisKey, _ => new SemaphoreSlim(1, 1));
 

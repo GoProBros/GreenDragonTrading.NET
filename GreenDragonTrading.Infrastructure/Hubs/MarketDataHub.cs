@@ -69,7 +69,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                 // Send initial data for this symbol
                 try
                 {
-                    string redisKey = $"{RedisConstants.REDIS_KEY_PREFIX_MARKET_DATA}:{upperSymbol}";
+                    string redisKey = RedisConstants.MarketDataSymbol(upperSymbol);
                     var marketData = await _redisService.GetHashAsync<MarketSymbolDto>(redisKey);
 
                     if (marketData != null)
@@ -151,7 +151,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
 
             var upperTicker = ticker.ToUpper();
             var upperTimeframe = timeframe.ToUpper();
-            var groupName = $"OHLCV:{upperTicker}:{upperTimeframe}";
+            var groupName = RedisConstants.OhlcvSignalRGroup(upperTicker, upperTimeframe);
 
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 
@@ -162,7 +162,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             // Send current candle immediately from Redis if exists
             try
             {
-                string redisKey = $"OHLCV:{upperTicker}:{upperTimeframe}";
+                string redisKey = RedisConstants.Ohlcv(upperTicker, upperTimeframe);
                 var currentCandle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
                 
                 if (currentCandle != null && currentCandle.Volume > 0)
@@ -201,7 +201,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
 
             var upperTicker = ticker.ToUpper();
             var upperTimeframe = timeframe.ToUpper();
-            var groupName = $"OHLCV:{upperTicker}:{upperTimeframe}";
+            var groupName = RedisConstants.OhlcvSignalRGroup(upperTicker, upperTimeframe);
 
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
 
@@ -231,7 +231,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                 // Read all timeframes from Redis
                 foreach (var tf in timeframes)
                 {
-                    var redisKey = $"OHLCV:{upperTicker}:{tf}";
+                    var redisKey = RedisConstants.Ohlcv(upperTicker, tf);
                     var candle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
                     if (candle != null && candle.Volume > 0)
                     {
@@ -268,13 +268,13 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             var exchangeLower = exchange?.ToLower() ?? "all";
             
             // Subscribe to exchange-specific group (e.g., HEATMAP:hsx)
-            var exchangeGroup = $"HEATMAP:{exchangeLower}";
+            var exchangeGroup = RedisConstants.HeatmapExchangeGroup(exchangeLower);
             await Groups.AddToGroupAsync(Context.ConnectionId, exchangeGroup);
             
             // Also subscribe to sector-specific group if provided
             if (!string.IsNullOrEmpty(sector))
             {
-                var sectorGroup = $"HEATMAP:{exchangeLower}:{sector}";
+                var sectorGroup = RedisConstants.HeatmapSectorGroup(exchangeLower, sector);
                 await Groups.AddToGroupAsync(Context.ConnectionId, sectorGroup);
                 
                 _logger.LogInformation(
@@ -299,13 +299,13 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             var exchangeLower = exchange?.ToLower() ?? "all";
             
             // Unsubscribe from exchange-specific group
-            var exchangeGroup = $"HEATMAP:{exchangeLower}";
+            var exchangeGroup = RedisConstants.HeatmapExchangeGroup(exchangeLower);
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, exchangeGroup);
             
             // Also unsubscribe from sector-specific group if provided
             if (!string.IsNullOrEmpty(sector))
             {
-                var sectorGroup = $"HEATMAP:{exchangeLower}:{sector}";
+                var sectorGroup = RedisConstants.HeatmapSectorGroup(exchangeLower, sector);
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, sectorGroup);
             }
 
@@ -329,7 +329,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
                     Context.ConnectionId, exchange ?? "ALL", sector ?? "ALL");
 
                 // Get all heatmap keys from Redis
-                var pattern = "HEATMAP:*";
+                var pattern = RedisConstants.HeatmapPattern();
                 var keys = await _redisService.GetKeysAsync(pattern);
                 
                 var heatmapItems = new List<HeatmapItemDto>();
@@ -401,7 +401,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             if (string.IsNullOrWhiteSpace(ticker)) return;
 
             var upper = ticker.ToUpper();
-            var groupName = $"TRADE:{upper}";
+            var groupName = RedisConstants.TradeSignalRGroup(upper);
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 
             _logger.LogInformation("Client {ConnectionId} subscribed to trade updates for {Ticker}",
@@ -410,7 +410,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             // Send initial trade history from Redis
             try
             {
-                var key = $"TRADES:{upper}";
+                var key = RedisConstants.Trades(upper);
                 var trades = await _redisService.ListRangeAsync<RecentTradeDto>(key, 200);
                 if (trades.Count > 0)
                 {
@@ -433,7 +433,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
         {
             if (string.IsNullOrWhiteSpace(ticker)) return;
 
-            var groupName = $"TRADE:{ticker.ToUpper()}";
+            var groupName = RedisConstants.TradeSignalRGroup(ticker);
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
 
             _logger.LogInformation("Client {ConnectionId} unsubscribed from trade updates for {Ticker}",
@@ -451,7 +451,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
             if (string.IsNullOrWhiteSpace(ticker)) return;
 
             var upper = ticker.ToUpper();
-            var groupName = $"DEPTH:{upper}";
+            var groupName = RedisConstants.DepthSignalRGroup(upper);
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 
             _logger.LogInformation("Client {ConnectionId} subscribed to price depth for {Ticker}",
@@ -484,7 +484,7 @@ namespace GreenDragonTrading.Infrastructure.Hubs
         {
             if (string.IsNullOrWhiteSpace(ticker)) return;
 
-            var groupName = $"DEPTH:{ticker.ToUpper()}";
+            var groupName = RedisConstants.DepthSignalRGroup(ticker.ToUpper());
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
 
             _logger.LogInformation("Client {ConnectionId} unsubscribed from price depth for {Ticker}",

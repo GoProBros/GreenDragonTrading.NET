@@ -1,6 +1,7 @@
 ﻿using GreenDragonTrading.Infrastructure.Hubs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Domain.Constants;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 
@@ -37,7 +38,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
-                var groupName = $"OHLCV:{candle.Ticker}:{candle.Timeframe}";
+                var groupName = RedisConstants.OhlcvSignalRGroup(candle.Ticker, candle.Timeframe);
                 
                 await _hubContext.Clients
                     .Group(groupName)
@@ -58,7 +59,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             {
                 _logger.LogError(ex, 
                     "❌ CRITICAL ERROR broadcasting OHLCV update for {Ticker} {Timeframe} to group {GroupName}. Exception: {Message}",
-                    candle.Ticker, candle.Timeframe, $"OHLCV:{candle.Ticker}:{candle.Timeframe}", ex.Message);
+                    candle.Ticker, candle.Timeframe, RedisConstants.OhlcvSignalRGroup(candle.Ticker, candle.Timeframe), ex.Message);
                 throw;
             }
         }
@@ -93,7 +94,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             try
             {
                 // Broadcast to exchange-specific group (e.g., HEATMAP:hsx)
-                var exchangeGroup = $"HEATMAP:{item.Exchange.ToLower()}";
+                var exchangeGroup = RedisConstants.HeatmapExchangeGroup(item.Exchange);
                 await _hubContext.Clients
                     .Group(exchangeGroup)
                     .SendAsync("ReceiveHeatmapItem", item, cancellationToken);
@@ -101,7 +102,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                 // Also broadcast to sector-specific group if applicable
                 if (!string.IsNullOrEmpty(item.Sector))
                 {
-                    var sectorGroup = $"HEATMAP:{item.Exchange.ToLower()}:{item.Sector}";
+                    var sectorGroup = RedisConstants.HeatmapSectorGroup(item.Exchange, item.Sector);
                     await _hubContext.Clients
                         .Group(sectorGroup)
                         .SendAsync("ReceiveHeatmapItem", item, cancellationToken);
@@ -125,7 +126,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
-                var groupName = $"TRADE:{trade.Ticker.ToUpper()}";
+                var groupName = RedisConstants.TradeSignalRGroup(trade.Ticker);
                 await _hubContext.Clients
                     .Group(groupName)
                     .SendAsync("ReceiveTradeData", trade, cancellationToken);
@@ -145,7 +146,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
-                var groupName = $"DEPTH:{depth.Ticker.ToUpper()}";
+                var groupName = RedisConstants.DepthSignalRGroup(depth.Ticker);
                 await _hubContext.Clients
                     .Group(groupName)
                     .SendAsync("ReceivePriceDepth", depth, cancellationToken);
@@ -166,10 +167,10 @@ namespace GreenDragonTrading.Infrastructure.Services
         private static string GetHeatmapGroupName(string? exchange, string? sector)
         {
             if (!string.IsNullOrEmpty(sector))
-                return $"HEATMAP:{exchange}:{sector}";
+                return RedisConstants.HeatmapSectorGroup(exchange ?? "all", sector);
             if (!string.IsNullOrEmpty(exchange))
-                return $"HEATMAP:{exchange}";
-            return "HEATMAP:ALL";
+                return RedisConstants.HeatmapExchangeGroup(exchange);
+            return RedisConstants.HEATMAP_GROUP_ALL;
         }
     }
 }
