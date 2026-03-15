@@ -23,6 +23,12 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("content", TypeName = "text")]
         public string Content { get; set; } = string.Empty;
 
+        [Column("response_data", TypeName = "jsonb")]
+        public string? ResponseData { get; set; }
+
+        [Column("error_details", TypeName = "jsonb")]
+        public string? ErrorDetails { get; set; }
+
         [Required]
         [Column("message_type", TypeName = "smallint")]
         public ChatMessageType MessageType { get; set; } = ChatMessageType.Text;

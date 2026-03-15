@@ -1,10 +1,12 @@
 using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SummarizeSession;
 public class SummarizeSessionCommandHandler : IRequestHandler<SummarizeSessionCommand, ApiResponse<SummarizeSessionResponseDto>>
@@ -12,17 +14,20 @@ public class SummarizeSessionCommandHandler : IRequestHandler<SummarizeSessionCo
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAiChatService _aiChatService;
+    private readonly AiEngineOptions _aiOptions;
     private readonly ILogger<SummarizeSessionCommandHandler> _logger;
 
     public SummarizeSessionCommandHandler(
         IUnitOfWork uow,
         ICurrentUserService currentUserService,
         IAiChatService aiChatService,
+        IOptions<AiEngineOptions> aiOptions,
         ILogger<SummarizeSessionCommandHandler> logger)
     {
         _uow = uow;
         _currentUserService = currentUserService;
         _aiChatService = aiChatService;
+        _aiOptions = aiOptions.Value;
         _logger = logger;
     }
 
@@ -66,7 +71,33 @@ public class SummarizeSessionCommandHandler : IRequestHandler<SummarizeSessionCo
             }, "Không có tin nhắn mới cần tóm tắt");
         }
 
-        var aiMessages = messagesToSummarize
+        if (messagesToSummarize.Count < _aiOptions.RecentMessagesLimit)
+        {
+            var recentMessages = await _uow.ChatMessages.GetRecentMessagesAsync(
+                session.Id,
+                _aiOptions.RecentMessagesLimit,
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Skip summarizing session {SessionId} because pending message count {PendingCount} is less than threshold {Threshold}",
+                session.Id,
+                messagesToSummarize.Count,
+                _aiOptions.RecentMessagesLimit);
+
+            return ApiResponse<SummarizeSessionResponseDto>.Success(new SummarizeSessionResponseDto
+            {
+                SessionId = session.Id,
+                UpdatedSummary = session.ConversationSummary ?? string.Empty,
+                LastSummaryMessageId = session.LastSummaryMessageId ?? 0,
+                ProcessedMessages = recentMessages.Count
+            }, "Số lượng tin nhắn chưa đủ ngưỡng để tóm tắt. Đã trả về số lượng tin gần nhất theo cấu hình.");
+        }
+
+        var messagesForSummary = messagesToSummarize
+            .Skip(Math.Max(0, messagesToSummarize.Count - _aiOptions.RecentMessagesLimit))
+            .ToList();
+
+        var aiMessages = messagesForSummary
             .Select(m => new AiMessageInput
             {
                 Role = m.SenderId == null ? "assistant" : "user",
@@ -85,7 +116,7 @@ public class SummarizeSessionCommandHandler : IRequestHandler<SummarizeSessionCo
 
         session.ConversationSummary = result.UpdatedSummary;
         session.LastSummaryMessageId = messagesToSummarize[^1].Id;
-        session.UpdatedAt = DateTime.UtcNow;
+        session.UpdatedAt = DateTimeOffset.UtcNow;
         _uow.ChatSessions.Update(session);
         await _uow.SaveChangesAsync(cancellationToken);
 
