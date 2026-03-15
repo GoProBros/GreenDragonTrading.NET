@@ -9,6 +9,7 @@ using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
 {
@@ -105,6 +106,10 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 SessionId = request.SessionId,
                 SenderId = null,
                 Content = aiContent,
+                ResponseData = aiResponse.ResponseData != null
+                    ? JsonSerializer.Serialize(aiResponse.ResponseData)
+                    : null,
+                ErrorDetails = aiResponse.Error,
                 MessageType = ChatMessageType.Text,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -121,7 +126,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 "Saved AI response {MessageId} in session {SessionId}, AI success: {AiSuccess}",
                 aiMessage.Id, request.SessionId, aiResponse.Success);
 
-            _ = UpdateSummaryFireAndForgetAsync(session, conversationId, userMessage.Content, aiContent, aiMessage.Id);
+            await TryUpdateSummaryAsync(request.SessionId, cancellationToken);
 
             var responseDto = new SendChatMessageResponseDto
             {
@@ -137,36 +142,74 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             return ApiResponse<SendChatMessageResponseDto>.Success(responseDto, "Gửi tin nhắn thành công.");
         }
 
-        private async Task UpdateSummaryFireAndForgetAsync(
-            ChatSession session,
-            string conversationId,
-            string userContent,
-            string aiContent,
-            int aiMessageId)
+        private async Task TryUpdateSummaryAsync(int sessionId, CancellationToken cancellationToken)
         {
             try
             {
-                var newMessages = new List<AiMessageInput>
+                var session = await _uow.ChatSessions.GetByIdAsync(sessionId, cancellationToken);
+                if (session == null)
                 {
-                    new() { Role = "user", Content = userContent },
-                    new() { Role = "assistant", Content = aiContent }
-                };
+                    return;
+                }
+
+                List<ChatMessage> messagesToSummarize;
+                if (string.IsNullOrWhiteSpace(session.ConversationSummary) || session.LastSummaryMessageId == null)
+                {
+                    messagesToSummarize = await _uow.ChatMessages.GetAllMessagesBySessionIdAsync(
+                        sessionId,
+                        cancellationToken);
+                }
+                else
+                {
+                    messagesToSummarize = await _uow.ChatMessages.GetMessagesAfterIdAsync(
+                        sessionId,
+                        session.LastSummaryMessageId.Value,
+                        cancellationToken);
+                }
+
+                if (messagesToSummarize.Count < _aiOptions.RecentMessagesLimit)
+                {
+                    _logger.LogDebug(
+                        "Skip summary update for session {SessionId}: pending message count {PendingCount} is below threshold {Threshold}",
+                        sessionId,
+                        messagesToSummarize.Count,
+                        _aiOptions.RecentMessagesLimit);
+                    return;
+                }
+
+                var messagesForSummary = messagesToSummarize
+                    .Skip(Math.Max(0, messagesToSummarize.Count - _aiOptions.RecentMessagesLimit))
+                    .Select(m => new AiMessageInput
+                    {
+                        Role = m.SenderId == null ? "assistant" : "user",
+                        Content = m.Content
+                    })
+                    .ToList();
+
+                var conversationId = $"session-{sessionId}";
 
                 var result = await _aiChatService.UpdateSummaryAsync(
-                    conversationId, session.ConversationSummary, newMessages);
+                    conversationId,
+                    session.ConversationSummary,
+                    messagesForSummary,
+                    cancellationToken);
 
                 if (result.Success && !string.IsNullOrEmpty(result.UpdatedSummary))
                 {
                     session.ConversationSummary = result.UpdatedSummary;
-                    session.LastSummaryMessageId = aiMessageId;
+                    session.LastSummaryMessageId = messagesToSummarize[^1].Id;
+                    session.UpdatedAt = DateTimeOffset.UtcNow;
                     _uow.ChatSessions.Update(session);
-                    await _uow.SaveChangesAsync();
-                    _logger.LogDebug("Updated summary for session {SessionId}, lastMessageId={Id}", session.Id, aiMessageId);
+                    await _uow.SaveChangesAsync(cancellationToken);
+                    _logger.LogDebug(
+                        "Updated summary for session {SessionId}, lastMessageId={MessageId}",
+                        sessionId,
+                        messagesToSummarize[^1].Id);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to update conversation summary for session {SessionId}", session.Id);
+                _logger.LogWarning(ex, "Failed to update conversation summary for session {SessionId}", sessionId);
             }
         }
 
@@ -178,6 +221,8 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 SessionId = message.SessionId,
                 SenderId = message.SenderId,
                 Content = message.Content,
+                ResponseData = message.ResponseData,
+                ErrorDetails = message.ErrorDetails,
                 MessageType = message.MessageType,
                 FileUrl = message.FileUrl,
                 FileName = message.FileName,

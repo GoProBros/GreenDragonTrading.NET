@@ -8,5 +8,7 @@ namespace GreenDragonTrading.Domain.Interfaces
         Task<ChatSession?> GetSessionWithMessagesAsync(int sessionId, CancellationToken cancellationToken = default);
         Task<List<ChatSession>> GetAiSessionsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
         Task<List<ChatSession>> GetSessionsWithParticipantsAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<ChatSession?> GetDirectSessionBetweenUsersAsync(Guid userAId, Guid userBId, CancellationToken cancellationToken = default);
+        Task<List<ChatSession>> GetDirectSessionsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     }
 }

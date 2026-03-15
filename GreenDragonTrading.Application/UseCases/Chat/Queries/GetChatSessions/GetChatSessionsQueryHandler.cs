@@ -35,7 +35,9 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSessions
 
             var sessions = await _uow.ChatSessions.GetSessionsWithParticipantsAsync(userId.Value, cancellationToken);
 
-            var sessionDtos = sessions.Select(session =>
+            var sessionDtos = new List<ChatSessionListItemDto>();
+
+            foreach (var session in sessions)
             {
                 var participantCount = session.SessionType == ChatSessionType.AI || session.SessionType == ChatSessionType.System
                     ? 1
@@ -44,7 +46,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSessions
                 var creator = session.Participants.FirstOrDefault(p => p.UserId == session.CreatedBy);
                 var creatorName = creator?.User?.Username;
 
-                return new ChatSessionListItemDto
+                sessionDtos.Add(new ChatSessionListItemDto
                 {
                     Id = session.Id,
                     Title = session.Title,
@@ -54,8 +56,8 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSessions
                     CreatedBy = session.CreatedBy,
                     CreatedAt = session.CreatedAt,
                     UpdatedAt = session.UpdatedAt
-                };
-            }).ToList();
+                });
+            }
 
             _logger.LogDebug("Retrieved {Count} chat sessions for user {UserId}", sessionDtos.Count, userId);
 
