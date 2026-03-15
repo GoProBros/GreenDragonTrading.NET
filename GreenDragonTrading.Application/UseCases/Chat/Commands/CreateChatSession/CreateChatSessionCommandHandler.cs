@@ -55,6 +55,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.CreateChatSessio
             {
                 SessionId = chatSession.Id,
                 UserId = userId.Value,
+                Role = ChatRole.Admin,
                 JoinedAt = DateTimeOffset.UtcNow,
                 LastReadAt = DateTimeOffset.UtcNow
             };
@@ -71,6 +72,8 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.CreateChatSessio
                 CreatedBy = chatSession.CreatedBy,
                 CreatedAt = chatSession.CreatedAt,
                 UpdatedAt = chatSession.UpdatedAt,
+                LastReadAt = participant.LastReadAt,
+                LastReadMessageId = participant.LastReadMessageId,
                 Messages = new List<ChatMessageDto>()
             };
 

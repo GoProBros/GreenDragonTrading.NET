@@ -21,5 +21,15 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .AsNoTracking()
                 .AnyAsync(u => u.Email == email, cancellationToken);
         }
+
+        public async Task<User?> FindByPhoneOrEmailAsync(string input, CancellationToken cancellationToken = default)
+        {
+            var trimmed = input.Trim();
+            return await _dbSet
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    u => u.Email.ToLower() == trimmed.ToLower() || u.PhoneNumber == trimmed,
+                    cancellationToken);
+        }
     }
 }

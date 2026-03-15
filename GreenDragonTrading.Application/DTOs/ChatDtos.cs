@@ -11,6 +11,8 @@ namespace GreenDragonTrading.Application.DTOs
         public Guid? CreatedBy { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset UpdatedAt { get; set; }
+        public DateTimeOffset? LastReadAt { get; set; }
+        public int? LastReadMessageId { get; set; }
         public List<ChatMessageDto> Messages { get; set; } = new();
     }
 
@@ -20,6 +22,8 @@ namespace GreenDragonTrading.Application.DTOs
         public int SessionId { get; set; }
         public Guid? SenderId { get; set; }
         public string Content { get; set; } = string.Empty;
+        public string? ResponseData { get; set; }
+        public string? ErrorDetails { get; set; }
         public ChatMessageType MessageType { get; set; }
         public string? FileUrl { get; set; }
         public string? FileName { get; set; }
@@ -65,20 +69,79 @@ namespace GreenDragonTrading.Application.DTOs
 
     public class ChatMessageSimpleDto
     {
-        /// <summary>"user" if sent by a user, "ai" if sent by the AI (SenderId is null)</summary>
+        public int Id { get; set; }
         public string Role { get; set; } = string.Empty;
+        public Guid? SenderId { get; set; }
+        public string? SenderName { get; set; }
         public string Content { get; set; } = string.Empty;
+        public DateTimeOffset CreatedAt { get; set; }
+        public bool IsUnreadForCurrentUser { get; set; }
     }
 
     public class ChatSessionDetailDto
     {
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
+        public ChatSessionType SessionType { get; set; }
         public string? Summary { get; set; }
+        public DateTimeOffset? LastReadAt { get; set; }
+        public int? LastReadMessageId { get; set; }
+        public DirectChatParticipantDto? OtherParticipant { get; set; }
         public List<ChatMessageSimpleDto> Messages { get; set; } = new();
     }
 
-    /// <summary>
+    public class GetOrCreateDirectSessionRequestDto
+    {
+        public string PhoneOrEmail { get; set; } = string.Empty;
+    }
+
+    public class DirectChatParticipantDto
+    {
+        public Guid UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+    }
+
+    public class DirectChatSessionDto
+    {
+        public int SessionId { get; set; }
+        public bool IsNew { get; set; }
+        public DirectChatParticipantDto OtherParticipant { get; set; } = default!;
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+        public DateTimeOffset? MyLastReadAt { get; set; }
+        public int? MyLastReadMessageId { get; set; }
+    }
+
+    public class DirectSessionListItemDto
+    {
+        public int SessionId { get; set; }
+        public DirectChatParticipantDto OtherParticipant { get; set; } = default!;
+        public string? LastMessageContent { get; set; }
+        public Guid? LastMessageSenderId { get; set; }
+        public DateTimeOffset? LastMessageAt { get; set; }
+        public DateTimeOffset? MyLastReadAt { get; set; }
+        public int? MyLastReadMessageId { get; set; }
+        public bool HasUnread { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+    }
+
+    public class SendDirectMessageRequestDto
+    {
+        public string Content { get; set; } = string.Empty;
+    }
+
+    public class DirectMessageDto
+    {
+        public int Id { get; set; }
+        public int SessionId { get; set; }
+        public Guid SenderId { get; set; }
+        public string SenderName { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public DateTimeOffset CreatedAt { get; set; }
+        public bool IsFromCurrentUser { get; set; }
+    }
+
     public class SummarizeSessionResponseDto
     {
         public int SessionId { get; set; }

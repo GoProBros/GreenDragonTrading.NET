@@ -23,6 +23,9 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         {
             return await _context.Set<ChatSession>()
                 .Include(s => s.Messages.Where(m => !m.IsDeleted))
+                    .ThenInclude(m => m.Sender)
+                .Include(s => s.Participants)
+                    .ThenInclude(p => p.User)
                 .FirstOrDefaultAsync(s => s.Id == sessionId, cancellationToken);
         }
 
@@ -42,6 +45,31 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .Include(s => s.Participants)
                     .ThenInclude(p => p.User)
                 .Where(s => s.Status == CommonStatus.Active 
+                    && s.Participants.Any(p => p.UserId == userId))
+                .OrderByDescending(s => s.UpdatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<ChatSession?> GetDirectSessionBetweenUsersAsync(Guid userAId, Guid userBId, CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<ChatSession>()
+                .Include(s => s.Participants)
+                    .ThenInclude(p => p.User)
+                .Where(s => s.SessionType == ChatSessionType.Direct
+                    && s.Status == CommonStatus.Active
+                    && s.Participants.Any(p => p.UserId == userAId)
+                    && s.Participants.Any(p => p.UserId == userBId))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<List<ChatSession>> GetDirectSessionsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<ChatSession>()
+                .Include(s => s.Participants)
+                    .ThenInclude(p => p.User)
+                .Include(s => s.Messages.Where(m => !m.IsDeleted).OrderByDescending(m => m.CreatedAt).Take(1))
+                .Where(s => s.SessionType == ChatSessionType.Direct
+                    && s.Status == CommonStatus.Active
                     && s.Participants.Any(p => p.UserId == userId))
                 .OrderByDescending(s => s.UpdatedAt)
                 .ToListAsync(cancellationToken);

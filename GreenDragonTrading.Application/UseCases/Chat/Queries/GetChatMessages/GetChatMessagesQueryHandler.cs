@@ -40,22 +40,58 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatMessages
                 throw new NotFoundException("Không tìm thấy phiên chat.");
             }
 
-            if (session.SessionType == ChatSessionType.AI && session.CreatedBy != userId)
+            var participant = session.Participants.FirstOrDefault(x => x.UserId == userId.Value);
+            if (participant == null)
             {
-                throw new AccessDeniedException("Bạn không có quyền xem phiên chat này.");
+                if (session.SessionType == ChatSessionType.AI && session.CreatedBy == userId)
+                {
+                    // chổ này vẫn ổn vì chat với Ai chỉ có 1 người tham gia 
+                }
+                else
+                {
+                    throw new AccessDeniedException("Bạn không có quyền xem phiên chat này.");
+                }
+            }
+
+            var lastReadAt = participant?.LastReadAt;
+
+            DirectChatParticipantDto? otherParticipant = null;
+            if (session.SessionType == ChatSessionType.Direct)
+            {
+                var other = session.Participants.FirstOrDefault(p => p.UserId != userId.Value);
+                if (other != null)
+                {
+                    otherParticipant = new DirectChatParticipantDto
+                    {
+                        UserId = other.UserId,
+                        Username = other.User?.Username ?? other.UserId.ToString(),
+                        AvatarUrl = other.User?.AvatarUrl
+                    };
+                }
             }
 
             var chatSessionDto = new ChatSessionDetailDto
             {
                 Id = session.Id,
                 Title = session.Title,
+                SessionType = session.SessionType,
                 Summary = session.ConversationSummary,
+                LastReadAt = lastReadAt,
+                LastReadMessageId = participant?.LastReadMessageId,
+                OtherParticipant = otherParticipant,
                 Messages = session.Messages
                     .OrderBy(m => m.CreatedAt)
                     .Select(m => new ChatMessageSimpleDto
                     {
+                        Id = m.Id,
                         Role = m.SenderId == null ? "ai" : "user",
-                        Content = m.Content
+                        SenderId = m.SenderId,
+                        SenderName = m.Sender?.Username,
+                        Content = m.Content,
+                        CreatedAt = m.CreatedAt,
+                        IsUnreadForCurrentUser =
+                            m.SenderId != userId
+                            && (!lastReadAt.HasValue || m.CreatedAt > lastReadAt.Value)
                     })
                     .ToList()
             };
