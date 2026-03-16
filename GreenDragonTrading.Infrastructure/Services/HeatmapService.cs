@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -76,7 +77,7 @@ public class HeatmapService : IHeatmapService
             // Fix #2: Fetch market data from Redis using BATCH operation
             // Reduces 1800 sequential calls to 1 pipeline call
             var marketDataItems = new List<HeatmapItemDto>();
-            var redisKeys = symbols.Select(s => $"MarketData:Symbol:{s.Ticker}").ToList();
+            var redisKeys = symbols.Select(s => RedisConstants.MarketDataSymbol(s.Ticker)).ToList();
             
             var marketDataBatch = await _redisService.GetHashBatchAsync<MarketSymbolDto>(redisKeys);
 
@@ -85,7 +86,7 @@ public class HeatmapService : IHeatmapService
             {
                 try
                 {
-                    var redisKey = $"MarketData:Symbol:{symbol.Ticker}";
+                    var redisKey = RedisConstants.MarketDataSymbol(symbol.Ticker);
                     if (!marketDataBatch.TryGetValue(redisKey, out var marketData) || marketData == null)
                     {
                         continue;

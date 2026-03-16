@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -333,7 +334,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                 {
                     try
                     {
-                        var cacheKeyPattern = $"OHLCV:{candle.Ticker}:*";
+                        var cacheKeyPattern = RedisConstants.OhlcvPattern(candle.Ticker);
                         await redisService.DeleteByPatternAsync(cacheKeyPattern);
                         
                         _logger.LogInformation(
