@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNet.SignalR.Client;
 using Microsoft.AspNet.SignalR.Client.Transports;
+using System.Collections.Concurrent;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
@@ -29,12 +30,18 @@ namespace GreenDragonTrading.Infrastructure.Services
         private HubConnection? _hubConnection;
         private IHubProxy? _hubProxy;
         private Timer? _reconnectTimer;
-        private string? _currentChannel;
+        private Timer? _proactiveReconnectTimer;
+        private readonly SemaphoreSlim _reconnectSemaphore = new(1, 1);
+        private readonly ConcurrentDictionary<string, byte> _subscribedChannels = new(StringComparer.Ordinal);
+        private int _reconnectAttempt;
         private bool _disposed;
 
         private const string HubName = "FcMarketDataV2Hub";
         private const string HubEndpoint = "v2.0/signalr";
         private const int ReconnectDelaySeconds = 3;
+        private const int MaxReconnectDelaySeconds = 120;
+        private const int MaxReconnectJitterMilliseconds = 1000;
+        private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
         /// <inheritdoc/>
         public event Func<string, Task>? OnBroadcastReceived;
@@ -48,6 +55,8 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// <inheritdoc/>
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
+            ThrowIfDisposed();
+
             var accessToken = await _authService.GetAccessTokenAsync(cancellationToken);
             CreateHubConnection(accessToken);
 
@@ -57,17 +66,39 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
 
             _logger.LogInformation("Starting SSI streaming connection...");
-            await _hubConnection.Start(new WebSocketTransport());
-            _logger.LogInformation("SSI streaming connection started successfully.");
+
+            try
+            {
+                // Prefer WebSocket for low-latency realtime streaming.
+                await _hubConnection.Start(new WebSocketTransport());
+                _logger.LogInformation("SSI streaming connection started successfully via WebSocket transport.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "WebSocket transport start failed. Falling back to default SignalR transport negotiation.");
+                await _hubConnection.Start();
+                _logger.LogInformation("SSI streaming connection started successfully via fallback transport.");
+            }
+
+            ScheduleDailyProactiveReconnect();
         }
 
         /// <inheritdoc/>
         public void Stop()
         {
-            if (_hubConnection == null) return;
+            if (_hubConnection == null)
+            {
+                return;
+            }
+
+            _reconnectTimer?.Dispose();
+            _reconnectTimer = null;
+            _proactiveReconnectTimer?.Dispose();
+            _proactiveReconnectTimer = null;
+            Interlocked.Exchange(ref _reconnectAttempt, 0);
 
             _logger.LogInformation("Stopping SSI streaming connection...");
-            _hubConnection.Stop();
+            CleanupHubConnection();
             _logger.LogInformation("SSI streaming connection stopped.");
         }
 
@@ -80,7 +111,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                 return;
             }
 
-            _currentChannel = filterCondition;
+            _subscribedChannels.TryAdd(filterCondition, 0);
 
             if (_hubProxy != null)
             {
@@ -99,6 +130,8 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// <param name="accessToken">The access token for authentication.</param>
         private void CreateHubConnection(string accessToken)
         {
+            CleanupHubConnection();
+
             var url = _options.StreamURL.TrimEnd('/') + "/" + HubEndpoint;
 
             _logger.LogInformation("Creating hub connection to: {Url}", url);
@@ -112,6 +145,34 @@ namespace GreenDragonTrading.Infrastructure.Services
             _hubProxy.On<string>("Broadcast", HandleBroadcast);
             _hubProxy.On<string>("Error", HandleError);
             _hubConnection.StateChanged += HandleStateChanged;
+        }
+
+        /// <summary>
+        /// Stops and disposes the current hub connection and detaches handlers.
+        /// </summary>
+        private void CleanupHubConnection()
+        {
+            if (_hubConnection == null)
+            {
+                _hubProxy = null;
+                return;
+            }
+
+            try
+            {
+                _hubConnection.StateChanged -= HandleStateChanged;
+                _hubConnection.Stop();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Ignoring error while stopping existing hub connection.");
+            }
+            finally
+            {
+                _hubConnection.Dispose();
+                _hubConnection = null;
+                _hubProxy = null;
+            }
         }
 
         /// <summary>
@@ -209,14 +270,32 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// <param name="delaySeconds">The delay in seconds before attempting to reconnect.</param>
         private void ScheduleReconnect(int delaySeconds = ReconnectDelaySeconds)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var attempt = Interlocked.Increment(ref _reconnectAttempt);
+            var exponentialDelaySeconds = (int)Math.Min(
+                MaxReconnectDelaySeconds,
+                ReconnectDelaySeconds * Math.Pow(2, Math.Min(attempt - 1, 10)));
+
+            var forcedDelaySeconds = delaySeconds > 0 ? Math.Min(delaySeconds, MaxReconnectDelaySeconds) : exponentialDelaySeconds;
+            var jitterMilliseconds = Random.Shared.Next(0, MaxReconnectJitterMilliseconds + 1);
+            var dueTime = TimeSpan.FromSeconds(forcedDelaySeconds) + TimeSpan.FromMilliseconds(jitterMilliseconds);
+
             _reconnectTimer?.Dispose();
             _reconnectTimer = new Timer(
-                async _ => await ReconnectAsync(),
+                _ => _ = ReconnectAsync(),
                 null,
-                delaySeconds * 1000,
-                Timeout.Infinite);
+                dueTime,
+                Timeout.InfiniteTimeSpan);
 
-            _logger.LogInformation("Reconnection scheduled in {Seconds} seconds.", delaySeconds);
+            _logger.LogWarning(
+                "Reconnection scheduled in {DelaySeconds}s (+{JitterMs}ms jitter). Attempt #{Attempt}.",
+                forcedDelaySeconds,
+                jitterMilliseconds,
+                attempt);
         }
 
         /// <summary>
@@ -224,16 +303,28 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// </summary>
         private async Task ReconnectAsync()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (!await _reconnectSemaphore.WaitAsync(0))
+            {
+                _logger.LogDebug("Reconnect is already in progress. Skipping duplicate attempt.");
+                return;
+            }
+
             try
             {
                 _logger.LogInformation("Attempting to reconnect to SSI streaming hub...");
 
                 await StartAsync();
 
-                if (!string.IsNullOrEmpty(_currentChannel))
-                {
-                    await SwitchChannelsAsync(_currentChannel);
-                }
+                await ResubscribeAllChannelsAsync();
+
+                _reconnectTimer?.Dispose();
+                _reconnectTimer = null;
+                Interlocked.Exchange(ref _reconnectAttempt, 0);
 
                 _logger.LogInformation("Reconnection successful.");
             }
@@ -242,6 +333,137 @@ namespace GreenDragonTrading.Infrastructure.Services
                 _logger.LogError(ex, "Reconnection failed. Scheduling another attempt...");
                 ScheduleReconnect();
             }
+            finally
+            {
+                _reconnectSemaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Schedules proactive reconnect at 07:00 GMT+7 every day.
+        /// </summary>
+        private void ScheduleDailyProactiveReconnect()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var nowUtc = DateTimeOffset.UtcNow;
+            var nowVn = TimeZoneInfo.ConvertTime(nowUtc, VietnamTimeZone);
+            var nextRunVn = new DateTimeOffset(
+                nowVn.Year,
+                nowVn.Month,
+                nowVn.Day,
+                7,
+                0,
+                0,
+                nowVn.Offset);
+
+            if (nowVn >= nextRunVn)
+            {
+                nextRunVn = nextRunVn.AddDays(1);
+            }
+
+            var dueTime = nextRunVn.ToUniversalTime() - nowUtc;
+            if (dueTime < TimeSpan.Zero)
+            {
+                dueTime = TimeSpan.Zero;
+            }
+
+            _proactiveReconnectTimer?.Dispose();
+            _proactiveReconnectTimer = new Timer(
+                _ => _ = HandleProactiveReconnectTimerAsync(),
+                null,
+                dueTime,
+                Timeout.InfiniteTimeSpan);
+
+            _logger.LogInformation(
+                "Scheduled proactive reconnect at {NextRunVn} (GMT+7), in {DueMinutes:F1} minutes.",
+                nextRunVn,
+                dueTime.TotalMinutes);
+        }
+
+        /// <summary>
+        /// Handles the proactive reconnect timer tick and schedules the next run.
+        /// </summary>
+        private async Task HandleProactiveReconnectTimerAsync()
+        {
+            try
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _logger.LogInformation("Running proactive reconnect at scheduled 07:00 GMT+7 window.");
+                await ReconnectAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Proactive reconnect execution failed.");
+            }
+            finally
+            {
+                ScheduleDailyProactiveReconnect();
+            }
+        }
+
+        /// <summary>
+        /// Resolves Vietnam time zone across Windows and Linux runtimes.
+        /// </summary>
+        private static TimeZoneInfo ResolveVietnamTimeZone()
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+            }
+        }
+
+        /// <summary>
+        /// Re-subscribes all channels that were requested before disconnection.
+        /// </summary>
+        private async Task ResubscribeAllChannelsAsync()
+        {
+            if (_hubProxy == null)
+            {
+                _logger.LogWarning("Cannot re-subscribe channels: HubProxy is not initialized.");
+                return;
+            }
+
+            var channels = _subscribedChannels.Keys.ToArray();
+            if (channels.Length == 0)
+            {
+                _logger.LogInformation("No channels to re-subscribe after reconnect.");
+                return;
+            }
+
+            foreach (var channel in channels)
+            {
+                try
+                {
+                    _logger.LogInformation("Re-subscribing channel after reconnect: {Channel}", channel);
+                    await _hubProxy.Invoke("SwitchChannels", channel);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to re-subscribe channel {Channel}.", channel);
+                }
+            }
+
+            _logger.LogInformation("Re-subscribed {Count} channels after reconnect.", channels.Length);
+        }
+
+        /// <summary>
+        /// Throws if this service has already been disposed.
+        /// </summary>
+        private void ThrowIfDisposed()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
         }
 
         /// <summary>
@@ -264,8 +486,9 @@ namespace GreenDragonTrading.Infrastructure.Services
             if (disposing)
             {
                 _reconnectTimer?.Dispose();
-                _hubConnection?.Stop();
-                _hubConnection?.Dispose();
+                _proactiveReconnectTimer?.Dispose();
+                _reconnectSemaphore.Dispose();
+                CleanupHubConnection();
             }
 
             _disposed = true;

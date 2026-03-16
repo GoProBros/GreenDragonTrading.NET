@@ -5,6 +5,12 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
+    public sealed record RedisHashFieldsWrite(string Key, Dictionary<string, object> FieldValues);
+
+    public sealed record RedisStringWrite(string Key, object Value, TimeSpan? Expiry = null);
+
+    public sealed record RedisListPushTrimWrite(string Key, object Value, int MaxLength);
+
     /// <inheritdoc/>
     public class RedisService(IConnectionMultiplexer redis) : IRedisService
     {
@@ -105,6 +111,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             if (fieldValues == null || fieldValues.Count == 0)
                 return;
 
+            // Handle legacy keys that were previously stored as string/list/set.
+            // If key type is not hash, remove it so hash write can proceed.
+            var keyType = await _db.KeyTypeAsync(key);
+            if (keyType != RedisType.None && keyType != RedisType.Hash)
+            {
+                await _db.KeyDeleteAsync(key);
+            }
+
             var hashEntries = fieldValues.Select(kvp =>
             {
                 string stringValue = kvp.Value is string s
@@ -113,7 +127,16 @@ namespace GreenDragonTrading.Infrastructure.Services
                 return new HashEntry(kvp.Key, stringValue);
             }).ToArray();
 
-            await _db.HashSetAsync(key, hashEntries);
+            try
+            {
+                await _db.HashSetAsync(key, hashEntries);
+            }
+            catch (RedisServerException ex) when (ex.Message.StartsWith("WRONGTYPE", StringComparison.OrdinalIgnoreCase))
+            {
+                // Rare race: key type changed between KeyTypeAsync and HashSetAsync.
+                await _db.KeyDeleteAsync(key);
+                await _db.HashSetAsync(key, hashEntries);
+            }
         }
 
         /// <inheritdoc/>
@@ -266,6 +289,75 @@ namespace GreenDragonTrading.Infrastructure.Services
                 .Select(v => JsonSerializer.Deserialize<T>(v!, _jsonOptions)!)
                 .Where(v => v != null)
                 .ToList();
+        }
+
+        /// <summary>
+        /// Executes a mixed Redis write batch in a single pipeline flush.
+        /// </summary>
+        public async Task ExecuteBatchedWritesAsync(
+            IReadOnlyCollection<RedisHashFieldsWrite>? hashWrites,
+            IReadOnlyCollection<RedisStringWrite>? stringWrites,
+            IReadOnlyCollection<RedisListPushTrimWrite>? listWrites)
+        {
+            if ((hashWrites == null || hashWrites.Count == 0)
+                && (stringWrites == null || stringWrites.Count == 0)
+                && (listWrites == null || listWrites.Count == 0))
+            {
+                return;
+            }
+
+            var batch = _db.CreateBatch();
+            var tasks = new List<Task>();
+
+            if (hashWrites != null)
+            {
+                foreach (var write in hashWrites)
+                {
+                    if (write.FieldValues.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var hashEntries = write.FieldValues.Select(kvp =>
+                    {
+                        string stringValue = kvp.Value is string s
+                            ? s
+                            : JsonSerializer.Serialize(kvp.Value, _jsonOptions);
+                        return new HashEntry(kvp.Key, stringValue);
+                    }).ToArray();
+
+                    tasks.Add(batch.HashSetAsync(write.Key, hashEntries));
+                }
+            }
+
+            if (stringWrites != null)
+            {
+                foreach (var write in stringWrites)
+                {
+                    var payload = JsonSerializer.Serialize(write.Value, _jsonOptions);
+                    if (write.Expiry.HasValue)
+                    {
+                        tasks.Add(batch.StringSetAsync(write.Key, payload, write.Expiry.Value));
+                    }
+                    else
+                    {
+                        tasks.Add(batch.StringSetAsync(write.Key, payload));
+                    }
+                }
+            }
+
+            if (listWrites != null)
+            {
+                foreach (var write in listWrites)
+                {
+                    var payload = JsonSerializer.Serialize(write.Value, _jsonOptions);
+                    tasks.Add(batch.ListLeftPushAsync(write.Key, payload));
+                    tasks.Add(batch.ListTrimAsync(write.Key, 0, write.MaxLength - 1));
+                }
+            }
+
+            batch.Execute();
+            await Task.WhenAll(tasks);
         }
     }
 }
