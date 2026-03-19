@@ -55,5 +55,13 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="depth">Price depth data</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastPriceDepthAsync(PriceDepthDto depth, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast a live market index snapshot to clients subscribed to INDEX:{code} group.
+        /// Event name: ReceiveIndexData
+        /// </summary>
+        /// <param name="data">Live index snapshot</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastIndexDataAsync(LiveIndexDataDto data, CancellationToken cancellationToken = default);
     }
 }

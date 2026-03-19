@@ -17,6 +17,9 @@
         public const string SIGNALR_GROUP_PREFIX_DEPTH = "DEPTH";
         public const string HEATMAP_GROUP_ALL = "HEATMAP:ALL";
 
+        public const string REDIS_KEY_PREFIX_INDEX_DATA = "INDEX";
+        public const string SIGNALR_GROUP_PREFIX_INDEX = "INDEX";
+
         public static string MarketDataSymbol(string ticker)
             => $"{REDIS_KEY_PREFIX_MARKET_DATA}:{ticker.ToUpperInvariant()}";
 
@@ -52,5 +55,17 @@
 
         public static string Indicators(string ticker, string timeframe)
             => $"{REDIS_KEY_PREFIX_INDICATORS}:{ticker.ToUpperInvariant()}:{timeframe.ToUpperInvariant()}";
+
+        /// <summary>Redis hash key for a live market index snapshot.</summary>
+        public static string IndexData(string code)
+            => $"{REDIS_KEY_PREFIX_INDEX_DATA}:{code.ToUpperInvariant()}";
+
+        /// <summary>Redis list key for intraday price history of a market index.</summary>
+        public static string IndexIntraday(string code)
+            => $"{REDIS_KEY_PREFIX_INDEX_DATA}:INTRADAY:{code.ToUpperInvariant()}";
+
+        /// <summary>SignalR group name clients subscribe to for live index broadcasts.</summary>
+        public static string IndexSignalRGroup(string code)
+            => $"{SIGNALR_GROUP_PREFIX_INDEX}:{code.ToUpperInvariant()}";
     }
 }

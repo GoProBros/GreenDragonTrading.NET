@@ -21,6 +21,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         private readonly Dictionary<string, HeatmapItemDto> _pendingHeatmapBroadcasts = new(StringComparer.Ordinal);
         private readonly Dictionary<string, CurrentCandleDto> _pendingOhlcvBroadcasts = new(StringComparer.Ordinal);
         private readonly List<RecentTradeDto> _pendingTradeBroadcasts = [];
+        private readonly Dictionary<string, LiveIndexDataDto> _pendingIndexBroadcasts = new(StringComparer.Ordinal);
 
         private static readonly TimeSpan BatchInterval = TimeSpan.FromMilliseconds(100);
 
@@ -124,6 +125,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     Dictionary<string, HeatmapItemDto> heatmapBatch;
                     Dictionary<string, CurrentCandleDto> ohlcvBatch;
                     List<RecentTradeDto> tradeBatch;
+                    Dictionary<string, LiveIndexDataDto> indexBatch;
 
                     lock (_batchLock)
                     {
@@ -131,7 +133,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                             && _pendingDepthBroadcasts.Count == 0
                             && _pendingHeatmapBroadcasts.Count == 0
                             && _pendingOhlcvBroadcasts.Count == 0
-                            && _pendingTradeBroadcasts.Count == 0)
+                            && _pendingTradeBroadcasts.Count == 0
+                            && _pendingIndexBroadcasts.Count == 0)
                         {
                             continue;
                         }
@@ -144,12 +147,14 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                         heatmapBatch = new Dictionary<string, HeatmapItemDto>(_pendingHeatmapBroadcasts, StringComparer.Ordinal);
                         ohlcvBatch = new Dictionary<string, CurrentCandleDto>(_pendingOhlcvBroadcasts, StringComparer.Ordinal);
                         tradeBatch = [.. _pendingTradeBroadcasts];
+                        indexBatch = new Dictionary<string, LiveIndexDataDto>(_pendingIndexBroadcasts, StringComparer.Ordinal);
 
                         _pendingMarketBroadcasts.Clear();
                         _pendingDepthBroadcasts.Clear();
                         _pendingHeatmapBroadcasts.Clear();
                         _pendingOhlcvBroadcasts.Clear();
                         _pendingTradeBroadcasts.Clear();
+                        _pendingIndexBroadcasts.Clear();
                     }
 
                     foreach (var item in marketBatch)
@@ -185,6 +190,13 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                         await SafeBroadcastAsync(
                             () => _broadcaster.BroadcastTradeAsync(item),
                             $"trade for {item.Ticker}");
+                    }
+
+                    foreach (var item in indexBatch.Values)
+                    {
+                        await SafeBroadcastAsync(
+                            () => _broadcaster.BroadcastIndexDataAsync(item),
+                            $"index data for {item.Code}");
                     }
                 }
                 catch (OperationCanceledException)
@@ -363,6 +375,18 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             lock (_batchLock)
             {
                 _pendingTradeBroadcasts.Add(trade);
+            }
+        }
+
+        /// <summary>
+        /// Queues latest index snapshot per code for broadcasting; latest value wins within batch window.
+        /// </summary>
+        /// <param name="data">Live index snapshot payload.</param>
+        private void QueueIndexBroadcast(LiveIndexDataDto data)
+        {
+            lock (_batchLock)
+            {
+                _pendingIndexBroadcasts[data.Code] = data;
             }
         }
 
