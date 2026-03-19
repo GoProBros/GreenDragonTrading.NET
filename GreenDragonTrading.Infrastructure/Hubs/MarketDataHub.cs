@@ -492,6 +492,66 @@ namespace GreenDragonTrading.Infrastructure.Hubs
         }
 
         /// <summary>
+        /// Subscribe to real-time market index updates (VNINDEX, VN30, HNX30, …).
+        /// Joins the client to INDEX:{CODE} groups and immediately sends cached snapshots for each code.
+        /// </summary>
+        /// <param name="codes">Array of index codes (e.g. ["VNINDEX", "VN30"]).</param>
+        public async Task SubscribeToIndices(string[] codes)
+        {
+            if (codes == null || codes.Length == 0) return;
+
+            foreach (var rawCode in codes)
+            {
+                if (string.IsNullOrWhiteSpace(rawCode)) continue;
+
+                var upper = rawCode.ToUpperInvariant();
+                var groupName = RedisConstants.IndexSignalRGroup(upper);
+                await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+                // Send current cached snapshot immediately so the client does not have to wait
+                try
+                {
+                    var redisKey = RedisConstants.IndexData(upper);
+                    var snapshot = await _redisService.GetAsync<LiveIndexDataDto>(redisKey);
+                    if (snapshot != null)
+                    {
+                        await Clients.Caller.SendAsync("ReceiveIndexData", snapshot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send initial index snapshot for {Code}", upper);
+                }
+            }
+
+            _logger.LogInformation("Client {ConnectionId} subscribed to indices: {Codes}",
+                Context.ConnectionId,
+                string.Join(", ", codes.Select(c => c.ToUpperInvariant())));
+        }
+
+        /// <summary>
+        /// Unsubscribe from market index updates.
+        /// </summary>
+        /// <param name="codes">Array of index codes to unsubscribe from.</param>
+        public async Task UnsubscribeFromIndices(string[] codes)
+        {
+            if (codes == null || codes.Length == 0) return;
+
+            foreach (var rawCode in codes)
+            {
+                if (string.IsNullOrWhiteSpace(rawCode)) continue;
+
+                var upper = rawCode.ToUpperInvariant();
+                var groupName = RedisConstants.IndexSignalRGroup(upper);
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+            }
+
+            _logger.LogInformation("Client {ConnectionId} unsubscribed from indices: {Codes}",
+                Context.ConnectionId,
+                string.Join(", ", codes.Select(c => c.ToUpperInvariant())));
+        }
+
+        /// <summary>
         /// Builds a PriceDepthDto from a MarketSymbolDto by calculating per-level changes.
         /// </summary>
         private static PriceDepthDto BuildPriceDepthDto(string ticker, MarketSymbolDto d)

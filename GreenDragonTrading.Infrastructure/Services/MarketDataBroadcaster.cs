@@ -193,6 +193,21 @@ namespace GreenDragonTrading.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error broadcasting chat message to user {UserId}", userId);
+        public async Task BroadcastIndexDataAsync(LiveIndexDataDto data, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var groupName = RedisConstants.IndexSignalRGroup(data.Code);
+                await _hubContext.Clients
+                    .Group(groupName)
+                    .SendAsync("ReceiveIndexData", data, cancellationToken);
+
+                _logger.LogDebug("Broadcasted index data for {Code}: {IndexValue} ({RatioChange:+0.00;-0.00}%)",
+                    data.Code, data.IndexValue, data.RatioChange);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting index data for {Code}", data.Code);
                 throw;
             }
         }

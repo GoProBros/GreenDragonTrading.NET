@@ -86,8 +86,9 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             await _streamingService.StartAsync(stoppingToken);
 
             IEnumerable<string> tickers = [];
+            IEnumerable<string> indexCodes = [];
 
-            // Retrieve all tickers from the database
+            // Retrieve all tickers and index codes from the database
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var _uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
@@ -95,7 +96,23 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 
                 // Initialize symbol metadata cache
                 await InitializeSymbolCacheAsync(_uow, stoppingToken);
+
+                // Initialize index name cache
+                await InitializeIndexCacheAsync(_uow, stoppingToken);
             }
+
+            // Hardcoded list of all SSI market index codes to subscribe to MI channel
+            indexCodes = new[]
+            {
+                "HNX30", "HNXINDEX", "HNXUPCOMINDEX",
+                "VN100", "VN30", "VNALL",
+                "VNCOND", "VNCONS", "VNDIAMOND",
+                "VNENE", "VNFIN", "VNFINLEAD", "VNFINSELECT",
+                "VNHEAL", "VNIND", "VNINDEX", "VNIT",
+                "VNMAT", "VNMID", "VNREAL", "VNSI",
+                "VNSML", "VNUTI", "VNX50", "VNXALL"
+            };
+
             string tickersString = string.Join("-", tickers);
 
             // Subscribe to X-TRADE channel for all tickers
@@ -113,6 +130,20 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             string ohlcvFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_B}:{tickersString}";
             _logger.LogInformation("Subscribing to OHLCV (Channel B) for {Count} symbols", tickers.Count());
             await _streamingService.SwitchChannelsAsync(ohlcvFilter);
+
+            // Subscribe to Channel MI: Realtime market index data
+            if (indexCodes.Any())
+            {
+                string indexCodesString = string.Join("-", indexCodes);
+                string indexFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_MI}:{indexCodesString}";
+                _logger.LogInformation("Subscribing to Market Index (Channel MI) for {Count} indices: {Codes}",
+                    indexCodes.Count(), indexCodesString);
+                await _streamingService.SwitchChannelsAsync(indexFilter);
+            }
+            else
+            {
+                _logger.LogWarning("No market index codes configured – skipping MI channel subscription");
+            }
 
             // Start batched Redis write loop (100ms)
             _ = Task.Run(() => ProcessRedisWriteBatchAsync(stoppingToken), stoppingToken);

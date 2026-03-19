@@ -73,5 +73,11 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="payload">Chat message payload</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastChatMessageAsync(Guid userId, object payload, CancellationToken cancellationToken = default);
+        /// Broadcast a live market index snapshot to clients subscribed to INDEX:{code} group.
+        /// Event name: ReceiveIndexData
+        /// </summary>
+        /// <param name="data">Live index snapshot</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastIndexDataAsync(LiveIndexDataDto data, CancellationToken cancellationToken = default);
     }
 }
