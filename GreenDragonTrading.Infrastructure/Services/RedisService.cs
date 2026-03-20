@@ -291,6 +291,28 @@ namespace GreenDragonTrading.Infrastructure.Services
                 .ToList();
         }
 
+        /// <inheritdoc/>
+        public async Task<bool> SortedSetAddAsync(string key, string member, double score)
+        {
+            return await _db.SortedSetAddAsync(key, member, score);
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> SortedSetRemoveAsync(string key, string member)
+        {
+            return await _db.SortedSetRemoveAsync(key, member);
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<string>> SortedSetRangeByScoreAsync(string key, double start, double stop)
+        {
+            var values = await _db.SortedSetRangeByScoreAsync(key, start, stop);
+            return values
+                .Where(v => !v.IsNullOrEmpty)
+                .Select(v => v.ToString())
+                .ToList();
+        }
+
         /// <summary>
         /// Executes a mixed Redis write batch in a single pipeline flush.
         /// </summary>

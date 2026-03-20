@@ -2,6 +2,7 @@
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Interfaces;
 using GreenDragonTrading.Infrastructure.BackgroundWorkers;
+using GreenDragonTrading.Infrastructure.Hubs;
 using GreenDragonTrading.Infrastructure.Persistence;
 using GreenDragonTrading.Infrastructure.Persistence.Repositories;
 using GreenDragonTrading.Infrastructure.Services;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.SignalR;
 using StackExchange.Redis;
 using System.Text;
 
@@ -47,6 +49,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
+            services.AddSingleton<IUserIdProvider, MarketDataUserIdProvider>();
             services.AddScoped<IHeatmapService, HeatmapService>();
 
             // Register JWT Service
@@ -171,6 +174,23 @@ namespace GreenDragonTrading.Infrastructure
                         ValidAudience = jwtOptions.Audience,
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
                         ClockSkew = TimeSpan.Zero
+                    };
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            var accessToken = context.Request.Query["access_token"];
+                            var path = context.HttpContext.Request.Path;
+
+                            if (!string.IsNullOrEmpty(accessToken)
+                                && path.StartsWithSegments("/hubs/marketdata"))
+                            {
+                                context.Token = accessToken;
+                            }
+
+                            return Task.CompletedTask;
+                        }
                     };
                 });
             }

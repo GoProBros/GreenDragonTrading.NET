@@ -78,5 +78,20 @@
         /// Get the first <paramref name="count"/> items from a Redis list.
         /// </summary>
         Task<List<T>> ListRangeAsync<T>(string key, int count);
+
+        /// <summary>
+        /// Add or update one member in a Redis sorted set.
+        /// </summary>
+        Task<bool> SortedSetAddAsync(string key, string member, double score);
+
+        /// <summary>
+        /// Remove one member from a Redis sorted set.
+        /// </summary>
+        Task<bool> SortedSetRemoveAsync(string key, string member);
+
+        /// <summary>
+        /// Get sorted-set members by score range, equivalent to ZRANGEBYSCORE.
+        /// </summary>
+        Task<List<string>> SortedSetRangeByScoreAsync(string key, double start, double stop);
     }
 }
