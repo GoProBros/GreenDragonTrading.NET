@@ -5,10 +5,12 @@ using GreenDragonTrading.Application.UseCases.Chat.Commands.GetOrCreateDirectSes
 using GreenDragonTrading.Application.UseCases.Chat.Commands.MarkSessionAsRead;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendDirectMessage;
+using GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotification;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SummarizeSession;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatMessages;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSessions;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetDirectChatSessions;
+using GreenDragonTrading.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -180,6 +182,24 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var command = new SendDirectMessageCommand(sessionId, request.Content);
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Sends a system notification to a user. Each user has exactly one System chat session.
+        /// If the session does not exist yet, it is created automatically.
+        /// </summary>
+        /// <param name="request">Target user and notification message</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>Notification message metadata with system session id</returns>
+        [HttpPost("system-notifications")]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
+        public async Task<ActionResult<ApiResponse<SendSystemNotificationResponseDto>>> SendSystemNotification(
+            [FromBody] SendSystemNotificationRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            var command = new SendSystemNotificationCommand(request.UserId, request.SendToAll, request.Message);
             var result = await _mediator.Send(command, cancellationToken);
             return result;
         }

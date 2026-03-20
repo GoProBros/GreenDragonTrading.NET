@@ -1,4 +1,6 @@
-﻿namespace GreenDragonTrading.Domain.Constants
+﻿using GreenDragonTrading.Domain.Enums;
+
+namespace GreenDragonTrading.Domain.Constants
 {
     public static class RedisConstants
     {
@@ -11,6 +13,8 @@
         public const string REDIS_KEY_PREFIX_HEATMAP = "HEATMAP";
         public const string REDIS_KEY_PREFIX_TRADES = "TRADES";
         public const string REDIS_KEY_PREFIX_INDICATORS = "INDICATORS";
+        public const string REDIS_KEY_PREFIX_ALERTS_ABOVE = "alerts:above";
+        public const string REDIS_KEY_PREFIX_ALERTS_BELOW = "alerts:below";
 
         public const string SIGNALR_GROUP_PREFIX_OHLCV = "OHLCV";
         public const string SIGNALR_GROUP_PREFIX_TRADE = "TRADE";
@@ -52,5 +56,14 @@
 
         public static string Indicators(string ticker, string timeframe)
             => $"{REDIS_KEY_PREFIX_INDICATORS}:{ticker.ToUpperInvariant()}:{timeframe.ToUpperInvariant()}";
+
+        public static string AlertsAbove(string ticker)
+            => $"{REDIS_KEY_PREFIX_ALERTS_ABOVE}:{ticker.ToUpperInvariant()}";
+
+        public static string AlertsBelow(string ticker)
+            => $"{REDIS_KEY_PREFIX_ALERTS_BELOW}:{ticker.ToUpperInvariant()}";
+
+        public static string AlertsByTypeAndCondition(string ticker, AlertType type, ConditionType condition)
+            => $"alerts:{ticker.ToUpperInvariant()}:{(short)type}:{(short)condition}";
     }
 }

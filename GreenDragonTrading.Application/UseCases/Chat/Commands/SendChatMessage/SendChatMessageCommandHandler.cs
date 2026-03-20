@@ -56,6 +56,11 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 throw new BusinessRuleException("Phiên chat đã bị đóng.");
             }
 
+            if (session.SessionType == ChatSessionType.System)
+            {
+                throw new BusinessRuleException("Không thể gửi tin nhắn người dùng vào phiên System.");
+            }
+
             var isParticipant = await _uow.ChatParticipants.IsUserParticipantAsync(
                 request.SessionId, userId.Value, cancellationToken);
             if (!isParticipant)

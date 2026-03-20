@@ -55,5 +55,23 @@ namespace GreenDragonTrading.Application.Interfaces
         /// <param name="depth">Price depth data</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task BroadcastPriceDepthAsync(PriceDepthDto depth, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast alert trigger notification to clients subscribed to the symbol group.
+        /// Event name: ReceiveAlertTriggered
+        /// </summary>
+        /// <param name="ticker">Stock ticker</param>
+        /// <param name="payload">Alert payload</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastAlertTriggeredAsync(string ticker, object payload, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Broadcast a new chat message to a specific authenticated user.
+        /// Event name: ReceiveChatMessage
+        /// </summary>
+        /// <param name="userId">Target user id</param>
+        /// <param name="payload">Chat message payload</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task BroadcastChatMessageAsync(Guid userId, object payload, CancellationToken cancellationToken = default);
     }
 }

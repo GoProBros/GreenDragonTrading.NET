@@ -20,6 +20,7 @@
         IChatSessionRepository ChatSessions { get; }
         IChatMessageRepository ChatMessages { get; }
         IChatParticipantRepository ChatParticipants { get; }
+        IAlertRepository Alerts { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);
