@@ -28,6 +28,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
         public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
         public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
+        public DbSet<Alert> Alerts => Set<Alert>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

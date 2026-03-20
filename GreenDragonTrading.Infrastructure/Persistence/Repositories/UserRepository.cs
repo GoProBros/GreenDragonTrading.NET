@@ -31,5 +31,13 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                     u => u.Email.ToLower() == trimmed.ToLower() || u.PhoneNumber == trimmed,
                     cancellationToken);
         }
+
+        public async Task<List<User>> GetActiveUsersAsync(CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Where(u => u.Status == Domain.Enums.CommonStatus.Active)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

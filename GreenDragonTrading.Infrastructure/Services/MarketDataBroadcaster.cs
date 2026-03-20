@@ -161,6 +161,42 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
         }
 
+        /// <inheritdoc/>
+        public async Task BroadcastAlertTriggeredAsync(string ticker, object payload, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await _hubContext.Clients
+                    .Group(ticker.ToUpperInvariant())
+                    .SendAsync("ReceiveAlertTriggered", payload, cancellationToken);
+
+                _logger.LogDebug("Broadcasted alert trigger for {Ticker}", ticker);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting alert trigger for {Ticker}", ticker);
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task BroadcastChatMessageAsync(Guid userId, object payload, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await _hubContext.Clients
+                    .User(userId.ToString())
+                    .SendAsync("ReceiveChatMessage", payload, cancellationToken);
+
+                _logger.LogDebug("Broadcasted chat message to user {UserId}", userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting chat message to user {UserId}", userId);
+                throw;
+            }
+        }
+
         /// <summary>
         /// Get heatmap group name for SignalR groups
         /// </summary>

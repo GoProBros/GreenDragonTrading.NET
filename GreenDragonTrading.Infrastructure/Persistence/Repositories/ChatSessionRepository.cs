@@ -74,5 +74,16 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .OrderByDescending(s => s.UpdatedAt)
                 .ToListAsync(cancellationToken);
         }
+
+        public async Task<ChatSession?> GetSystemSessionByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<ChatSession>()
+                .Include(s => s.Participants)
+                .Where(s => s.SessionType == ChatSessionType.System
+                    && s.Status == CommonStatus.Active
+                    && s.Participants.Any(p => p.UserId == userId))
+                .OrderByDescending(s => s.UpdatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
     }
 }

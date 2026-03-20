@@ -105,6 +105,19 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 ApplyFieldUpdatesToObject(mergedData, updates);
                 mergedData.Ticker = response.Symbol!;
                 QueuePriceDepthBroadcast(BuildPriceDepthDto(response.Symbol!, mergedData));
+
+                if ((updates.ContainsKey(nameof(MarketSymbolDto.LastPrice))
+                    || updates.ContainsKey(nameof(MarketSymbolDto.TotalVol)))
+                    && response.LastVal.HasValue
+                    && response.LastVal.Value > 0)
+                {
+                    await PublishPriceUpdatedEventAsync(
+                        response.Symbol!,
+                        response.LastVal.Value,
+                        response.RefPrice,
+                        response.TotalVol,
+                        existingData.TotalVol);
+                }
             }
         }
 
@@ -156,6 +169,15 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             await CreateInitialHeatmapRedisAsync(redis, response.Symbol!, newData);
             QueueMarketBroadcast(response.Symbol!, newData);
             QueuePriceDepthBroadcast(BuildPriceDepthDto(response.Symbol!, newData));
+            if (response.LastVal.HasValue && response.LastVal.Value > 0)
+            {
+                await PublishPriceUpdatedEventAsync(
+                    response.Symbol!,
+                    response.LastVal.Value,
+                    response.RefPrice,
+                    response.TotalVol,
+                    null);
+            }
         }
 
         /// <summary>

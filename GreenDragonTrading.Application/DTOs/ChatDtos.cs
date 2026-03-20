@@ -149,4 +149,24 @@ namespace GreenDragonTrading.Application.DTOs
         public int LastSummaryMessageId { get; set; }
         public int ProcessedMessages { get; set; }
     }
+
+    public class SendSystemNotificationRequestDto
+    {
+        public Guid? UserId { get; set; }
+        public bool SendToAll { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class SendSystemNotificationResponseDto
+    {
+        public int? SessionId { get; set; }
+        public int? MessageId { get; set; }
+        public Guid? UserId { get; set; }
+        public bool SentToAll { get; set; }
+        public int SentCount { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public ChatMessageType MessageType { get; set; }
+        public ChatSessionType SessionType { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+    }
 }

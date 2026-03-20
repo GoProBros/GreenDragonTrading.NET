@@ -1,4 +1,8 @@
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.Alerts.Events;
+using MediatR;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 {
@@ -95,6 +99,39 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             if (!string.Equals(valueToCompare, existingValue, StringComparison.Ordinal))
             {
                 updates[fieldName] = valueToCompare;
+            }
+        }
+
+        /// <summary>
+        /// Publishes a price update notification for the current ticker.
+        /// </summary>
+        private async Task PublishPriceUpdatedEventAsync(
+            string ticker,
+            double price,
+            double? referencePrice = null,
+            double? currentVolume = null,
+            double? previousVolume = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(ticker) || price <= 0)
+            {
+                return;
+            }
+
+            try
+            {
+                using var scope = _serviceScopeFactory.CreateScope();
+                var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+                await mediator.Publish(new PriceUpdatedEvent(
+                    ticker.ToUpperInvariant(),
+                    Convert.ToDecimal(price),
+                    referencePrice.HasValue ? Convert.ToDecimal(referencePrice.Value) : null,
+                    currentVolume.HasValue ? Convert.ToDecimal(currentVolume.Value) : null,
+                    previousVolume.HasValue ? Convert.ToDecimal(previousVolume.Value) : null), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to publish PriceUpdatedEvent for {Ticker}", ticker);
             }
         }
     }
