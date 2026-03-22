@@ -34,6 +34,7 @@ public class UpdateLayoutCommandHandler : IRequestHandler<UpdateLayoutCommand, A
         CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetRequiredUserId();
+        var isAdminOrStaff = _currentUserService.IsAdminOrStaff;
 
         var layout = await _uow.ModuleLayouts.GetByIdAsync(request.Id, cancellationToken);
         if (layout == null)
@@ -41,16 +42,12 @@ public class UpdateLayoutCommandHandler : IRequestHandler<UpdateLayoutCommand, A
             throw new NotFoundException("Layout không tồn tại.");
         }
 
-        // Check permission (only owner can update)
-        if (layout.UserId.HasValue && layout.UserId.Value != userId)
+        // User can update only own layout.
+        // Admin/Staff can update own layout and system layout (UserId == null).
+        var canUpdate = layout.UserId == userId || (isAdminOrStaff && layout.UserId == null);
+        if (!canUpdate)
         {
             throw new AccessDeniedException("Bạn không có quyền cập nhật layout này.");
-        }
-
-        // Cannot update system layout
-        if (layout.IsSystemDefault && layout.UserId == null)
-        {
-            throw new AccessDeniedException("Không thể cập nhật layout hệ thống.");
         }
 
         // Update fields
