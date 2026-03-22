@@ -2,6 +2,7 @@ using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateSubscription;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySubscription;
+using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubscriptionStatistics;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubscriptions;
 using GreenDragonTrading.Domain.Enums;
 using MediatR;
@@ -41,6 +42,20 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new GetMySubscriptionQuery(), cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get user/subscription/revenue statistics for admin dashboard.
+        /// If <paramref name="year"/> is null, current year is used for monthly metrics.
+        /// </summary>
+        [HttpGet("statistics")]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
+        public async Task<ActionResult<ApiResponse<SubscriptionStatisticsDto>>> GetStatistics(
+            [FromQuery] int? year,
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new GetSubscriptionStatisticsQuery(year), cancellationToken);
             return Ok(result);
         }
 
