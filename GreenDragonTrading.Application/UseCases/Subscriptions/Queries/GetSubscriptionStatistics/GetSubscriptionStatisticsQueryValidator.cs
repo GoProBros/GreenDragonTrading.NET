@@ -9,9 +9,5 @@ public class GetSubscriptionStatisticsQueryValidator : AbstractValidator<GetSubs
 {
     public GetSubscriptionStatisticsQueryValidator()
     {
-        RuleFor(x => x.Year)
-            .InclusiveBetween(2000, 2100)
-            .When(x => x.Year.HasValue)
-            .WithMessage("Năm phải nằm trong khoảng từ 2000 đến 2100.");
     }
 }

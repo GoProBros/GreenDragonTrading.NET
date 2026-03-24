@@ -27,8 +27,16 @@ public class GetSubscriptionStatisticsQueryHandler : IRequestHandler<GetSubscrip
         GetSubscriptionStatisticsQuery request,
         CancellationToken cancellationToken)
     {
-        var year = request.Year ?? DateTimeOffset.UtcNow.Year;
         var now = DateTimeOffset.UtcNow;
+        var firstMonthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(-11);
+        var previousMonthStart = firstMonthStart.AddMonths(-1);
+        var monthStarts = Enumerable.Range(0, 12)
+            .Select(offset => firstMonthStart.AddMonths(offset))
+            .ToList();
+        var monthKeys = monthStarts
+            .Select(start => $"{start.Year:D4}-{start.Month:D2}")
+            .ToList();
+        var lastMonthEndExclusive = firstMonthStart.AddMonths(12);
 
         var users = (await _uow.Users.GetAllAsync(cancellationToken)).ToList();
         var subscriptions = (await _uow.Subscriptions.GetAllAsync(cancellationToken))
@@ -44,17 +52,60 @@ public class GetSubscriptionStatisticsQueryHandler : IRequestHandler<GetSubscrip
             .Where(s => s.LevelOrder != SubscriptionLevel.Free)
             .ToList();
 
-        var newUsersByMonth = Enumerable.Repeat(0, 12).ToList();
-        foreach (var user in endUsers.Where(u => u.CreatedAt.Year == year))
-        {
-            newUsersByMonth[user.CreatedAt.Month - 1]++;
-        }
+        var newUsersByMonthMap = endUsers
+            .Where(u => u.CreatedAt >= firstMonthStart && u.CreatedAt < lastMonthEndExclusive)
+            .GroupBy(u => $"{u.CreatedAt.Year:D4}-{u.CreatedAt.Month:D2}")
+            .ToDictionary(g => g.Key, g => g.Count());
 
-        var revenueByMonth = Enumerable.Repeat(0m, 12).ToList();
-        foreach (var transaction in completedTransactions.Where(t => t.CreatedAt.Year == year))
-        {
-            revenueByMonth[transaction.CreatedAt.Month - 1] += transaction.Amount;
-        }
+        var revenueByMonthMap = completedTransactions
+            .Where(t => t.CreatedAt >= previousMonthStart && t.CreatedAt < lastMonthEndExclusive)
+            .GroupBy(t => $"{t.CreatedAt.Year:D4}-{t.CreatedAt.Month:D2}")
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
+        var newUsersByMonth = monthKeys
+            .Select(key => newUsersByMonthMap.TryGetValue(key, out var count) ? count : 0)
+            .ToList();
+
+        var revenueByMonth = monthKeys
+            .Select(key => revenueByMonthMap.TryGetValue(key, out var amount) ? amount : 0m)
+            .ToList();
+
+        var revenueGrowthPercentageByMonth = Enumerable.Range(0, revenueByMonth.Count)
+            .Select(index =>
+            {
+                var previousRevenue = index == 0
+                    ? (revenueByMonthMap.TryGetValue($"{previousMonthStart.Year:D4}-{previousMonthStart.Month:D2}", out var month13Revenue)
+                        ? month13Revenue
+                        : 0m)
+                    : revenueByMonth[index - 1];
+                var currentRevenue = revenueByMonth[index];
+
+                if (previousRevenue == 0)
+                {
+                    return currentRevenue == 0 ? 0m : 100m;
+                }
+
+                return Math.Round((currentRevenue - previousRevenue) * 100 / previousRevenue, 2);
+            })
+            .ToList();
+
+        var totalRevenue = completedTransactions.Sum(x => x.Amount);
+
+        var revenuePercentageOfTotalByMonth = revenueByMonth
+            .Select(monthRevenue => totalRevenue == 0
+                ? 0m
+                : Math.Round(monthRevenue * 100 / totalRevenue, 2))
+            .ToList();
+
+        var newUsersGrowthPercentageByMonth = newUsersByMonth
+            .Select(newUsers => endUsers.Count == 0
+                ? 0m
+                : Math.Round((decimal)newUsers * 100 / endUsers.Count, 2))
+            .ToList();
+
+        var monthLabels = monthStarts
+            .Select(start => $"{start.Month:D2}/{start.Year}")
+            .ToList();
 
         var activeNowSubscriptions = userSubscriptions
             .Where(x => x.Status == SubscriptionStatus.Active && x.StartDate <= now && x.EndDate >= now)
@@ -106,20 +157,24 @@ public class GetSubscriptionStatisticsQueryHandler : IRequestHandler<GetSubscrip
 
         var result = new SubscriptionStatisticsDto
         {
-            Year = year,
             TotalUsers = endUsers.Count,
             ActiveUsers = endUsers.Count(x => x.Status == CommonStatus.Active),
             InactiveUsers = endUsers.Count(x => x.Status == CommonStatus.InActive),
-            TotalRevenue = completedTransactions.Sum(x => x.Amount),
+            TotalRevenue = totalRevenue,
+            MonthLabels = monthLabels,
             NewUsersByMonth = newUsersByMonth,
             RevenueByMonth = revenueByMonth,
+            RevenueGrowthPercentageByMonth = revenueGrowthPercentageByMonth,
+            RevenuePercentageOfTotalByMonth = revenuePercentageOfTotalByMonth,
+            NewUsersGrowthPercentageByMonth = newUsersGrowthPercentageByMonth,
             CurrentUsersByVipLevel = currentUsersByVipLevel,
             VipPackageUsages = vipPackageUsages
         };
 
         _logger.LogInformation(
-            "Subscription statistics retrieved successfully for year {Year}: TotalUsers={TotalUsers}, TotalRevenue={TotalRevenue}",
-            year,
+            "Subscription statistics retrieved successfully for rolling 12 months from {FromMonth} to {ToMonth}: TotalUsers={TotalUsers}, TotalRevenue={TotalRevenue}",
+            monthLabels.First(),
+            monthLabels.Last(),
             result.TotalUsers,
             result.TotalRevenue);
 

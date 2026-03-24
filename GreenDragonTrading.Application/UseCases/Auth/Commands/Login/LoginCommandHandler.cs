@@ -43,6 +43,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                     throw new NotFoundException("Email không tồn tại.");
                 }
 
+                if (user.Status != CommonStatus.Active)
+                {
+                    throw new BusinessRuleException("Tài khoản đã bị khoá.");
+                }
+
                 if (!BCrypt.Net.BCrypt.Verify(request.Password, user.HashedPassword))
                 {
                     throw new UnauthenticatedException("Mật khẩu không chính xác.");

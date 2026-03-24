@@ -42,9 +42,11 @@ public class UpdateLayoutCommandHandler : IRequestHandler<UpdateLayoutCommand, A
             throw new NotFoundException("Layout không tồn tại.");
         }
 
-        // User can update only own layout.
-        // Admin/Staff can update own layout and system layout (UserId == null).
-        var canUpdate = layout.UserId == userId || (isAdminOrStaff && layout.UserId == null);
+        // Owner can update own layout.
+        // Admin/Staff can update default layout.
+        var isOwner = layout.UserId == userId;
+        var canAdminOrStaffUpdate = isAdminOrStaff && layout.IsSystemDefault;
+        var canUpdate = isOwner || canAdminOrStaffUpdate;
         if (!canUpdate)
         {
             throw new AccessDeniedException("Bạn không có quyền cập nhật layout này.");

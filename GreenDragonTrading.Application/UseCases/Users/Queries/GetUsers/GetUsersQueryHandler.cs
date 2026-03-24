@@ -44,6 +44,25 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ApiResponse<P
         {
             users = users.Where(x => x.Role == UserRole.User).ToList();
         }
+        else if (role == nameof(UserRole.Admin))
+        {
+            users = users.Where(x => x.Role == UserRole.User || x.Role == UserRole.Staff).ToList();
+        }
+
+        if (request.Role.HasValue)
+        {
+            users = users.Where(x => x.Role == request.Role.Value).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var keyword = request.Search.Trim();
+            users = users.Where(x =>
+                    x.Username.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                    || x.Email.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                    || x.PhoneNumber.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
 
         var mappedUsers = users
             .OrderByDescending(x => x.CreatedAt)
@@ -72,10 +91,12 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ApiResponse<P
             request.PageSize);
 
         _logger.LogInformation(
-            "Retrieved users page {PageIndex}/{PageSize} for role {Role}, total {TotalCount}",
+            "Retrieved users page {PageIndex}/{PageSize} for role {Role}, filterRole={FilterRole}, search={Search}, total {TotalCount}",
             request.PageIndex,
             request.PageSize,
             role,
+            request.Role,
+            request.Search,
             totalCount);
 
         return ApiResponse<PaginatedResponse<UserManagementListItemDto>>.Success(

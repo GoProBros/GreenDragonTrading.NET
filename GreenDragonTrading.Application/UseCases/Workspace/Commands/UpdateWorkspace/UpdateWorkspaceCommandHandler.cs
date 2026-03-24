@@ -37,7 +37,10 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
             }
 
             var userId = _currentUserService.GetRequiredUserId();
-            if (workspace.UserId != userId)
+            var isAdminOrStaff = _currentUserService.IsAdminOrStaff;
+            var isOwner = workspace.UserId == userId;
+            var canAdminOrStaffUpdate = isAdminOrStaff && workspace.IsDefault;
+            if (!isOwner && !canAdminOrStaffUpdate)
             {
                 throw new AccessDeniedException("Bạn không có quyền cập nhật workspace này.");
             }

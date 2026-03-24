@@ -7,13 +7,16 @@ namespace GreenDragonTrading.Application.DTOs;
 /// </summary>
 public class SubscriptionStatisticsDto
 {
-    public int Year { get; set; }
     public int TotalUsers { get; set; }
     public int ActiveUsers { get; set; }
     public int InactiveUsers { get; set; }
     public decimal TotalRevenue { get; set; }
+    public List<string> MonthLabels { get; set; } = new();
     public List<int> NewUsersByMonth { get; set; } = new();
     public List<decimal> RevenueByMonth { get; set; } = new();
+    public List<decimal> RevenueGrowthPercentageByMonth { get; set; } = new();
+    public List<decimal> RevenuePercentageOfTotalByMonth { get; set; } = new();
+    public List<decimal> NewUsersGrowthPercentageByMonth { get; set; } = new();
     public List<VipCurrentUserCountDto> CurrentUsersByVipLevel { get; set; } = new();
     public List<VipPackageUsageDto> VipPackageUsages { get; set; } = new();
 }

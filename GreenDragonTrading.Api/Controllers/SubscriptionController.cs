@@ -47,15 +47,14 @@ namespace GreenDragonTrading.Api.Controllers
 
         /// <summary>
         /// Get user/subscription/revenue statistics for admin dashboard.
-        /// If <paramref name="year"/> is null, current year is used for monthly metrics.
+        /// Monthly metrics are calculated for the latest rolling 12 months from current time.
         /// </summary>
         [HttpGet("statistics")]
         [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
         public async Task<ActionResult<ApiResponse<SubscriptionStatisticsDto>>> GetStatistics(
-            [FromQuery] int? year,
             CancellationToken cancellationToken)
         {
-            var result = await _mediator.Send(new GetSubscriptionStatisticsQuery(year), cancellationToken);
+            var result = await _mediator.Send(new GetSubscriptionStatisticsQuery(), cancellationToken);
             return Ok(result);
         }
 
