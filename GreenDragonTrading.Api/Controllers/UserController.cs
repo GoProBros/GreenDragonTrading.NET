@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Users.Commands.CreateStaffUser;
+using GreenDragonTrading.Application.UseCases.Users.Commands.DeactivateUser;
 using GreenDragonTrading.Application.UseCases.Users.Queries.GetUserDetail;
 using GreenDragonTrading.Application.UseCases.Users.Queries.GetUsers;
 using GreenDragonTrading.Domain.Enums;
@@ -24,7 +25,9 @@ public class UserController : ControllerBase
 
     /// <summary>
     /// Get users list for management.
-    /// Admin can get all users. Staff can get only end users.
+    /// Staff can see only User role.
+    /// Admin can see Staff and User roles.
+    /// Supports optional role filter and keyword search by name/email/phone.
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<ApiResponse<PaginatedResponse<UserManagementListItemDto>>>> GetUsers(
@@ -32,6 +35,19 @@ public class UserController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Deactivate a user account (set status to Inactive).
+    /// Allowed for Admin and Staff with role-based visibility rules.
+    /// </summary>
+    [HttpPatch("{id:guid}/deactivate")]
+    public async Task<ActionResult<ApiResponse>> DeactivateUser(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new DeactivateUserCommand(id), cancellationToken);
         return Ok(result);
     }
 

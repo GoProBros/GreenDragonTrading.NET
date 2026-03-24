@@ -1,4 +1,5 @@
 using FluentValidation;
+using GreenDragonTrading.Domain.Enums;
 
 namespace GreenDragonTrading.Application.UseCases.Users.Queries.GetUsers;
 
@@ -17,5 +18,15 @@ public class GetUsersQueryValidator : AbstractValidator<GetUsersQuery>
             .GreaterThan(0)
             .LessThanOrEqualTo(100)
             .WithMessage("PageSize phải trong khoảng từ 1 đến 100.");
+
+        RuleFor(x => x.Role!.Value)
+            .IsInEnum()
+            .When(x => x.Role.HasValue)
+            .WithMessage("Role không hợp lệ.");
+
+        RuleFor(x => x.Search)
+            .MaximumLength(100)
+            .When(x => !string.IsNullOrWhiteSpace(x.Search))
+            .WithMessage("Từ khóa tìm kiếm tối đa 100 ký tự.");
     }
 }
