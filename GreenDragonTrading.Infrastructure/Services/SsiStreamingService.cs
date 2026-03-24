@@ -205,11 +205,35 @@ namespace GreenDragonTrading.Infrastructure.Services
             {
                 _logger.LogWarning("Error received from SSI hub: {Message}", message);
                 OnErrorReceived?.Invoke(message);
+
+                if (ShouldReconnectFromError(message))
+                {
+                    _logger.LogWarning(
+                        "Detected recoverable SSI streaming error pattern (504/timeout). Scheduling proactive reconnect.");
+                    ScheduleReconnect(1);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing error event.");
             }
+        }
+
+        /// <summary>
+        /// Determines whether the SSI error payload indicates a stale/broken connection
+        /// that should trigger an immediate reconnect attempt.
+        /// </summary>
+        private static bool ShouldReconnectFromError(string? message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return false;
+            }
+
+            return message.Contains("504", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("gateway timeout", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("timed out", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
