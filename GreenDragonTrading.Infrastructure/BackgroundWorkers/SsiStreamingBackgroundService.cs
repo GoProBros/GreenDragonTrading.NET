@@ -2,6 +2,7 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Constants.SSI;
 using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -99,19 +100,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 // Initialize index name cache
                 await InitializeIndexCacheAsync(_uow, stoppingToken);
-            }
 
-            // Hardcoded list of all SSI market index codes to subscribe to MI channel
-            indexCodes = new[]
-            {
-                "HNX30", "HNXINDEX", "HNXUPCOMINDEX",
-                "VN100", "VN30", "VNALL",
-                "VNCOND", "VNCONS", "VNDIAMOND",
-                "VNENE", "VNFIN", "VNFINLEAD", "VNFINSELECT",
-                "VNHEAL", "VNIND", "VNINDEX", "VNIT",
-                "VNMAT", "VNMID", "VNREAL", "VNSI",
-                "VNSML", "VNUTI", "VNX50", "VNXALL"
-            };
+                // Load active market index codes from the database
+                indexCodes = _uow.MarketIndices
+                    .GetQueryable()
+                    .Where(i => i.Status == CommonStatus.Active)
+                    .Select(i => i.Code)
+                    .ToList();
+
+                _logger.LogInformation("Loaded {Count} active market index codes from database", indexCodes.Count());
+            }
 
             string tickersString = string.Join("-", tickers);
 
