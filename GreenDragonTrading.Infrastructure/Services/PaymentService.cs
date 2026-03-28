@@ -221,6 +221,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 Amount = transaction.Amount,
                 Status = transaction.Status,
                 StatusName = transaction.Status.GetDisplayName(),
+                PaymentProvider = transaction.PaymentProvider,
+                PaymentProviderName = transaction.PaymentProvider.GetDisplayName(),
                 SubscriptionId = transaction.SubscriptionId,
                 SubscriptionName = transaction.Subscription?.Name ?? "",
                 CreatedAt = transaction.CreatedAt

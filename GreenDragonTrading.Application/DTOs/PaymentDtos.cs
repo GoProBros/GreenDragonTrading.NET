@@ -23,6 +23,8 @@ namespace GreenDragonTrading.Application.DTOs
         public decimal Amount { get; set; }
         public TransactionStatus Status { get; set; }
         public string StatusName { get; set; } = string.Empty;
+        public PaymentType PaymentProvider { get; set; }
+        public string PaymentProviderName { get; set; } = string.Empty;
         public int SubscriptionId { get; set; }
         public string SubscriptionName { get; set; } = string.Empty;
         public DateTimeOffset CreatedAt { get; set; }
