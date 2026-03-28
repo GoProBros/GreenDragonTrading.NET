@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -61,6 +62,29 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Queries.GetPaymentSta
             if (response == null)
             {
                 throw new NotFoundException("Giao dịch không tồn tại.");
+            }
+
+            // If IPN is delayed/missed, automatically sync Momo pending transactions
+            // so frontend only needs to call the status endpoint.
+            if (response.PaymentProvider == PaymentType.Momo
+                && response.Status == TransactionStatus.Pending
+                && DateTimeOffset.UtcNow - response.CreatedAt >= TimeSpan.FromSeconds(10))
+            {
+                _logger.LogInformation(
+                    "Auto syncing pending Momo payment for OrderCode={OrderCode}",
+                    request.OrderCode);
+
+                await _paymentService.SyncMomoPaymentAsync(request.OrderCode, cancellationToken);
+
+                response = await _paymentService.GetPaymentStatusAsync(
+                    request.OrderCode,
+                    tokenInfo.UserId,
+                    cancellationToken);
+
+                if (response == null)
+                {
+                    throw new NotFoundException("Giao dịch không tồn tại.");
+                }
             }
 
             _logger.LogInformation("Payment status retrieved: OrderCode={OrderCode}, Status={Status}", 
