@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.Users.Commands.ActivateUser;
 using GreenDragonTrading.Application.UseCases.Users.Commands.CreateStaffUser;
 using GreenDragonTrading.Application.UseCases.Users.Commands.DeactivateUser;
 using GreenDragonTrading.Application.UseCases.Users.Queries.GetUserDetail;
@@ -39,15 +40,29 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// Deactivate a user account (set status to Inactive).
-    /// Allowed for Admin and Staff with role-based visibility rules.
+    /// Update user account status.
+    /// Admin can update Staff/User. Staff can update User only.
     /// </summary>
-    [HttpPatch("{id:guid}/deactivate")]
-    public async Task<ActionResult<ApiResponse>> DeactivateUser(
+    [HttpPatch("{id:guid}/status")]
+    public async Task<ActionResult<ApiResponse>> UpdateUserStatus(
         [FromRoute] Guid id,
+        [FromBody] UpdateUserStatusRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new DeactivateUserCommand(id), cancellationToken);
+        ApiResponse result;
+        if (request.Status == CommonStatus.Active)
+        {
+            result = await _mediator.Send(new ActivateUserCommand(id), cancellationToken);
+        }
+        else if (request.Status == CommonStatus.InActive)
+        {
+            result = await _mediator.Send(new DeactivateUserCommand(id), cancellationToken);
+        }
+        else
+        {
+            return BadRequest(ApiResponse.Failure("Status không hợp lệ. Chỉ hỗ trợ Active hoặc InActive."));
+        }
+
         return Ok(result);
     }
 
