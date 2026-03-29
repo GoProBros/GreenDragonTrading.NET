@@ -1,6 +1,8 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetIndexConstituents;
+using GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetIntradayIndex;
+using GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetLiveIndices;
 using GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetMarketIndexById;
 using GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetMarketIndices;
 using GreenDragonTrading.Domain.Enums;
@@ -90,6 +92,40 @@ namespace GreenDragonTrading.Api.Controllers
             };
 
             var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Returns live index snapshots from Redis for the requested index codes.
+        /// Data is updated in real-time by the SSI MI streaming channel.
+        /// </summary>
+        /// <param name="codes">One or more index codes (e.g. VNINDEX, VN30). Repeatable query param.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>List of live index snapshots; codes with no cached data are omitted.</returns>
+        [HttpGet("live")]
+        public async Task<ActionResult<ApiResponse<List<LiveIndexDataDto>>>> GetLiveIndices(
+            [FromQuery] string[] codes,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new GetLiveIndicesQuery(codes), cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Returns today's intraday price history for a single market index, ordered chronologically.
+        /// Suitable for rendering sparkline charts in the Index Module.
+        /// </summary>
+        /// <param name="code">Index code (e.g. "VNINDEX").</param>
+        /// <param name="maxPoints">Maximum number of data points to return (default 4000 — full trading day, max 4000).</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>List of time/value pairs in ascending time order.</returns>
+        [HttpGet("{code}/intraday")]
+        public async Task<ActionResult<ApiResponse<List<IndexHistoryPointDto>>>> GetIndexIntraday(
+            string code,
+            [FromQuery] int maxPoints = 4000,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new GetIntradayIndexQuery(code, maxPoints), cancellationToken);
             return Ok(result);
         }
     }

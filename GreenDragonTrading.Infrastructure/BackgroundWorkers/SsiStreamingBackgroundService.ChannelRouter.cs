@@ -42,6 +42,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     var response = JsonSerializer.Deserialize<OhlcvDataResponse>(wrapperResponse.Content!);
                     await HandleOhlcvData(redis, response);
                 }
+                else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_MI))
+                {
+                    _logger.LogInformation("[ChannelRouter] MI broadcast received. Content: {Content}", wrapperResponse.Content);
+                    var response = JsonSerializer.Deserialize<MarketIndexDataResponse>(wrapperResponse.Content!);
+                    HandleIndexData(redis, response);
+                }
+                else
+                {
+                    _logger.LogDebug("[ChannelRouter] Unhandled DataType: {DataType}", wrapperResponse.DataType);
+                }
             }
             catch (Exception ex)
             {
