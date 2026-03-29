@@ -441,6 +441,177 @@ namespace GreenDragonTrading.Application.DTOs
     }
 
     /// <summary>
+    /// Channel MI: Realtime market index data (VNINDEX, VN30, HNX30, …).
+    /// SSI data type: "MI"
+    /// </summary>
+    public class MarketIndexDataResponse
+    {
+        [JsonPropertyName("RType")]
+        public string? RType { get; set; }
+
+        [JsonPropertyName("Rtype")]
+        public string? Rtype { get; set; }
+
+        /// <summary>
+        /// SSI uses different field names for the index code depending on API version.
+        /// Known variants: "Symbol", "ComGroupCode", "IndexCode", "Id".
+        /// Use the resolved property <see cref="ResolvedCode"/> in handlers.
+        /// </summary>
+        [JsonPropertyName("Symbol")]
+        public string? Symbol { get; set; }
+
+        [JsonPropertyName("ComGroupCode")]
+        public string? ComGroupCode { get; set; }
+
+        [JsonPropertyName("IndexCode")]
+        public string? IndexCode { get; set; }
+
+        [JsonPropertyName("IndexId")]
+        public string? IndexID { get; set; }
+
+        [JsonPropertyName("Id")]
+        public string? Id { get; set; }
+
+        /// <summary>Returns the first non-empty index code found across all candidate fields.</summary>
+        [JsonIgnore]
+        public string? ResolvedCode =>
+            !string.IsNullOrWhiteSpace(IndexID)    ? IndexID    :
+            !string.IsNullOrWhiteSpace(Symbol)      ? Symbol      :
+            !string.IsNullOrWhiteSpace(ComGroupCode) ? ComGroupCode :
+            !string.IsNullOrWhiteSpace(IndexCode)   ? IndexCode   :
+            !string.IsNullOrWhiteSpace(Id)          ? Id          :
+            null;
+
+        [JsonPropertyName("IndexName")]
+        public string? IndexName { get; set; }
+
+        [JsonPropertyName("Exchange")]
+        public string? Exchange { get; set; }
+
+        [JsonPropertyName("TradingDate")]
+        public string? TradingDate { get; set; }
+
+        [JsonPropertyName("Time")]
+        public string? Time { get; set; }
+
+        [JsonPropertyName("IndexValue")]
+        public double? IndexValue { get; set; }
+
+        [JsonPropertyName("PriorIndexValue")]
+        public double? PriorIndexValue { get; set; }
+
+        [JsonPropertyName("IndexValEst")]
+        public double? IndexValEst { get; set; }
+
+        [JsonPropertyName("Change")]
+        public double? Change { get; set; }
+
+        [JsonPropertyName("RatioChange")]
+        public double? RatioChange { get; set; }
+
+        [JsonPropertyName("TotalTrade")]
+        public double? TotalTrade { get; set; }
+
+        [JsonPropertyName("TotalMatchVol")]
+        public double? TotalMatchVol { get; set; }
+
+        [JsonPropertyName("TotalQtty")]
+        public double? TotalQtty { get; set; }
+
+        [JsonPropertyName("TotalMatchVal")]
+        public double? TotalMatchVal { get; set; }
+
+        [JsonPropertyName("TotalValue")]
+        public double? TotalValue { get; set; }
+
+        [JsonPropertyName("AdvanceCount")]
+        public int? AdvanceCount { get; set; }
+
+        [JsonPropertyName("Advances")]
+        public int? Advances { get; set; }
+
+        [JsonPropertyName("DeclineCount")]
+        public int? DeclineCount { get; set; }
+
+        [JsonPropertyName("Declines")]
+        public int? Declines { get; set; }
+
+        [JsonPropertyName("NoChangeCount")]
+        public int? NoChangeCount { get; set; }
+
+        [JsonPropertyName("NoChanges")]
+        public int? Nochanges { get; set; }
+
+        [JsonPropertyName("TypeIndex")]
+        public string? TypeIndex { get; set; }
+
+        [JsonPropertyName("Ceiling")]
+        public int? Ceiling { get; set; }
+
+        [JsonPropertyName("Floor")]
+        public int? Floor { get; set; }
+
+        /// <summary>Number of stocks at ceiling price in the index basket (SSI MI channel sends "Ceilings" plural).</summary>
+        [JsonPropertyName("Ceilings")]
+        public int? Ceilings { get; set; }
+
+        /// <summary>Number of stocks at floor price in the index basket (SSI MI channel sends "Floors" plural).</summary>
+        [JsonPropertyName("Floors")]
+        public int? Floors { get; set; }
+
+        [JsonPropertyName("TotalQttyPt")]
+        public double? TotalQttyPT { get; set; }
+
+        [JsonPropertyName("TotalValuePt")]
+        public double? TotalValuePT { get; set; }
+
+        [JsonPropertyName("TotalQttyOd")]
+        public double? TotalQttyOd { get; set; }
+
+        [JsonPropertyName("TotalValueOd")]
+        public double? TotalValueOd { get; set; }
+
+        [JsonPropertyName("AllQty")]
+        public double? AllQty { get; set; }
+
+        [JsonPropertyName("AllValue")]
+        public double? AllValue { get; set; }
+
+        [JsonPropertyName("TradingSession")]
+        public string? TradingSession { get; set; }
+
+        [JsonPropertyName("RefIndex")]
+        public double? RefIndex { get; set; }
+
+        [JsonPropertyName("OpenIndex")]
+        public double? OpenIndex { get; set; }
+
+        [JsonPropertyName("HighIndex")]
+        public double? HighIndex { get; set; }
+
+        [JsonPropertyName("LowIndex")]
+        public double? LowIndex { get; set; }
+
+        [JsonIgnore]
+        public int? ResolvedAdvanceCount => AdvanceCount ?? Advances;
+
+        [JsonIgnore]
+        public int? ResolvedDeclineCount => DeclineCount ?? Declines;
+
+        [JsonIgnore]
+        public int? ResolvedNoChangeCount => NoChangeCount ?? Nochanges;
+
+        [JsonIgnore]
+        public double? ResolvedTotalMatchVol => TotalMatchVol ?? TotalQtty ?? AllQty;
+
+        [JsonIgnore]
+        public double? ResolvedTotalMatchVal => TotalMatchVal ?? TotalValue ?? AllValue;
+
+        [JsonIgnore]
+        public string? ResolvedName => !string.IsNullOrWhiteSpace(IndexName) ? IndexName : null;
+    }
+
+    /// <summary>
     /// Channel B: Realtime OHLCV (Open, High, Low, Close, Volume) data
     /// </summary>
     public class OhlcvDataResponse
