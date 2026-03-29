@@ -193,6 +193,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error broadcasting chat message to user {UserId}", userId);
+            }
+        }
         public async Task BroadcastIndexDataAsync(LiveIndexDataDto data, CancellationToken cancellationToken = default)
         {
             try
