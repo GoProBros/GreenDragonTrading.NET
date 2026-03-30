@@ -46,7 +46,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 {
                     _logger.LogInformation("[ChannelRouter] MI broadcast received. Content: {Content}", wrapperResponse.Content);
                     var response = JsonSerializer.Deserialize<MarketIndexDataResponse>(wrapperResponse.Content!);
-                    HandleIndexData(redis, response);
+                    await HandleIndexData(redis, response);
                 }
                 else
                 {
