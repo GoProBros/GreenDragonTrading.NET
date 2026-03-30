@@ -41,7 +41,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         /// </summary>
         /// <param name="redis">Redis service abstraction.</param>
         /// <param name="response">Deserialized MI payload from SSI.</param>
-        private void HandleIndexData(IRedisService redis, MarketIndexDataResponse? response)
+        private async Task HandleIndexData(IRedisService redis, MarketIndexDataResponse? response)
         {
             if (response == null)
             {
@@ -101,7 +101,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 var redisKey = RedisConstants.IndexData(code);
                 QueueRedisStringWrite(redisKey, dto, expiry: TimeSpan.FromHours(24));
 
-                // Append to intraday history list (newest-first, capped at 2000 points ≈ ~full trading day at 5s intervals)
+                // Append to intraday history list (newest-first, capped at 4000 points ≈ full trading day at 5s intervals).
                 // Use SSI's own Time field (already VN local HH:mm:ss); fall back to server UTC+7 if missing.
                 var intradayKey = RedisConstants.IndexIntraday(code);
                 var vnNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
@@ -113,8 +113,26 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                                 : vnNow.ToString("HH:mm:ss"),
                     Value = dto.IndexValue,
                 };
+
+                // Reset intraday history when first tick of a new VN trading date arrives.
+                // This guarantees Redis keeps only today's index intraday points.
+                var intradayDateKey = $"{intradayKey}:DATE";
+                var currentTradingDate = vnNow.ToString("yyyyMMdd");
+                var storedTradingDate = await redis.GetAsync<string>(intradayDateKey);
+
+                if (!string.Equals(storedTradingDate, currentTradingDate, StringComparison.Ordinal))
+                {
+                    await redis.RemoveAsync(intradayKey);
+                    await redis.SetAsync(intradayDateKey, currentTradingDate, expiry: TimeSpan.FromDays(3));
+                    _logger.LogInformation(
+                        "[ChannelIndex] Reset intraday key for {Code}. TradingDate {OldDate} -> {NewDate}",
+                        code,
+                        storedTradingDate ?? "<empty>",
+                        currentTradingDate);
+                }
+
                 // Full trading day (9:00-11:30 + 13:00-15:00) at 5s intervals ≈ 3,240 points. Use 4,000 as buffer.
-                QueueRedisListPushTrimWrite(intradayKey, historyPoint, maxLength: 4000);
+                await redis.ListPushTrimAsync(intradayKey, historyPoint, maxLength: 4000);
 
                 // Queue SignalR broadcast to INDEX:{CODE} group
                 QueueIndexBroadcast(dto);
