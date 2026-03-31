@@ -13,6 +13,7 @@ namespace GreenDragonTrading.Domain.Constants
         public const string REDIS_KEY_PREFIX_HEATMAP = "HEATMAP";
         public const string REDIS_KEY_PREFIX_TRADES = "TRADES";
         public const string REDIS_KEY_PREFIX_INDICATORS = "INDICATORS";
+        public const string REDIS_KEY_PREFIX_INDICATORS_ZSCORE = "INDICATORS:ZSCORE";
         public const string REDIS_KEY_PREFIX_ALERTS_ABOVE = "alerts:above";
         public const string REDIS_KEY_PREFIX_ALERTS_BELOW = "alerts:below";
 
@@ -59,6 +60,9 @@ namespace GreenDragonTrading.Domain.Constants
 
         public static string Indicators(string ticker, string timeframe)
             => $"{REDIS_KEY_PREFIX_INDICATORS}:{ticker.ToUpperInvariant()}:{timeframe.ToUpperInvariant()}";
+
+        public static string IndicatorsZScore(string ticker, string timeframe)
+            => $"{REDIS_KEY_PREFIX_INDICATORS_ZSCORE}:{ticker.ToUpperInvariant()}:{timeframe.ToUpperInvariant()}";
 
         public static string AlertsAbove(string ticker)
             => $"{REDIS_KEY_PREFIX_ALERTS_ABOVE}:{ticker.ToUpperInvariant()}";
