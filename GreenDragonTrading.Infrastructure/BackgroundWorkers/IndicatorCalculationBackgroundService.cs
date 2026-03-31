@@ -116,6 +116,14 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                     var redisKey = RedisConstants.Indicators(snapshot.Ticker, snapshot.Timeframe);
                     await redis.SetHashFieldsAsync(redisKey, ConvertSnapshotToHash(snapshot));
+
+                    var zScoreSnapshot = BuildZScoreSnapshot(snapshot, quotes);
+                    if (zScoreSnapshot != null)
+                    {
+                        var zScoreRedisKey = RedisConstants.IndicatorsZScore(snapshot.Ticker, snapshot.Timeframe);
+                        await redis.SetHashFieldsAsync(zScoreRedisKey, ConvertZScoreSnapshotToHash(zScoreSnapshot));
+                    }
+
                     successCount++;
                 }
                 catch (Exception ex)
@@ -246,6 +254,253 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             AddIfHasValue(result, nameof(IndicatorSnapshotDto.BbPercentB), snapshot.BbPercentB);
             AddIfHasValue(result, nameof(IndicatorSnapshotDto.Atr14), snapshot.Atr14);
             AddIfHasValue(result, nameof(IndicatorSnapshotDto.Adx14), snapshot.Adx14);
+
+            return result;
+        }
+
+        private static IndicatorSnapshotZScoreDto? BuildZScoreSnapshot(IndicatorSnapshotDto snapshot, List<Quote> quotes)
+        {
+            if (quotes.Count == 0)
+            {
+                return null;
+            }
+
+            var closeSeries = quotes.Select(x => Convert.ToDecimal(x.Close)).ToList();
+            var volumeSeries = quotes.Select(x => Convert.ToDecimal(x.Volume)).ToList();
+
+            var ema20Series = quotes
+                .ToEma(20)
+                .Where(x => x.Ema.HasValue)
+                .Select(x => Convert.ToDecimal(x.Ema!.Value))
+                .ToList();
+            var ema50Series = quotes
+                .ToEma(50)
+                .Where(x => x.Ema.HasValue)
+                .Select(x => Convert.ToDecimal(x.Ema!.Value))
+                .ToList();
+            var ema200Series = quotes
+                .ToEma(200)
+                .Where(x => x.Ema.HasValue)
+                .Select(x => Convert.ToDecimal(x.Ema!.Value))
+                .ToList();
+
+            var volumeMa20Series = BuildVolumeMaSeries(quotes, 20);
+            var volumeToVolumeMa20RatioSeries = BuildVolumeToVolumeMaRatioSeries(quotes, 20);
+
+            var macdResults = quotes.ToMacd().ToList();
+            var macdSeries = macdResults
+                .Where(x => x.Macd.HasValue)
+                .Select(x => Convert.ToDecimal(x.Macd!.Value))
+                .ToList();
+            var macdSignalSeries = macdResults
+                .Where(x => x.Signal.HasValue)
+                .Select(x => Convert.ToDecimal(x.Signal!.Value))
+                .ToList();
+            var macdHistogramSeries = macdResults
+                .Where(x => x.Histogram.HasValue)
+                .Select(x => Convert.ToDecimal(x.Histogram!.Value))
+                .ToList();
+
+            var rsi14Series = quotes
+                .ToRsi(14)
+                .Where(x => x.Rsi.HasValue)
+                .Select(x => Convert.ToDecimal(x.Rsi!.Value))
+                .ToList();
+
+            var bbResults = quotes.ToBollingerBands(20, 2).ToList();
+            var bollingerMiddleSeries = bbResults
+                .Where(x => x.Sma.HasValue)
+                .Select(x => Convert.ToDecimal(x.Sma!.Value))
+                .ToList();
+            var bollingerUpperSeries = bbResults
+                .Where(x => x.UpperBand.HasValue)
+                .Select(x => Convert.ToDecimal(x.UpperBand!.Value))
+                .ToList();
+            var bollingerLowerSeries = bbResults
+                .Where(x => x.LowerBand.HasValue)
+                .Select(x => Convert.ToDecimal(x.LowerBand!.Value))
+                .ToList();
+            var bbPercentBSeries = BuildBbPercentBSeries(quotes, bbResults);
+
+            var atr14Series = quotes
+                .ToAtr(14)
+                .Where(x => x.Atr.HasValue)
+                .Select(x => Convert.ToDecimal(x.Atr!.Value))
+                .ToList();
+            var adx14Series = quotes
+                .ToAdx(14)
+                .Where(x => x.Adx.HasValue)
+                .Select(x => Convert.ToDecimal(x.Adx!.Value))
+                .ToList();
+
+            return new IndicatorSnapshotZScoreDto
+            {
+                Ticker = snapshot.Ticker,
+                Timeframe = snapshot.Timeframe,
+                CandleTime = snapshot.CandleTime,
+                CalculatedAt = snapshot.CalculatedAt,
+                Close = ToZScore(snapshot.Close, closeSeries),
+                Volume = snapshot.Volume.HasValue
+                    ? ToZScore(Convert.ToDecimal(snapshot.Volume.Value), volumeSeries)
+                    : null,
+                Ema20 = ToZScore(snapshot.Ema20, ema20Series),
+                Ema50 = ToZScore(snapshot.Ema50, ema50Series),
+                Ema200 = ToZScore(snapshot.Ema200, ema200Series),
+                VolumeMa20 = ToZScore(snapshot.VolumeMa20, volumeMa20Series),
+                VolumeToVolumeMa20Ratio = ToZScore(snapshot.VolumeToVolumeMa20Ratio, volumeToVolumeMa20RatioSeries),
+                Macd = ToZScore(snapshot.Macd, macdSeries),
+                MacdSignal = ToZScore(snapshot.MacdSignal, macdSignalSeries),
+                MacdHistogram = ToZScore(snapshot.MacdHistogram, macdHistogramSeries),
+                Rsi14 = ToZScore(snapshot.Rsi14, rsi14Series),
+                BollingerMiddle = ToZScore(snapshot.BollingerMiddle, bollingerMiddleSeries),
+                BollingerUpper = ToZScore(snapshot.BollingerUpper, bollingerUpperSeries),
+                BollingerLower = ToZScore(snapshot.BollingerLower, bollingerLowerSeries),
+                BbPercentB = ToZScore(snapshot.BbPercentB, bbPercentBSeries),
+                Atr14 = ToZScore(snapshot.Atr14, atr14Series),
+                Adx14 = ToZScore(snapshot.Adx14, adx14Series)
+            };
+        }
+
+        private static List<decimal> BuildVolumeMaSeries(List<Quote> quotes, int period)
+        {
+            var result = new List<decimal>();
+            if (quotes.Count < period)
+            {
+                return result;
+            }
+
+            decimal rollingSum = 0;
+            var queue = new Queue<decimal>();
+
+            foreach (var quote in quotes)
+            {
+                var volume = Convert.ToDecimal(quote.Volume);
+                queue.Enqueue(volume);
+                rollingSum += volume;
+
+                if (queue.Count > period)
+                {
+                    rollingSum -= queue.Dequeue();
+                }
+
+                if (queue.Count == period)
+                {
+                    result.Add(rollingSum / period);
+                }
+            }
+
+            return result;
+        }
+
+        private static List<decimal> BuildVolumeToVolumeMaRatioSeries(List<Quote> quotes, int period)
+        {
+            var volumeMaSeries = BuildVolumeMaSeries(quotes, period);
+            var result = new List<decimal>();
+
+            if (volumeMaSeries.Count == 0)
+            {
+                return result;
+            }
+
+            for (var i = period - 1; i < quotes.Count; i++)
+            {
+                var ma = volumeMaSeries[i - (period - 1)];
+                if (ma <= 0)
+                {
+                    continue;
+                }
+
+                var volume = Convert.ToDecimal(quotes[i].Volume);
+                result.Add(volume / ma);
+            }
+
+            return result;
+        }
+
+        private static List<decimal> BuildBbPercentBSeries(List<Quote> quotes, List<BollingerBandsResult> bbResults)
+        {
+            var result = new List<decimal>();
+
+            for (var i = 0; i < quotes.Count && i < bbResults.Count; i++)
+            {
+                var bb = bbResults[i];
+                if (!bb.UpperBand.HasValue || !bb.LowerBand.HasValue)
+                {
+                    continue;
+                }
+
+                var upper = Convert.ToDecimal(bb.UpperBand.Value);
+                var lower = Convert.ToDecimal(bb.LowerBand.Value);
+                if (upper <= lower)
+                {
+                    continue;
+                }
+
+                var close = Convert.ToDecimal(quotes[i].Close);
+                result.Add((close - lower) / (upper - lower));
+            }
+
+            return result;
+        }
+
+        private static decimal? ToZScore(decimal? value, List<decimal> series)
+        {
+            if (!value.HasValue || series.Count == 0)
+            {
+                return null;
+            }
+
+            ComputeSeriesStats(series, out var mean, out var stdDev);
+            if (stdDev == 0)
+            {
+                return 0;
+            }
+
+            return (value.Value - mean) / stdDev;
+        }
+
+        private static void ComputeSeriesStats(List<decimal> series, out decimal mean, out decimal stdDev)
+        {
+            if (series.Count == 0)
+            {
+                mean = 0;
+                stdDev = 0;
+                return;
+            }
+
+            var localMean = series.Average();
+            var variance = series.Sum(v => (v - localMean) * (v - localMean)) / series.Count;
+            mean = localMean;
+            stdDev = (decimal)Math.Sqrt((double)variance);
+        }
+
+        private static Dictionary<string, object> ConvertZScoreSnapshotToHash(IndicatorSnapshotZScoreDto snapshot)
+        {
+            var result = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                [nameof(IndicatorSnapshotZScoreDto.Ticker)] = snapshot.Ticker,
+                [nameof(IndicatorSnapshotZScoreDto.Timeframe)] = snapshot.Timeframe,
+                [nameof(IndicatorSnapshotZScoreDto.CandleTime)] = snapshot.CandleTime,
+                [nameof(IndicatorSnapshotZScoreDto.CalculatedAt)] = snapshot.CalculatedAt,
+            };
+
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Close), snapshot.Close);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Volume), snapshot.Volume);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Ema20), snapshot.Ema20);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Ema50), snapshot.Ema50);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Ema200), snapshot.Ema200);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.VolumeMa20), snapshot.VolumeMa20);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.VolumeToVolumeMa20Ratio), snapshot.VolumeToVolumeMa20Ratio);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Macd), snapshot.Macd);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.MacdSignal), snapshot.MacdSignal);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.MacdHistogram), snapshot.MacdHistogram);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Rsi14), snapshot.Rsi14);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.BollingerMiddle), snapshot.BollingerMiddle);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.BollingerUpper), snapshot.BollingerUpper);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.BollingerLower), snapshot.BollingerLower);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.BbPercentB), snapshot.BbPercentB);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Atr14), snapshot.Atr14);
+            AddIfHasValue(result, nameof(IndicatorSnapshotZScoreDto.Adx14), snapshot.Adx14);
 
             return result;
         }
