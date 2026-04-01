@@ -102,13 +102,32 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 await InitializeIndexCacheAsync(_uow, stoppingToken);
 
                 // Load active market index codes from the database
-                indexCodes = _uow.MarketIndices
+                var loadedIndexCodes = _uow.MarketIndices
                     .GetQueryable()
                     .Where(i => i.Status == CommonStatus.Active)
-                    .Select(i => i.Code)
+                    .Select(i => i.Code.ToUpper())
                     .ToList();
 
-                _logger.LogInformation("Loaded {Count} active market index codes from database", indexCodes.Count());
+                var duplicateCodes = loadedIndexCodes
+                    .GroupBy(code => code, StringComparer.Ordinal)
+                    .Where(group => group.Count() > 1)
+                    .Select(group => group.Key)
+                    .OrderBy(code => code)
+                    .ToList();
+
+                if (duplicateCodes.Count > 0)
+                {
+                    _logger.LogWarning(
+                        "Detected duplicate active market index codes in DB: {Codes}. Duplicates were removed before MI subscription.",
+                        string.Join(",", duplicateCodes));
+                }
+
+                indexCodes = loadedIndexCodes.Distinct(StringComparer.Ordinal).ToList();
+
+                _logger.LogInformation(
+                    "Loaded {UniqueCount} unique active market index codes from database (raw count: {RawCount})",
+                    indexCodes.Count(),
+                    loadedIndexCodes.Count);
             }
 
             string tickersString = string.Join("-", tickers);
