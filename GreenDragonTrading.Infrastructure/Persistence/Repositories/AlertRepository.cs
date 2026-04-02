@@ -7,6 +7,16 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
     public class AlertRepository(GdtPostgreSqlDbContext context)
         : PostgreSqlGenericRepository<Alert>(context), IAlertRepository
     {
+        public async Task<List<Alert>> GetByUserIdAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Where(a => a.UserId == userId)
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<List<Alert>> GetActiveAlertsByIdsAsync(
             IEnumerable<int> ids,
             CancellationToken cancellationToken = default)

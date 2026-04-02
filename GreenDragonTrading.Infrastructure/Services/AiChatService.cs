@@ -1,5 +1,7 @@
+using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
@@ -11,10 +13,15 @@ namespace GreenDragonTrading.Infrastructure.Services
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<AiChatService> _logger;
+        private readonly AiEngineOptions _options;
 
-        public AiChatService(HttpClient httpClient, ILogger<AiChatService> logger)
+        public AiChatService(
+            HttpClient httpClient,
+            IOptions<AiEngineOptions> options,
+            ILogger<AiChatService> logger)
         {
             _httpClient = httpClient;
+            _options = options.Value;
             _logger = logger;
         }
 
@@ -37,7 +44,10 @@ namespace GreenDragonTrading.Infrastructure.Services
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.PostAsJsonAsync("/api/chat", request, cancellationToken);
+                response = await _httpClient.PostAsJsonAsync(
+                    NormalizeEndpoint(_options.ChatEndpoint),
+                    request,
+                    cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -102,7 +112,10 @@ namespace GreenDragonTrading.Infrastructure.Services
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.PostAsJsonAsync("/api/conv-summary", request, cancellationToken);
+                response = await _httpClient.PostAsJsonAsync(
+                    NormalizeEndpoint(_options.ConversationSummaryEndpoint),
+                    request,
+                    cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -125,6 +138,59 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             _logger.LogDebug("Summary updated for {ConversationId}, processed {Count} messages", conversationId, summaryResponse.ProcessedMessages);
             return summaryResponse;
+        }
+
+        /// <inheritdoc />
+        public async Task<AiNewsSummarizationResponse?> SummarizeNewsAsync(
+            string title,
+            string content,
+            CancellationToken cancellationToken = default)
+        {
+            var request = new AiNewsSummarizationRequest
+            {
+                Title = title,
+                Content = content
+            };
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.PostAsJsonAsync(
+                    NormalizeEndpoint(_options.NewsSummarizationEndpoint),
+                    request,
+                    cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "AI Engine is unavailable when summarizing news");
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning("News summarization returned {StatusCode}: {ErrorBody}", response.StatusCode, errorBody);
+                return null;
+            }
+
+            var summaryResponse = await response.Content.ReadFromJsonAsync<AiNewsSummarizationResponse>(cancellationToken: cancellationToken);
+            if (summaryResponse == null)
+            {
+                _logger.LogWarning("AI Engine returned empty response for news summarization");
+                return null;
+            }
+
+            return summaryResponse;
+        }
+
+        private static string NormalizeEndpoint(string endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                return "/";
+            }
+
+            return endpoint.StartsWith("/") ? endpoint : $"/{endpoint}";
         }
     }
 }

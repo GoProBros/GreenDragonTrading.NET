@@ -49,6 +49,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
                     {
                         SentToAll = true,
                         SentCount = sentCount,
+                        UserIds = users.Select(x => x.Id).ToList(),
                         Message = message,
                         MessageType = ChatMessageType.SystemNotification,
                         SessionType = ChatSessionType.System,
@@ -57,10 +58,33 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
                     $"Gửi thông báo hệ thống thành công cho {sentCount} người dùng.");
             }
 
-            var userId = request.UserId ?? throw new NotFoundException("Không tìm thấy người dùng.");
-            var singleResult = await SendToSingleUserAsync(userId, message, cancellationToken);
+            var userIds = (request.UserIds ?? [])
+                .Where(x => x != Guid.Empty)
+                .Distinct()
+                .ToList();
 
-            return ApiResponse<SendSystemNotificationResponseDto>.Success(singleResult, "Gửi thông báo hệ thống thành công.");
+            if (userIds.Count == 0)
+            {
+                throw new BusinessRuleException("Danh sách UserIds không hợp lệ.");
+            }
+
+            foreach (var userId in userIds)
+            {
+                await SendToSingleUserAsync(userId, message, cancellationToken);
+            }
+
+            return ApiResponse<SendSystemNotificationResponseDto>.Success(
+                new SendSystemNotificationResponseDto
+                {
+                    SentToAll = false,
+                    SentCount = userIds.Count,
+                    UserIds = userIds,
+                    Message = message,
+                    MessageType = ChatMessageType.SystemNotification,
+                    SessionType = ChatSessionType.System,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                },
+                $"Gửi thông báo hệ thống thành công cho {userIds.Count} người dùng.");
         }
 
         private async Task<SendSystemNotificationResponseDto> SendToSingleUserAsync(

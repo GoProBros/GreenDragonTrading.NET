@@ -152,7 +152,7 @@ namespace GreenDragonTrading.Application.DTOs
 
     public class SendSystemNotificationRequestDto
     {
-        public Guid? UserId { get; set; }
+        public List<Guid>? UserIds { get; set; }
         public bool SendToAll { get; set; }
         public string Message { get; set; } = string.Empty;
     }
@@ -162,6 +162,7 @@ namespace GreenDragonTrading.Application.DTOs
         public int? SessionId { get; set; }
         public int? MessageId { get; set; }
         public Guid? UserId { get; set; }
+        public List<Guid>? UserIds { get; set; }
         public bool SentToAll { get; set; }
         public int SentCount { get; set; }
         public string Message { get; set; } = string.Empty;

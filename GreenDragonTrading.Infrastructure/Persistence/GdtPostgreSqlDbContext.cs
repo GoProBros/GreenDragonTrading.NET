@@ -29,6 +29,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
         public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
         public DbSet<Alert> Alerts => Set<Alert>();
+        public DbSet<NewsArticle> NewsArticles => Set<NewsArticle>();
+        public DbSet<ArticleTag> ArticleTags => Set<ArticleTag>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -287,6 +289,31 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                        .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<NewsArticle>(builder =>
+            {
+                builder.ToTable("news_articles");
+
+                builder.HasIndex(n => n.PublishedAt);
+                builder.HasIndex(n => n.Link).IsUnique(); 
+            });
+
+            modelBuilder.Entity<ArticleTag>(builder =>
+            {
+                builder.ToTable("article_tags");
+
+                builder.HasOne(at => at.NewsArticle)
+                       .WithMany(na => na.ArticleTags)
+                       .HasForeignKey(at => at.NewsArticleId)
+                       .OnDelete(DeleteBehavior.Cascade);
+
+                builder.HasOne(at => at.Symbol)
+                       .WithMany()
+                       .HasForeignKey(at => at.Ticker)
+                       .OnDelete(DeleteBehavior.Restrict);
+
+                builder.HasIndex(at => at.Ticker);
+                builder.HasIndex(at => new { at.NewsArticleId, at.Ticker }).IsUnique();
+            });
             DatabaseSeeder.SeedAll(modelBuilder);
         }
     }

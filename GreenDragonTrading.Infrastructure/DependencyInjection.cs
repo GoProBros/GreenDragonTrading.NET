@@ -84,6 +84,7 @@ namespace GreenDragonTrading.Infrastructure
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
             services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
             services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
+            services.Configure<NewsRssOptions>(configuration.GetSection(NewsRssOptions.SectionName));
 
             // Register HttpClient
             services.AddHttpClient<ISsiServiceV1, SsiServiceV1>((sp, client) =>
@@ -150,6 +151,13 @@ namespace GreenDragonTrading.Infrastructure
                 client.BaseAddress = new Uri(options.BaseUrl);
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+
+            services.AddHttpClient<INewsRssService, NewsRssService>((_, client) =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.DefaultRequestHeaders.Add("Accept", "application/rss+xml, application/xml, text/xml");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
             });
 

@@ -199,7 +199,7 @@ namespace GreenDragonTrading.Api.Controllers
             [FromBody] SendSystemNotificationRequestDto request,
             CancellationToken cancellationToken)
         {
-            var command = new SendSystemNotificationCommand(request.UserId, request.SendToAll, request.Message);
+            var command = new SendSystemNotificationCommand(request.UserIds, request.SendToAll, request.Message);
             var result = await _mediator.Send(command, cancellationToken);
             return result;
         }

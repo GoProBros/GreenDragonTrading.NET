@@ -183,7 +183,6 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 }
 
                 var messagesForSummary = messagesToSummarize
-                    .Skip(Math.Max(0, messagesToSummarize.Count - _aiOptions.RecentMessagesLimit))
                     .Select(m => new AiMessageInput
                     {
                         Role = m.SenderId == null ? "assistant" : "user",
