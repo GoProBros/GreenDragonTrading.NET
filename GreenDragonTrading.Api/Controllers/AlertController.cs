@@ -3,6 +3,7 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert;
 using GreenDragonTrading.Application.UseCases.Alerts.Commands.DeleteAlert;
 using GreenDragonTrading.Application.UseCases.Alerts.Events;
+using GreenDragonTrading.Application.UseCases.Alerts.Queries.GetAlertsByUserId;
 using GreenDragonTrading.Domain.Constants.SSI;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -46,6 +47,15 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new DeleteAlertCommand(id), cancellationToken);
+            return result;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<ApiResponse<List<AlertDto>>>> GetAlertsByUserId(
+            [FromQuery] Guid userId,
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new GetAlertsByUserIdQuery(userId), cancellationToken);
             return result;
         }
     }

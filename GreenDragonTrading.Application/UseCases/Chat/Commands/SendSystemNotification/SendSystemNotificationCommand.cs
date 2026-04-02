@@ -4,6 +4,6 @@ using MediatR;
 
 namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotification
 {
-    public record SendSystemNotificationCommand(Guid? UserId, bool SendToAll, string Message)
+    public record SendSystemNotificationCommand(List<Guid>? UserIds, bool SendToAll, string Message)
         : IRequest<ApiResponse<SendSystemNotificationResponseDto>>;
 }

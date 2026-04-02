@@ -93,11 +93,7 @@ public class SummarizeSessionCommandHandler : IRequestHandler<SummarizeSessionCo
             }, "Số lượng tin nhắn chưa đủ ngưỡng để tóm tắt. Đã trả về số lượng tin gần nhất theo cấu hình.");
         }
 
-        var messagesForSummary = messagesToSummarize
-            .Skip(Math.Max(0, messagesToSummarize.Count - _aiOptions.RecentMessagesLimit))
-            .ToList();
-
-        var aiMessages = messagesForSummary
+        var aiMessages = messagesToSummarize
             .Select(m => new AiMessageInput
             {
                 Role = m.SenderId == null ? "assistant" : "user",

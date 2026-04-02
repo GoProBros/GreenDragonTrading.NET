@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GreenDragonTrading.Application.Interfaces
 {
     /// <summary>
@@ -21,6 +23,14 @@ namespace GreenDragonTrading.Application.Interfaces
             string conversationId,
             string? existingSummary,
             List<AiMessageInput> newMessages,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Summarize an article content and extract related ticker entities.
+        /// </summary>
+        Task<AiNewsSummarizationResponse?> SummarizeNewsAsync(
+            string title,
+            string content,
             CancellationToken cancellationToken = default);
     }
 
@@ -95,5 +105,41 @@ namespace GreenDragonTrading.Application.Interfaces
         public string? UpdatedSummary { get; set; }
         public int ProcessedMessages { get; set; }
         public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Request payload for news summarization endpoint.
+    /// </summary>
+    public class AiNewsSummarizationRequest
+    {
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
+
+        [JsonPropertyName("content")]
+        public string Content { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Response payload from news summarization endpoint.
+    /// </summary>
+    public class AiNewsSummarizationResponse
+    {
+        [JsonPropertyName("summary")]
+        public string? Summary { get; set; }
+
+        [JsonPropertyName("entities")]
+        public List<AiNewsEntity> Entities { get; set; } = new();
+    }
+
+    public class AiNewsEntity
+    {
+        [JsonPropertyName("ticker")]
+        public string? Ticker { get; set; }
+
+        [JsonPropertyName("relevance_score")]
+        public decimal? RelevanceScore { get; set; }
+
+        [JsonPropertyName("sentiment_score")]
+        public decimal? SentimentScore { get; set; }
     }
 }
