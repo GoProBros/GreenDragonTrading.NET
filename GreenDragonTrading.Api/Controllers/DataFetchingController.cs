@@ -2,6 +2,7 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportIndexConstituentsFromSsi;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportNewsFromRss;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSpecificPeriodFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
@@ -129,6 +130,19 @@ namespace GreenDragonTrading.Api.Controllers
         {
             var result = await _mediator.Send(new ImportIndexConstituentsFromSsiCommand(), cancellationToken);
             return Ok(ApiResponse<ImportIndexConstituentsFromSsiResult>.Success(result, result.Message));
+        }
+
+        /// <summary>
+        /// Fetches stock market news from configured RSS source and saves new articles into news_articles table.
+        /// Duplicate links are ignored.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>Import result with fetched/inserted/duplicated counts.</returns>
+        [HttpPost("import-news-from-rss")]
+        public async Task<ActionResult<ApiResponse<ImportNewsFromRssResult>>> ImportNewsFromRss(CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new ImportNewsFromRssCommand(), cancellationToken);
+            return Ok(ApiResponse<ImportNewsFromRssResult>.Success(result, result.Message));
         }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328022822_AddNewsTable")]
+    partial class AddNewsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -254,7 +257,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "1000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6298), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9643), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phân tích kinh tế vĩ mô, chính sách, triển vọng thị trường",
                             Level = 1,
                             Name = "Báo cáo Vĩ mô",
@@ -263,7 +266,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "2000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6330), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9657), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phân tích các ngành công nghiệp, xu hướng và triển vọng",
                             Level = 1,
                             Name = "Báo cáo Ngành",
@@ -272,7 +275,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "3000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6334), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9660), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phân tích chuyên sâu về doanh nghiệp niêm yết",
                             Level = 1,
                             Name = "Báo cáo Doanh nghiệp",
@@ -281,7 +284,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "4000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6337), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9663), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Chiến lược và khuyến nghị đầu tư",
                             Level = 1,
                             Name = "Chiến lược Đầu tư",
@@ -290,7 +293,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "5000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6340), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9665), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Nhận định và phân tích thị trường chứng khoán",
                             Level = 1,
                             Name = "Báo cáo Thị trường",
@@ -342,42 +345,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("analysis_report_sources", (string)null);
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ArticleTag", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("NewsArticleId")
-                        .HasColumnType("integer")
-                        .HasColumnName("news_article_id");
-
-                    b.Property<decimal?>("RelevanceScore")
-                        .HasColumnType("numeric(5, 2)")
-                        .HasColumnName("relevance_score");
-
-                    b.Property<decimal?>("SentimentScore")
-                        .HasColumnType("numeric(5, 2)")
-                        .HasColumnName("sentiment_score");
-
-                    b.Property<string>("Ticker")
-                        .IsRequired()
-                        .HasColumnType("varchar(20)")
-                        .HasColumnName("ticker");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Ticker");
-
-                    b.HasIndex("NewsArticleId", "Ticker")
-                        .IsUnique();
-
-                    b.ToTable("article_tags", (string)null);
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ChatMessage", b =>
@@ -892,60 +859,12 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         {
                             Id = 1L,
                             ConfigJson = "\r\n        {\r\n          \"state\": {\r\n            \"columns\": {\r\n              \"ticker\": { \"field\": \"ticker\", \"visible\": true, \"width\": 80, \"order\": 0 },\r\n              \"lastPrice\": { \"field\": \"lastPrice\", \"visible\": true, \"width\": 95, \"order\": 10 },\r\n              \"change\": { \"field\": \"change\", \"visible\": true, \"width\": 80, \"order\": 12 },\r\n              \"ratioChange\": { \"field\": \"ratioChange\", \"visible\": true, \"width\": 90, \"order\": 13 },\r\n              \"totalVol\": { \"field\": \"totalVol\", \"visible\": true, \"width\": 120, \"order\": 20 },\r\n              \"PE\": { \"field\": \"PE\", \"visible\": false, \"width\": 80, \"order\": 48 },\r\n              \"ROE\": { \"field\": \"ROE\", \"visible\": false, \"width\": 80, \"order\": 49 }\r\n            }\r\n          }\r\n        }",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6132), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9523), new TimeSpan(0, 0, 0, 0, 0)),
                             IsSystemDefault = true,
                             LayoutName = "Giao diện bộ lọc mặc định",
                             ModuleType = (short)1,
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6133), new TimeSpan(0, 0, 0, 0, 0))
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9524), new TimeSpan(0, 0, 0, 0, 0))
                         });
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.NewsArticle", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Content")
-                        .HasColumnType("text")
-                        .HasColumnName("content");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Link")
-                        .HasColumnType("varchar(1000)")
-                        .HasColumnName("link");
-
-                    b.Property<DateTimeOffset>("PublishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("published_at");
-
-                    b.Property<string>("Summary")
-                        .HasColumnType("text")
-                        .HasColumnName("summary");
-
-                    b.Property<string>("ThumbnailUrl")
-                        .HasColumnType("varchar(1000)")
-                        .HasColumnName("thumbnail_url");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("title");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Link")
-                        .IsUnique();
-
-                    b.HasIndex("PublishedAt");
-
-                    b.ToTable("news_articles", (string)null);
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Sector", b =>
@@ -1215,7 +1134,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                             Id = new Guid("4c0aa1c2-bece-4999-a020-7cb8dc638cef"),
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Email = "greendragon.trading.team@gmail.com",
-                            HashedPassword = "$2a$11$xiby0xZ2qz.7BAab7Ht1HObaPLyISXILFM/fMhqIk7zDbSiWp9..e",
+                            HashedPassword = "$2a$11$tJBNpPoccRGcqVMOGSIdhupfUepeK5xtNTF/80vJKvpM8AI.tLhi.",
                             IsEmailVerified = true,
                             PhoneNumber = "0988671875",
                             Role = (short)3,
@@ -1367,10 +1286,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6238), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9606), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             LayoutJson = "{\r\n          \"modules\": [\r\n            {\r\n              \"i\": \"stock-screener-default\",\r\n              \"type\": \"stock-screener\",\r\n              \"title\": \"Bộ lọc cổ phiếu\",\r\n              \"x\": 0, \"y\": 36, \"w\": 96, \"h\": 20,\r\n              \"activeLayoutId\": 1  \r\n            }\r\n          ]\r\n        }",
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 39, 34, 262, DateTimeKind.Unspecified).AddTicks(6239), new TimeSpan(0, 0, 0, 0, 0)),
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 3, 28, 2, 28, 22, 85, DateTimeKind.Unspecified).AddTicks(9607), new TimeSpan(0, 0, 0, 0, 0)),
                             WorkspaceName = "SYSTEM_DEFAULT_LAYOUT"
                         });
                 });
@@ -1435,25 +1354,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ParentCategory");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ArticleTag", b =>
-                {
-                    b.HasOne("GreenDragonTrading.Domain.Entities.NewsArticle", "NewsArticle")
-                        .WithMany("ArticleTags")
-                        .HasForeignKey("NewsArticleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GreenDragonTrading.Domain.Entities.Symbol", "Symbol")
-                        .WithMany()
-                        .HasForeignKey("Ticker")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("NewsArticle");
-
-                    b.Navigation("Symbol");
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.ChatMessage", b =>
@@ -1650,11 +1550,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Exchange", b =>
                 {
                     b.Navigation("Symbols");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.NewsArticle", b =>
-                {
-                    b.Navigation("ArticleTags");
                 });
 
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.Sector", b =>
