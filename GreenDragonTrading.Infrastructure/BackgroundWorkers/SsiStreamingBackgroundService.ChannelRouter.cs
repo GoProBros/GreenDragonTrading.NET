@@ -44,7 +44,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 }
                 else if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_MI))
                 {
-                    _logger.LogInformation("[ChannelRouter] MI broadcast received. Content: {Content}", wrapperResponse.Content);
+                    // _logger.LogInformation("[ChannelRouter] MI broadcast received. Content: {Content}", wrapperResponse.Content);
                     var response = JsonSerializer.Deserialize<MarketIndexDataResponse>(wrapperResponse.Content!);
                     await HandleIndexData(redis, response);
                 }

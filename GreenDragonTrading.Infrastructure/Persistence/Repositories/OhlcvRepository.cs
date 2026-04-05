@@ -30,6 +30,26 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             var entities = ohlcvList.ToList();
             if (entities.Count == 0) return 0;
 
+            // Guard against duplicate conflict keys in the same SQL statement.
+            // PostgreSQL throws 21000 when ON CONFLICT would update the same row twice.
+            var deduped = new Dictionary<(DateTime Time, string Ticker, string Timeframe), Ohlcv>();
+            foreach (var entity in entities)
+            {
+                var normalizedTime = entity.Time.Kind == DateTimeKind.Utc
+                    ? entity.Time
+                    : DateTime.SpecifyKind(entity.Time, DateTimeKind.Utc);
+                var normalizedTicker = (entity.Ticker ?? string.Empty).ToUpperInvariant();
+                var normalizedTimeframe = (entity.Timeframe ?? string.Empty).ToUpperInvariant();
+
+                entity.Time = normalizedTime;
+                entity.Ticker = normalizedTicker;
+                entity.Timeframe = normalizedTimeframe;
+
+                deduped[(normalizedTime, normalizedTicker, normalizedTimeframe)] = entity;
+            }
+
+            entities = deduped.Values.ToList();
+
             // Build a single multi-row INSERT … ON CONFLICT DO UPDATE statement per batch.
             // All rows share one round-trip and one DB connection.
             var totalInserted = 0;
