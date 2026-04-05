@@ -36,8 +36,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 .When(x => !string.IsNullOrWhiteSpace(x.Name));
 
             RuleFor(x => x.NotifyVia)
-                .Must(n => n is NotificationChannel.System or NotificationChannel.Message)
-                .WithMessage("Kênh thông báo hiện chỉ hỗ trợ System(1) hoặc Message(2)");
+                .Must(n => n is NotificationChannel.System or NotificationChannel.Message or NotificationChannel.Telegram)
+                .WithMessage("Kênh thông báo hiện chỉ hỗ trợ System(1), Message(2) hoặc Telegram(3)");
         }
     }
 }

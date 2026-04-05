@@ -72,6 +72,10 @@ namespace GreenDragonTrading.Domain.Constants
 
         public static string AlertsByTypeAndCondition(string ticker, AlertType type, ConditionType condition)
             => $"alerts:{ticker.ToUpperInvariant()}:{(short)type}:{(short)condition}";
+
+        public static string TelegramStartToken(string token)
+            => $"telegram:start-token:{token}";
+
         /// <summary>Redis hash key for a live market index snapshot.</summary>
         public static string IndexData(string code)
             => $"{REDIS_KEY_PREFIX_INDEX_DATA}:{code.ToUpperInvariant()}";

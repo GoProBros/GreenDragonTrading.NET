@@ -26,7 +26,7 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Alert types: 1 = price, 2 = volume. Condition types: 1 = above, 2 = below, 3 = increase change by %, 4 = decrease change by %.  Notification channels: 1 = System chat, 2 = Chat message, 3 = Email/Tele (cái 3 này chưa xử lý) test qua message trước.
+        /// Alert types: 1 = price, 2 = volume. Condition types: 1 = above, 2 = below, 3 = increase change by %, 4 = decrease change by %. Notification channels: 1 = System chat, 2 = Chat message, 3 = Telegram.
         /// Name là tên alert do user đặt, chưa biết dùng để làm gì. thèn thịnh vẽ DB :)))
         /// </summary>
         /// <param name="command"></param>

@@ -11,13 +11,15 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
     public class PriceUpdatedEventHandler(
         IRedisService redisService,
         IUnitOfWork uow,
-        IMarketDataBroadcaster marketDataBroadcaster) : INotificationHandler<PriceUpdatedEvent>
+        IMarketDataBroadcaster marketDataBroadcaster,
+        ITelegramBotService telegramBotService) : INotificationHandler<PriceUpdatedEvent>
     {
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> TickerLocks = new();
 
         private readonly IRedisService _redisService = redisService;
         private readonly IUnitOfWork _uow = uow;
         private readonly IMarketDataBroadcaster _marketDataBroadcaster = marketDataBroadcaster;
+        private readonly ITelegramBotService _telegramBotService = telegramBotService;
 
         public async Task Handle(PriceUpdatedEvent notification, CancellationToken cancellationToken)
         {
@@ -86,6 +88,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     return;
                 }
 
+                var telegramChatIdsByUser = await GetTelegramChatIdsAsync(alerts, cancellationToken);
+
                 var now = DateTimeOffset.UtcNow;
                 var hasChanges = false;
                 var systemSessionIdsByUser = new Dictionary<Guid, int>();
@@ -123,6 +127,17 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         volumePercentUp,
                         volumePercentDown);
 
+                    if (alert.NotifyVia == NotificationChannel.Telegram)
+                    {
+                        await TrySendTelegramAsync(
+                            telegramChatIdsByUser,
+                            alert.UserId,
+                            message,
+                            cancellationToken);
+
+                        continue;
+                    }
+
                     if (!systemSessionIdsByUser.TryGetValue(alert.UserId, out var systemSessionId))
                     {
                         systemSessionId = await GetOrCreateSystemSessionIdAsync(alert.UserId, now, cancellationToken);
@@ -153,6 +168,12 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         TriggeredAt = now,
                         ChatSessionId = systemSessionId
                     }, cancellationToken);
+
+                    await TrySendTelegramAsync(
+                        telegramChatIdsByUser,
+                        alert.UserId,
+                        message,
+                        cancellationToken);
                 }
 
                 if (hasChanges)
@@ -164,6 +185,48 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             {
                 tickerLock.Release();
             }
+        }
+
+        private async Task<Dictionary<Guid, string>> GetTelegramChatIdsAsync(
+            IReadOnlyCollection<Alert> alerts,
+            CancellationToken cancellationToken)
+        {
+            var userIds = alerts
+                .Select(x => x.UserId)
+                .Distinct()
+                .ToList();
+
+            if (userIds.Count == 0)
+            {
+                return new Dictionary<Guid, string>();
+            }
+
+            var users = await _uow.Users.FindAsync(
+                x => userIds.Contains(x.Id) && !string.IsNullOrEmpty(x.TelegramId),
+                cancellationToken);
+
+            return users
+                .GroupBy(x => x.Id)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.First().TelegramId!);
+        }
+
+        private async Task TrySendTelegramAsync(
+            IReadOnlyDictionary<Guid, string> telegramChatIdsByUser,
+            Guid userId,
+            string message,
+            CancellationToken cancellationToken)
+        {
+            if (!telegramChatIdsByUser.TryGetValue(userId, out var telegramChatId))
+            {
+                return;
+            }
+
+            await _telegramBotService.SendTextMessageAsync(
+                telegramChatId,
+                message,
+                cancellationToken);
         }
 
         private async Task<List<string>> GetAlertIdsAsync(
@@ -188,7 +251,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             {
                 systemSession = new ChatSession
                 {
-                    Title = "System Notification",
+                    Title = ChatConstants.SystemNotificationSessionTitle,
                     SessionType = ChatSessionType.System,
                     Status = CommonStatus.Active,
                     CreatedBy = null,
