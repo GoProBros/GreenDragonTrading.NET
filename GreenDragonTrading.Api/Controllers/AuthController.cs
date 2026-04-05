@@ -9,6 +9,8 @@ using GreenDragonTrading.Application.UseCases.Auth.Commands.Register;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.ResetPassword;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail;
 using GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe;
+using GreenDragonTrading.Application.UseCases.Users.Commands.UpdateMyProfile;
+using GreenDragonTrading.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -84,6 +86,18 @@ namespace GreenDragonTrading.Api.Controllers
         public async Task<ActionResult<ApiResponse<UserDto>>> GetMe(CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new GetMeQuery(), cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Update current user's profile.
+        /// Only User role can update own full name and avatar.
+        /// </summary>
+        [HttpPut("me/profile")]
+        [Authorize(Roles = nameof(UserRole.User))]
+        public async Task<ActionResult<ApiResponse>> UpdateMyProfile([FromBody] UpdateMyProfileCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
             return result;
         }
 

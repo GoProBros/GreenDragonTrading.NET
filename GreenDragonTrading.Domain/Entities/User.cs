@@ -52,6 +52,9 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("is_email_verified", TypeName = "boolean")]
         public bool IsEmailVerified { get; set; } = false;
 
+        [Column("telegram_id", TypeName = "varchar(255)")]
+        public string? TelegramId { get; set; }
+
         // Navigation Properties
         public ICollection<Workspace> Workspaces { get; set; } = new List<Workspace>();
         public ICollection<UserSubscription> UserSubscriptions { get; set; } = new List<UserSubscription>();

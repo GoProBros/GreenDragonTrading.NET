@@ -51,6 +51,8 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
             services.AddSingleton<IUserIdProvider, MarketDataUserIdProvider>();
             services.AddScoped<IHeatmapService, HeatmapService>();
+            services.AddSingleton<ITelegramBotService, TelegramBotService>();
+            services.AddScoped<ITelegramLinkService, TelegramLinkService>();
 
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();
@@ -85,6 +87,7 @@ namespace GreenDragonTrading.Infrastructure
             services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
             services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
             services.Configure<NewsRssOptions>(configuration.GetSection(NewsRssOptions.SectionName));
+            services.Configure<TelegramBotOptions>(configuration.GetSection(TelegramBotOptions.SectionName));
 
             // Register HttpClient
             services.AddHttpClient<ISsiServiceV1, SsiServiceV1>((sp, client) =>

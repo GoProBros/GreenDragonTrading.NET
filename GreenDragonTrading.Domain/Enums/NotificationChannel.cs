@@ -10,7 +10,7 @@ namespace GreenDragonTrading.Domain.Enums
         [Display(Name = "Message")]
         Message = 2,
 
-        [Display(Name = "Ứng dụng di động (Push Notification)")]
-        PushNotification = 3,
+        [Display(Name = "Telegram")]
+        Telegram = 3,
     }
 }
