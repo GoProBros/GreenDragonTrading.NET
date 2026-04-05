@@ -93,6 +93,12 @@ public static class EnvironmentConfiguration
             ["AiEngine:ChatEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_CHAT_ENDPOINT"),
             ["AiEngine:ConversationSummaryEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_CONV_SUMMARY_ENDPOINT"),
             ["AiEngine:NewsSummarizationEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_SUMMARIZATION_ENDPOINT"),
+
+            // Telegram Bot
+            ["TelegramBot:BotToken"] = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN"),
+            ["TelegramBot:BotUsername"] = Environment.GetEnvironmentVariable("TELEGRAM_BOT_USERNAME"),
+            ["TelegramBot:WebhookSecretToken"] = Environment.GetEnvironmentVariable("TELEGRAM_WEBHOOK_SECRET_TOKEN"),
+            ["TelegramBot:StartTokenTtlMinutes"] = Environment.GetEnvironmentVariable("TELEGRAM_START_TOKEN_TTL_MINUTES"),
         };
 
         // Add CORS allowed origins (split by comma)

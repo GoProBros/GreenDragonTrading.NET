@@ -1,5 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
@@ -13,13 +15,16 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
         : IRequestHandler<SendSystemNotificationCommand, ApiResponse<SendSystemNotificationResponseDto>>
     {
         private readonly IUnitOfWork _uow;
+        private readonly ITelegramBotService _telegramBotService;
         private readonly ILogger<SendSystemNotificationCommandHandler> _logger;
 
         public SendSystemNotificationCommandHandler(
             IUnitOfWork uow,
+            ITelegramBotService telegramBotService,
             ILogger<SendSystemNotificationCommandHandler> logger)
         {
             _uow = uow;
+            _telegramBotService = telegramBotService;
             _logger = logger;
         }
 
@@ -107,7 +112,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
             {
                 systemSession = new ChatSession
                 {
-                    Title = "System Notification",
+                    Title = ChatConstants.SystemNotificationSessionTitle,
                     SessionType = ChatSessionType.System,
                     Status = CommonStatus.Active,
                     CreatedBy = null,
@@ -159,6 +164,22 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
             _uow.ChatSessions.Update(systemSession);
 
             await _uow.SaveChangesAsync(cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(user.TelegramId))
+            {
+                var sentToTelegram = await _telegramBotService.SendTextMessageAsync(
+                    user.TelegramId,
+                    message,
+                    cancellationToken);
+
+                if (!sentToTelegram)
+                {
+                    _logger.LogWarning(
+                        "Failed to send Telegram system notification to user {UserId} (chatId {ChatId})",
+                        user.Id,
+                        user.TelegramId);
+                }
+            }
 
             _logger.LogInformation(
                 "Sent system notification message {MessageId} to user {UserId} in session {SessionId}",
