@@ -92,8 +92,13 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                        .IsUnique()
                        .HasFilter("\"share_code\" IS NOT NULL");
 
-                builder.HasIndex(w => new { w.UserId, w.IsDefault })
-           .HasFilter("\"is_default\" = true");
+                builder.HasIndex(w => new { w.UserId, w.Type, w.WorkspaceName })
+                        .IsUnique();
+
+                builder.HasIndex(w => new { w.UserId, w.Type, w.IsDefault })
+                        .HasFilter("\"is_default\" = true")
+                        .IsUnique();
+
             });
 
             modelBuilder.Entity<ModuleLayout>(builder =>

@@ -37,11 +37,15 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
                 var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
                 if (activeSubscription != null)
                 {
-                    var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, cancellationToken);
+                    var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(
+                        userId,
+                        request.Type,
+                        cancellationToken);
+
                     if (existingWorkspaces.Count >= activeSubscription.Subscription.MaxWorkspaces)
                     {
                         throw new Domain.Exceptions.BusinessRuleException(
-                            $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace.");
+                            $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace cho loại {request.Type}.");
                     }
                 }
             }
@@ -49,7 +53,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
             var shareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
 
             // Use layout from the system default workspace, ignoring request layout
-            var systemDefault = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(cancellationToken);
+            var systemDefault = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(request.Type, cancellationToken);
             var layoutJsonString = systemDefault?.LayoutJson ?? "{}";
 
             var workspace = new Domain.Entities.Workspace
@@ -57,6 +61,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
                 UserId = userId,
                 WorkspaceName = request.WorkspaceName,
                 LayoutJson = layoutJsonString,
+                Type = request.Type,
                 IsDefault = request.IsDefault,
                 ShareCode = shareCode,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -78,6 +83,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
                 Id = workspace.Id,
                 WorkspaceName = workspace.WorkspaceName,
                 LayoutJson = layoutJsonElement,
+                Type = workspace.Type,
                 IsDefault = workspace.IsDefault,
                 ShareCode = workspace.ShareCode
             };
