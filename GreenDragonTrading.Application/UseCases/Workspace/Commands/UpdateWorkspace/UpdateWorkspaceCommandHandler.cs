@@ -78,6 +78,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
                 Id = workspace.Id,
                 WorkspaceName = workspace.WorkspaceName,
                 LayoutJson = layoutJsonElement,
+                Type = workspace.Type,
                 IsDefault = workspace.IsDefault,
                 ShareCode = workspace.ShareCode
             };

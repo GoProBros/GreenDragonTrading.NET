@@ -42,6 +42,7 @@ public class WorkspaceDuplicationService : IWorkspaceDuplicationService
             UserId = targetUserId,
             WorkspaceName = $"{sourceWorkspace.WorkspaceName} {workspaceNameSuffix}".Trim(),
             LayoutJson = newLayoutJson,
+            Type = sourceWorkspace.Type,
             IsDefault = false,
             ShareCode = newShareCode,
             CreatedAt = DateTimeOffset.UtcNow,

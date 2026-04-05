@@ -40,11 +40,15 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplyShared
             var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
             if (activeSubscription != null)
             {
-                var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, cancellationToken);
+                var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(
+                    userId,
+                    sharedWorkspace.Type,
+                    cancellationToken);
+
                 if (existingWorkspaces.Count >= activeSubscription.Subscription.MaxWorkspaces)
                 {
                     throw new Domain.Exceptions.BusinessRuleException(
-                        $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace.");
+                        $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace cho loại {sharedWorkspace.Type}.");
                 }
             }
 
@@ -97,6 +101,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplyShared
                 Id = workspace.Id,
                 WorkspaceName = workspace.WorkspaceName,
                 LayoutJson = JsonSerializer.Deserialize<JsonElement>(workspace.LayoutJson),
+                Type = workspace.Type,
                 IsDefault = workspace.IsDefault,
                 ShareCode = workspace.ShareCode
             };

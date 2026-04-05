@@ -13,6 +13,9 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
 
             RuleFor(x => x.LayoutJson)
                 .Must(BeValidJson).WithMessage("Layout JSON không được là undefined");
+
+            RuleFor(x => x.Type)
+                .IsInEnum().WithMessage("Loại workspace không hợp lệ.");
         }
 
         private static bool BeValidJson(JsonElement json)
