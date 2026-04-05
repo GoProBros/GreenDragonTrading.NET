@@ -82,8 +82,8 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                 await _uow.Users.AddAsync(user, cancellationToken);
                 await _uow.SaveChangesAsync(cancellationToken);
 
-                // Create a copy of the system default workspace for the new user
-                await CreateDefaultWorkspaceForUserAsync(user.Id, cancellationToken);
+                // Create both Web and Mobile default workspaces for the new user
+                await CreateDefaultWorkspacesForUserAsync(user.Id, cancellationToken);
 
                 _logger.LogInformation("New user created via Google: {Email}", user.Email);
             }
@@ -137,31 +137,46 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
         }
 
         /// <summary>
-        /// Creates a copy of the system default workspace for the newly registered user.
+        /// Creates both Web and Mobile default workspaces for the newly registered user.
         /// </summary>
-        private async Task CreateDefaultWorkspaceForUserAsync(Guid userId, CancellationToken cancellationToken)
+        private async Task CreateDefaultWorkspacesForUserAsync(Guid userId, CancellationToken cancellationToken)
         {
-            try
-            {
-                var systemDefaultWorkspace = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(cancellationToken);
+            var defaultTypes = new[] { WorkspaceType.Web, WorkspaceType.Mobile };
 
-                if (systemDefaultWorkspace == null)
+            foreach (var workspaceType in defaultTypes)
+            {
+                try
                 {
-                    _logger.LogWarning("System default workspace not found. Skipping default workspace creation for user {UserId}", userId);
-                    return;
+                    var systemDefaultWorkspace = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(workspaceType, cancellationToken);
+
+                    if (systemDefaultWorkspace == null)
+                    {
+                        _logger.LogWarning(
+                            "System default workspace not found for type {WorkspaceType}. Skipping default workspace creation for user {UserId}",
+                            workspaceType,
+                            userId);
+                        continue;
+                    }
+
+                    await _workspaceDuplicationService.DuplicateWorkspaceAsync(
+                        systemDefaultWorkspace,
+                        userId,
+                        "(Sao chép)",
+                        cancellationToken);
+
+                    _logger.LogInformation(
+                        "Default workspace created successfully for user {UserId} with type {WorkspaceType}",
+                        userId,
+                        workspaceType);
                 }
-
-                await _workspaceDuplicationService.DuplicateWorkspaceAsync(
-                    systemDefaultWorkspace,
-                    userId,
-                    "(Sao chép)",
-                    cancellationToken);
-
-                _logger.LogInformation("Default workspace created successfully for user {UserId}", userId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to create default workspace for user {UserId}. Google login will continue.", userId);
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to create default workspace for user {UserId} with type {WorkspaceType}. Google login will continue.",
+                        userId,
+                        workspaceType);
+                }
             }
         }
     }

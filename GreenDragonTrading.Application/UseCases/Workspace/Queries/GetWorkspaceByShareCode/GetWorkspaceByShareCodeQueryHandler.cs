@@ -44,6 +44,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspace
                     Id = workspace.Id,
                     WorkspaceName = workspace.WorkspaceName,
                     LayoutJson = layoutJson,
+                    Type = workspace.Type,
                     IsDefault = workspace.IsDefault,
                     ShareCode = workspace.ShareCode
                 };

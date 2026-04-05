@@ -30,6 +30,10 @@ namespace GreenDragonTrading.Domain.Entities
         public string LayoutJson { get; set; } = "{}";
 
         [Required]
+        [Column("type", TypeName = "smallint")]
+        public WorkspaceType Type { get; set; } 
+
+        [Required]
         [Column("is_default", TypeName = "boolean")]
         public bool IsDefault { get; set; } = false;
 

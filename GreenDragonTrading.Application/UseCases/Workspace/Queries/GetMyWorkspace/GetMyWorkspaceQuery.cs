@@ -4,6 +4,6 @@ using MediatR;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspace
 {
-    public record GetMyWorkspaceQuery : IRequest<ApiResponse<List<WorkspaceDto>>>;
+    public record GetMyWorkspaceQuery : IRequest<ApiResponse<MyWorkspacesDto>>;
 
 }
