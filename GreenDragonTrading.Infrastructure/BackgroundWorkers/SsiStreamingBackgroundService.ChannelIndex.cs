@@ -137,8 +137,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 // Queue SignalR broadcast to INDEX:{CODE} group
                 QueueIndexBroadcast(dto);
 
-                _logger.LogInformation("[ChannelIndex] Queued MI data for {Code}: value={IndexValue} change={RatioChange:+0.00;-0.00}%",
-                    code, dto.IndexValue, dto.RatioChange);
+                // _logger.LogInformation("[ChannelIndex] Queued MI data for {Code}: value={IndexValue} change={RatioChange:+0.00;-0.00}%",
+                //     code, dto.IndexValue, dto.RatioChange);
             }
             catch (Exception ex)
             {

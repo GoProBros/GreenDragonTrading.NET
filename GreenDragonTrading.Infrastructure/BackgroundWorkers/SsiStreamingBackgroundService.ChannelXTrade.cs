@@ -82,9 +82,9 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 }
                 else
                 {
-                    _logger.LogWarning(
-                        "Unrecognized Side='{Side}' for {Ticker} volDelta={Vol} - not counted in Buy/Sell",
-                        response.Side, response.Symbol, volDelta);
+                    // _logger.LogWarning(
+                    //     "Unrecognized Side='{Side}' for {Ticker} volDelta={Vol} - not counted in Buy/Sell",
+                    //     response.Side, response.Symbol, volDelta);
                 }
             }
 

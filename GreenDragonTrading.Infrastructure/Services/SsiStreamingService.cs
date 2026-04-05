@@ -31,8 +31,11 @@ namespace GreenDragonTrading.Infrastructure.Services
         private IHubProxy? _hubProxy;
         private Timer? _reconnectTimer;
         private Timer? _proactiveReconnectTimer;
+        private Timer? _connectionWatchdogTimer;
         private readonly SemaphoreSlim _reconnectSemaphore = new(1, 1);
         private readonly ConcurrentDictionary<string, byte> _subscribedChannels = new(StringComparer.Ordinal);
+        private long _lastBroadcastTicksUtc = DateTime.UtcNow.Ticks;
+        private DateTime _connectAttemptStartedUtc = DateTime.UtcNow;
         private int _reconnectAttempt;
         private bool _disposed;
 
@@ -41,6 +44,8 @@ namespace GreenDragonTrading.Infrastructure.Services
         private const int ReconnectDelaySeconds = 3;
         private const int MaxReconnectDelaySeconds = 120;
         private const int MaxReconnectJitterMilliseconds = 1000;
+        private const int WatchdogIntervalSeconds = 15;
+        private const int MaxSilentSecondsBeforeReconnect = 45;
         private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
         /// <inheritdoc/>
@@ -57,6 +62,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             ThrowIfDisposed();
 
+            _connectAttemptStartedUtc = DateTime.UtcNow;
             var accessToken = await _authService.GetAccessTokenAsync(cancellationToken);
             CreateHubConnection(accessToken);
 
@@ -65,21 +71,48 @@ namespace GreenDragonTrading.Infrastructure.Services
                 throw new InvalidOperationException("Failed to create hub connection.");
             }
 
-            _logger.LogInformation("Starting SSI streaming connection...");
+            _logger.LogInformation(
+                "SSI connect starting. Url={Url}, ReconnectAttempt={ReconnectAttempt}",
+                _hubConnection.Url,
+                Volatile.Read(ref _reconnectAttempt));
+
+            var transportConnectStartUtc = DateTime.UtcNow;
 
             try
             {
                 // Prefer WebSocket for low-latency realtime streaming.
                 await _hubConnection.Start(new WebSocketTransport());
-                _logger.LogInformation("SSI streaming connection started successfully via WebSocket transport.");
+                _logger.LogInformation(
+                    "SSI connect succeeded via WebSocket. DurationMs={DurationMs:F0}",
+                    (DateTime.UtcNow - transportConnectStartUtc).TotalMilliseconds);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "WebSocket transport start failed. Falling back to default SignalR transport negotiation.");
-                await _hubConnection.Start();
-                _logger.LogInformation("SSI streaming connection started successfully via fallback transport.");
+                _logger.LogWarning(
+                    ex,
+                    "SSI WebSocket connect failed. DurationMs={DurationMs:F0}. Falling back to negotiated transport.",
+                    (DateTime.UtcNow - transportConnectStartUtc).TotalMilliseconds);
+
+                var fallbackStartUtc = DateTime.UtcNow;
+                try
+                {
+                    await _hubConnection.Start();
+                    _logger.LogInformation(
+                        "SSI connect succeeded via fallback transport. DurationMs={DurationMs:F0}",
+                        (DateTime.UtcNow - fallbackStartUtc).TotalMilliseconds);
+                }
+                catch (Exception fallbackEx)
+                {
+                    _logger.LogError(
+                        fallbackEx,
+                        "SSI fallback connect failed. DurationMs={DurationMs:F0}",
+                        (DateTime.UtcNow - fallbackStartUtc).TotalMilliseconds);
+                    throw;
+                }
             }
 
+            Interlocked.Exchange(ref _lastBroadcastTicksUtc, DateTime.UtcNow.Ticks);
+            StartConnectionWatchdog();
             ScheduleDailyProactiveReconnect();
         }
 
@@ -95,9 +128,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             _reconnectTimer = null;
             _proactiveReconnectTimer?.Dispose();
             _proactiveReconnectTimer = null;
+            _connectionWatchdogTimer?.Dispose();
+            _connectionWatchdogTimer = null;
             Interlocked.Exchange(ref _reconnectAttempt, 0);
 
-            _logger.LogInformation("Stopping SSI streaming connection...");
+            _logger.LogInformation(
+                "Stopping SSI streaming connection. CurrentState={State}, ChannelCount={ChannelCount}",
+                _hubConnection.State,
+                _subscribedChannels.Count);
             CleanupHubConnection();
             _logger.LogInformation("SSI streaming connection stopped.");
         }
@@ -133,8 +171,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             CleanupHubConnection();
 
             var url = _options.StreamURL.TrimEnd('/') + "/" + HubEndpoint;
-
-            _logger.LogInformation("Creating hub connection to: {Url}", url);
+            _logger.LogInformation("Creating SSI hub connection. Url={Url}", url);
 
             _hubConnection = new HubConnection(url);
             _hubConnection.Headers.Add("Authorization", $"Bearer {accessToken}");
@@ -183,6 +220,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
+                Interlocked.Exchange(ref _lastBroadcastTicksUtc, DateTime.UtcNow.Ticks);
                 _logger.LogDebug("Broadcast received: {Data}", data);
                 if (OnBroadcastReceived != null)
                 {
@@ -203,14 +241,17 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
-                _logger.LogWarning("Error received from SSI hub: {Message}", message);
+                _logger.LogWarning(
+                    "SSI hub error received. State={State}, Message={Message}",
+                    _hubConnection?.State,
+                    message);
                 OnErrorReceived?.Invoke(message);
 
                 if (ShouldReconnectFromError(message))
                 {
                     _logger.LogWarning(
-                        "Detected recoverable SSI streaming error pattern (504/timeout). Scheduling proactive reconnect.");
-                    ScheduleReconnect(1);
+                        "Detected recoverable SSI streaming error (504/timeout). Scheduling reconnect.");
+                    ScheduleReconnect(1, "hub-error-timeout");
                 }
             }
             catch (Exception ex)
@@ -245,19 +286,26 @@ namespace GreenDragonTrading.Infrastructure.Services
             try
             {
                 _logger.LogInformation(
-                    "SSI hub connection state changed from {OldState} to {NewState}",
+                    "SSI hub state changed: {OldState}->{NewState}, ReconnectAttempt={ReconnectAttempt}",
                     stateChange.OldState,
-                    stateChange.NewState);
+                    stateChange.NewState,
+                    Volatile.Read(ref _reconnectAttempt));
 
                 OnStateChanged?.Invoke(stateChange.OldState.ToString(), stateChange.NewState.ToString());
 
                 switch (stateChange.NewState)
                 {
+                    case ConnectionState.Connected:
+                        Interlocked.Exchange(ref _lastBroadcastTicksUtc, DateTime.UtcNow.Ticks);
+                        _logger.LogInformation(
+                            "SSI hub connected. ConnectDurationMs={DurationMs:F0}",
+                            (DateTime.UtcNow - _connectAttemptStartedUtc).TotalMilliseconds);
+                        break;
                     case ConnectionState.Reconnecting:
                         HandleReconnecting();
                         break;
                     case ConnectionState.Disconnected:
-                        ScheduleReconnect();
+                        ScheduleReconnect(reason: $"state:{stateChange.OldState}->{stateChange.NewState}");
                         break;
                 }
             }
@@ -292,7 +340,7 @@ namespace GreenDragonTrading.Infrastructure.Services
         /// Schedules a reconnection attempt after a delay.
         /// </summary>
         /// <param name="delaySeconds">The delay in seconds before attempting to reconnect.</param>
-        private void ScheduleReconnect(int delaySeconds = ReconnectDelaySeconds)
+        private void ScheduleReconnect(int delaySeconds = ReconnectDelaySeconds, string reason = "unspecified")
         {
             if (_disposed)
             {
@@ -316,7 +364,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 Timeout.InfiniteTimeSpan);
 
             _logger.LogWarning(
-                "Reconnection scheduled in {DelaySeconds}s (+{JitterMs}ms jitter). Attempt #{Attempt}.",
+                "Reconnect scheduled. Reason={Reason}, DelaySeconds={DelaySeconds}, JitterMs={JitterMs}, Attempt={Attempt}",
+                reason,
                 forcedDelaySeconds,
                 jitterMilliseconds,
                 attempt);
@@ -332,15 +381,20 @@ namespace GreenDragonTrading.Infrastructure.Services
                 return;
             }
 
+            var reconnectStartUtc = DateTime.UtcNow;
+
             if (!await _reconnectSemaphore.WaitAsync(0))
             {
-                _logger.LogDebug("Reconnect is already in progress. Skipping duplicate attempt.");
+                _logger.LogDebug(
+                    "Reconnect already in progress. Skipping duplicate attempt.");
                 return;
             }
 
             try
             {
-                _logger.LogInformation("Attempting to reconnect to SSI streaming hub...");
+                _logger.LogInformation(
+                    "Reconnect attempt started. Attempt={Attempt}",
+                    Volatile.Read(ref _reconnectAttempt));
 
                 await StartAsync();
 
@@ -350,17 +404,110 @@ namespace GreenDragonTrading.Infrastructure.Services
                 _reconnectTimer = null;
                 Interlocked.Exchange(ref _reconnectAttempt, 0);
 
-                _logger.LogInformation("Reconnection successful.");
+                _logger.LogInformation(
+                    "Reconnect successful. DurationMs={DurationMs:F0}, ReSubscribedChannels={ChannelCount}",
+                    (DateTime.UtcNow - reconnectStartUtc).TotalMilliseconds,
+                    _subscribedChannels.Count);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Reconnection failed. Scheduling another attempt...");
-                ScheduleReconnect();
+                _logger.LogError(
+                    ex,
+                    "Reconnect failed. DurationMs={DurationMs:F0}. Scheduling retry.",
+                    (DateTime.UtcNow - reconnectStartUtc).TotalMilliseconds);
+                ScheduleReconnect(reason: "reconnect-failed");
             }
             finally
             {
                 _reconnectSemaphore.Release();
             }
+        }
+
+        /// <summary>
+        /// Starts a lightweight watchdog that detects silent/stale connections
+        /// (Connected state but no broadcasts received) and triggers reconnect.
+        /// </summary>
+        private void StartConnectionWatchdog()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _connectionWatchdogTimer?.Dispose();
+            _connectionWatchdogTimer = new Timer(
+                _ => _ = CheckConnectionHealthAsync(),
+                null,
+                TimeSpan.FromSeconds(WatchdogIntervalSeconds),
+                TimeSpan.FromSeconds(WatchdogIntervalSeconds));
+
+            _logger.LogInformation(
+                "Started SSI connection watchdog. IntervalSeconds={IntervalSeconds}, MaxSilentSeconds={MaxSilentSeconds}",
+                WatchdogIntervalSeconds,
+                MaxSilentSecondsBeforeReconnect);
+        }
+
+        /// <summary>
+        /// Verifies stream liveness and schedules reconnect when stream is stale.
+        /// </summary>
+        private Task CheckConnectionHealthAsync()
+        {
+            try
+            {
+                if (_disposed || _hubConnection == null)
+                {
+                    return Task.CompletedTask;
+                }
+
+                if (_hubConnection.State != ConnectionState.Connected || _subscribedChannels.IsEmpty)
+                {
+                    return Task.CompletedTask;
+                }
+
+                if (!IsStreamingExpectedNow(DateTimeOffset.UtcNow))
+                {
+                    return Task.CompletedTask;
+                }
+
+                var lastTicks = Interlocked.Read(ref _lastBroadcastTicksUtc);
+                var lastBroadcastUtc = new DateTime(lastTicks, DateTimeKind.Utc);
+                var silence = DateTime.UtcNow - lastBroadcastUtc;
+
+                if (silence.TotalSeconds < MaxSilentSecondsBeforeReconnect)
+                {
+                    return Task.CompletedTask;
+                }
+
+                _logger.LogWarning(
+                    "SSI stream stale. State={State}, SilenceSeconds={SilenceSeconds:F0}. Scheduling reconnect.",
+                    _hubConnection.State,
+                    silence.TotalSeconds);
+
+                // Rate-limit repeated watchdog-triggered reconnect logs until next message arrives.
+                Interlocked.Exchange(ref _lastBroadcastTicksUtc, DateTime.UtcNow.Ticks);
+                ScheduleReconnect(1, "watchdog-silent-stream");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Connection watchdog check failed.");
+            }
+
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Returns true during VN trading window when realtime stream is expected.
+        /// </summary>
+        private static bool IsStreamingExpectedNow(DateTimeOffset utcNow)
+        {
+            var vnNow = TimeZoneInfo.ConvertTime(utcNow, VietnamTimeZone);
+            if (vnNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            {
+                return false;
+            }
+
+            var t = vnNow.TimeOfDay;
+            return t >= new TimeSpan(8, 45, 0) && t <= new TimeSpan(15, 30, 0);
         }
 
         /// <summary>
@@ -470,7 +617,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             {
                 try
                 {
-                    _logger.LogInformation("Re-subscribing channel after reconnect: {Channel}", channel);
+                    // _logger.LogInformation("Re-subscribing channel after reconnect: {Channel}", channel);
                     await _hubProxy.Invoke("SwitchChannels", channel);
                 }
                 catch (Exception ex)
@@ -511,6 +658,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             {
                 _reconnectTimer?.Dispose();
                 _proactiveReconnectTimer?.Dispose();
+                _connectionWatchdogTimer?.Dispose();
                 _reconnectSemaphore.Dispose();
                 CleanupHubConnection();
             }

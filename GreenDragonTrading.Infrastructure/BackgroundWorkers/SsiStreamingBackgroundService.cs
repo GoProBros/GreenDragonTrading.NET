@@ -143,14 +143,12 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 _logger.LogWarning("No market index codes configured – skipping MI channel subscription");
             }
 
-            // Start batched Redis write loop (100ms)
-            _ = Task.Run(() => ProcessRedisWriteBatchAsync(stoppingToken), stoppingToken);
+            // Keep processing loops attached to hosted-service lifecycle.
+            var redisWriteLoop = ProcessRedisWriteBatchAsync(stoppingToken);
+            var broadcastLoop = ProcessBroadcastBatchAsync(stoppingToken);
+            var candleSaveLoop = ProcessCandleSaveQueueAsync(stoppingToken);
 
-            // Start batched broadcast loop (100ms)
-            _ = Task.Run(() => ProcessBroadcastBatchAsync(stoppingToken), stoppingToken);
-
-            // Start the background candle-batch-save loop
-            _ = Task.Run(() => ProcessCandleSaveQueueAsync(stoppingToken), stoppingToken);
+            await Task.WhenAll(redisWriteLoop, broadcastLoop, candleSaveLoop);
         }
 
         /// <summary>
