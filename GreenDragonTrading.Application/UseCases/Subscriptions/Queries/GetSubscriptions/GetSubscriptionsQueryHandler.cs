@@ -1,5 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -10,13 +12,16 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubsc
     public class GetSubscriptionsQueryHandler : IRequestHandler<GetSubscriptionsQuery, ApiResponse<List<SubscriptionDto>>>
     {
         private readonly IUnitOfWork _uow;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<GetSubscriptionsQueryHandler> _logger;
 
         public GetSubscriptionsQueryHandler(
             IUnitOfWork uow,
+            ICurrentUserService currentUserService,
             ILogger<GetSubscriptionsQueryHandler> logger)
         {
             _uow = uow;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
@@ -24,9 +29,21 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubsc
             GetSubscriptionsQuery request,
             CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Getting all subscription packages");
+            var includeInactive = _currentUserService.IsAdminOrStaff;
+
+            _logger.LogInformation(
+                "Getting subscription packages. IncludeInactive={IncludeInactive}, Role={Role}",
+                includeInactive,
+                _currentUserService.Role ?? "Anonymous");
 
             var subscriptions = await _uow.Subscriptions.GetAllAsync(cancellationToken);
+
+            if (!includeInactive)
+            {
+                subscriptions = subscriptions
+                    .Where(s => s.IsActive == CommonStatus.Active)
+                    .ToList();
+            }
 
             var result = subscriptions
                 .OrderBy(s => s.LevelOrder)
@@ -38,6 +55,7 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubsc
                     MaxWorkspaces = s.MaxWorkspaces,
                     Price = s.Price,
                     DurationInDays = s.DurationInDays,
+                    IsActive = s.IsActive,
                     AllowedModules = JsonDocument.Parse(s.AllowedModules).RootElement.Clone()
                 })
                 .ToList();

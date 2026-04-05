@@ -12,6 +12,7 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
         int MaxWorkspaces,
         decimal Price,
         int DurationInDays,
-        JsonElement AllowedModules
+        JsonElement AllowedModules,
+        CommonStatus IsActive = CommonStatus.Active
     ) : IRequest<ApiResponse<SubscriptionDto>>;
 }

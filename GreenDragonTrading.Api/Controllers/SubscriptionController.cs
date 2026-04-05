@@ -1,6 +1,8 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateSubscription;
+using GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateSubscriptionPrice;
+using GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateSubscriptionStatus;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySubscription;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubscriptionStatistics;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubscriptions;
@@ -73,8 +75,39 @@ namespace GreenDragonTrading.Api.Controllers
                 request.MaxWorkspaces,
                 request.Price,
                 request.DurationInDays,
-                request.AllowedModules
+                request.AllowedModules,
+                request.IsActive
             );
+            var result = await _mediator.Send(command, cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Updates active/inactive status of a subscription package (Admin/Staff)
+        /// </summary>
+        [HttpPatch("{id}/status")]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
+        public async Task<ActionResult<ApiResponse<SubscriptionDto>>> UpdateSubscriptionStatus(
+            [FromRoute] int id,
+            [FromBody] UpdateSubscriptionStatusRequest request,
+            CancellationToken cancellationToken)
+        {
+            var command = new UpdateSubscriptionStatusCommand(id, request.IsActive);
+            var result = await _mediator.Send(command, cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Updates only subscription price (Admin only)
+        /// </summary>
+        [HttpPatch("{id}/price")]
+        [Authorize(Roles = nameof(UserRole.Admin))]
+        public async Task<ActionResult<ApiResponse<SubscriptionDto>>> UpdateSubscriptionPrice(
+            [FromRoute] int id,
+            [FromBody] UpdateSubscriptionPriceRequest request,
+            CancellationToken cancellationToken)
+        {
+            var command = new UpdateSubscriptionPriceCommand(id, request.Price);
             var result = await _mediator.Send(command, cancellationToken);
             return Ok(result);
         }

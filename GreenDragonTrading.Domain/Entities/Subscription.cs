@@ -34,6 +34,10 @@ namespace GreenDragonTrading.Domain.Entities
         public int DurationInDays { get; set; }
 
         [Required]
+        [Column("is_active", TypeName = "smallint")]
+        public CommonStatus IsActive { get; set; } = CommonStatus.Active; 
+
+        [Required]
         [Column("allowed_modules", TypeName = "jsonb")]
         public string AllowedModules { get; set; } = "[]";
 
