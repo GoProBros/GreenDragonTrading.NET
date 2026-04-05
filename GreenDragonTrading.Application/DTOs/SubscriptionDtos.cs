@@ -11,6 +11,7 @@ namespace GreenDragonTrading.Application.DTOs
         public int MaxWorkspaces { get; set; }
         public decimal Price { get; set; }
         public int DurationInDays { get; set; }
+        public CommonStatus IsActive { get; set; } = CommonStatus.Active;
         public JsonElement AllowedModules { get; set; }
     }
 
@@ -21,7 +22,18 @@ namespace GreenDragonTrading.Application.DTOs
         public int MaxWorkspaces { get; set; }
         public decimal Price { get; set; }
         public int DurationInDays { get; set; }
+        public CommonStatus IsActive { get; set; } = CommonStatus.Active;
         public JsonElement AllowedModules { get; set; }
+    }
+
+    public class UpdateSubscriptionStatusRequest
+    {
+        public CommonStatus IsActive { get; set; }
+    }
+
+    public class UpdateSubscriptionPriceRequest
+    {
+        public decimal Price { get; set; }
     }
 
     public class UserSubscriptionDto

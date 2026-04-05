@@ -1,4 +1,5 @@
 using FluentValidation;
+using GreenDragonTrading.Domain.Enums;
 using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateSubscription;
@@ -25,6 +26,9 @@ public class CreateSubscriptionCommandValidator : AbstractValidator<CreateSubscr
 
         RuleFor(x => x.DurationInDays)
             .GreaterThan(0).WithMessage("Số ngày sử dụng phải lớn hơn 0");
+
+        RuleFor(x => x.IsActive)
+            .IsInEnum().WithMessage("Trạng thái gói đăng ký không hợp lệ");
 
         RuleFor(x => x.AllowedModules)
             .NotEmpty().WithMessage("Danh sách module cho phép không được để trống")

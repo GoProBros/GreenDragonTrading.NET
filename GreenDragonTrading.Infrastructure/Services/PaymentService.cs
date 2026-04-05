@@ -41,6 +41,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             var newSubscription = await _uow.Subscriptions.GetByIdAsync(subscriptionId, cancellationToken)
                       ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
+            await EnsureSubscriptionCanBePurchasedAsync(userId, newSubscription, cancellationToken);
+
             var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
             var currentLevelOrder = currentHighestSub?.Subscription.LevelOrder ?? 0;
 
@@ -57,9 +59,10 @@ namespace GreenDragonTrading.Infrastructure.Services
                 ? TransactionType.Purchase
                 : TransactionType.Upgrade;
 
-            var description = transactionType == TransactionType.Purchase
-                ? $"Mua gói {newSubscription.Id}"
-                : $"Nâng cấp lên gói {newSubscription.Id}";
+            var gatewayDescription = BuildGatewayDescription(transactionType, newSubscription.Id);
+
+            var purchasedAt = DateTimeOffset.UtcNow;
+            var transactionDescription = BuildTransactionDescription(gatewayDescription, newSubscription.Price, purchasedAt);
 
             var transaction = new Transaction
             {
@@ -70,7 +73,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 Status = TransactionStatus.Pending,
                 Type = transactionType,
                 PaymentProvider = PaymentType.Payos,
-                Description = description
+                Description = transactionDescription,
+                CreatedAt = purchasedAt
             };
 
             await _uow.Transactions.AddAsync(transaction, cancellationToken);
@@ -80,7 +84,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             var result = await _payOSService.CreatePaymentLinkAsync(
                 orderCode,
                 (int)newSubscription.Price,
-                description,
+                gatewayDescription,
                 listItems,
                 _payOSOptions.ReturnUrl,
                 _payOSOptions.CancelUrl
@@ -271,6 +275,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             var newSubscription = await _uow.Subscriptions.GetByIdAsync(subscriptionId, cancellationToken)
                 ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
+            await EnsureSubscriptionCanBePurchasedAsync(userId, newSubscription, cancellationToken);
+
             var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
             var currentLevelOrder = currentHighestSub?.Subscription.LevelOrder ?? 0;
 
@@ -288,9 +294,10 @@ namespace GreenDragonTrading.Infrastructure.Services
                 ? TransactionType.Purchase
                 : TransactionType.Upgrade;
 
-            var description = momoTransactionType == TransactionType.Purchase
-                ? $"Mua gói {newSubscription.Id}"
-                : $"Nâng cấp lên gói {newSubscription.Id}";
+            var gatewayDescription = BuildGatewayDescription(momoTransactionType, newSubscription.Id);
+
+            var purchasedAt = DateTimeOffset.UtcNow;
+            var transactionDescription = BuildTransactionDescription(gatewayDescription, newSubscription.Price, purchasedAt);
 
             var transaction = new Transaction
             {
@@ -301,7 +308,8 @@ namespace GreenDragonTrading.Infrastructure.Services
                 Status = TransactionStatus.Pending,
                 Type = momoTransactionType,
                 PaymentProvider = PaymentType.Momo,
-                Description = description
+                Description = transactionDescription,
+                CreatedAt = purchasedAt
             };
 
             await _uow.Transactions.AddAsync(transaction, cancellationToken);
@@ -309,7 +317,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             var momoResponse = await _momoService.CreatePaymentAsync(
                 orderId,
                 (long)newSubscription.Price,
-                description,
+                gatewayDescription,
                 cancellationToken);
 
             if (momoResponse.ErrorCode != 0)
@@ -388,6 +396,57 @@ namespace GreenDragonTrading.Infrastructure.Services
                 IsSuccess = false,
                 Message = $"Thanh toán chưa hoàn tất: {queryResult.Message}"
             };
+        }
+
+        private async Task EnsureSubscriptionCanBePurchasedAsync(
+            Guid userId,
+            Subscription subscription,
+            CancellationToken cancellationToken)
+        {
+            if (subscription.IsActive == CommonStatus.Active)
+            {
+                return;
+            }
+
+            var user = await _uow.Users.GetByIdAsync(userId, cancellationToken)
+                ?? throw new NotFoundException("Người dùng không tồn tại");
+
+            var isAdminOrStaff = user.Role == UserRole.Admin || user.Role == UserRole.Staff;
+            if (isAdminOrStaff)
+            {
+                return;
+            }
+
+            _logger.LogWarning(
+                "Hidden subscription purchase blocked: UserId={UserId}, SubscriptionId={SubscriptionId}",
+                userId,
+                subscription.Id);
+
+            throw new BusinessRuleException("Gói dịch vụ này đã được ẩn và không thể đăng ký mới.");
+        }
+
+        private static string BuildGatewayDescription(TransactionType transactionType, int subscriptionId)
+        {
+            var description = transactionType == TransactionType.Purchase
+                ? $"Mua goi {subscriptionId}"
+                : $"Nang cap goi {subscriptionId}";
+
+            return description.Length <= 25
+                ? description
+                : description[..25];
+        }
+
+        private static string BuildTransactionDescription(
+            string gatewayDescription,
+            decimal purchasedPrice,
+            DateTimeOffset purchasedAt)
+        {
+            var vietnamTime = purchasedAt.ToOffset(TimeSpan.FromHours(7));
+            var description = $"{gatewayDescription} | Gia luc mua: {purchasedPrice:0.##} VND | Ngay mua: {vietnamTime:dd/MM/yyyy HH:mm:ss}";
+
+            return description.Length <= 255
+                ? description
+                : description[..255];
         }
 
         private async Task<WebhookUpdateResult> ActivateMomoSubscriptionAsync(

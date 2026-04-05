@@ -29,6 +29,7 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
                 MaxWorkspaces = request.MaxWorkspaces,
                 Price = request.Price,
                 DurationInDays = request.DurationInDays,
+                IsActive = request.IsActive,
                 AllowedModules = request.AllowedModules.GetRawText()
             };
 
@@ -45,6 +46,7 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
                 MaxWorkspaces = subscription.MaxWorkspaces,
                 Price = subscription.Price,
                 DurationInDays = subscription.DurationInDays,
+                IsActive = subscription.IsActive,
                 AllowedModules = request.AllowedModules
             };
 
