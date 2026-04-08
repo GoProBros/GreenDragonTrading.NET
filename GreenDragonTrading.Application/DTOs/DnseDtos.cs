@@ -49,7 +49,7 @@ public record DnseDataSeries
     /// <summary>
     /// Data values corresponding to X periods
     /// </summary>
-    public List<decimal> Y { get; init; } = new();
+    public List<decimal?> Y { get; init; } = new();
     
     /// <summary>
     /// Y axis position ("left" or "right")
@@ -62,11 +62,6 @@ public record DnseDataSeries
 /// </summary>
 public record ImportFromDnseRequest
 {
-    /// <summary>
-    /// List of stock tickers to import. If null or empty, import all from database
-    /// </summary>
-    public List<string>? Tickers { get; init; }
-    
     /// <summary>
     /// Cycle type: "quy" (quarterly) or "nam" (yearly)
     /// </summary>

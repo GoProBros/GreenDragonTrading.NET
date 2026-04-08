@@ -3,6 +3,7 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportIndexConstituentsFromSsi;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportNewsFromRss;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.RecalculateFinancialReportIndicators;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSpecificPeriodFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
@@ -77,15 +78,38 @@ namespace GreenDragonTrading.Api.Controllers
 
         /// <summary>
         /// Import bulk financial reports from DNSE API.
-        /// Imports data for multiple tickers and multiple periods (5 or 10 cycles).
+        /// Imports data for all tickers in the database and multiple periods (5 or 10 cycles).
         /// </summary>
-        /// <param name="request">Import request containing tickers, cycle type, and cycle number.</param>
+        /// <param name="request">Import request containing cycle type and cycle number.</param>
         /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
         /// <returns>Import result with success/failure statistics.</returns>
         [HttpPost("financial-reports/bulk")]
         [Authorize]
         public async Task<ActionResult<ApiResponse<DnseImportResult>>> ImportBulkFromDnse(
             [FromBody] ImportBulkFromDnseCommand request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Recalculates indicator_data for financial reports (useful for backfilling null indicator records).
+        /// Quarterly reports are calculated with QoQ comparison, yearly reports with YoY comparison.
+        /// </summary>
+        /// <param name="request">Recalculation filter and batch size options.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Recalculation statistics.</returns>
+        [HttpPost("financial-reports/recalculate-indicators")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<RecalculateFinancialReportIndicatorsResult>>> RecalculateFinancialReportIndicators(
+            [FromBody] RecalculateFinancialReportIndicatorsCommand request,
             CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(request, cancellationToken);

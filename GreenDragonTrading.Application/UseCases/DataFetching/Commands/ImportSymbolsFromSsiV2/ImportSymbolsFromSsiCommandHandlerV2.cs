@@ -1,4 +1,5 @@
-﻿using GreenDragonTrading.Application.DTOs;
+﻿using System.Globalization;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
 using GreenDragonTrading.Domain.Constants;
@@ -74,8 +75,10 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
 
                 int queriedCount = 0;
                 int total = 0;
+                const int maxPageLimit = 2000;
                 List<RepeatedSecuritiesDetailsInfo>? validSsiSymbols = [];
-                do
+
+                while (requestQuery.PageIndex <= maxPageLimit)
                 {
                     (SecuritiesDetailsResponse ssiSymbols, int count) = await _ssiService.FetchSecuritiesDetailsAsync(requestQuery, cancellationToken);
 
@@ -92,18 +95,50 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
 
                     validSsiSymbols.AddRange(batchSymbols);
 
-                    if (total == 0)
+                    if (total <= 0)
                     {
                         string? stringTotal = ssiSymbols.Data
                             .FirstOrDefault(d => d.TotalNoSym != null)?.TotalNoSym;
 
-                        _ = int.TryParse(stringTotal, out total);
+                        if (!int.TryParse(stringTotal, out total) || total < 0)
+                        {
+                            total = ssiSymbols.TotalRecord;
+                        }
+                    }
+
+                    if (count <= 0)
+                    {
+                        _logger.LogWarning(
+                            "SSI Securities pagination stopped at page {PageIndex} because API returned 0 records. QueriedCount={QueriedCount}, Total={Total}.",
+                            requestQuery.PageIndex,
+                            queriedCount,
+                            total);
+                        break;
                     }
 
                     queriedCount += count;
+
+                    if (total > 0 && queriedCount >= total)
+                    {
+                        break;
+                    }
+
+                    if (count < requestQuery.PageSize)
+                    {
+                        break;
+                    }
+
                     requestQuery.PageIndex++;
                 }
-                while (queriedCount < total);
+
+                if (requestQuery.PageIndex > maxPageLimit)
+                {
+                    _logger.LogWarning(
+                        "SSI Securities pagination reached safety page limit {MaxPageLimit}. QueriedCount={QueriedCount}, Total={Total}.",
+                        maxPageLimit,
+                        queriedCount,
+                        total);
+                }
 
                 List<Symbol> addList = [];
                 List<Symbol> updateList = [];
@@ -114,6 +149,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
 
                     var newType = MapSsiSymbolTypeToDomainType(item.SecType);
                     var newExchange = MapSsiExchangeCodeToDomainCode(item.Exchange);
+                    var newListedShare = ParseListedShare(item.ListedShare);
 
                     if (dbSymbolsDict.TryGetValue(tickerKey, out var existingDbSymbol))
                     {
@@ -121,7 +157,8 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
                             existingDbSymbol.Isin != item.Isin ||
                             existingDbSymbol.EnCompanyName != item.SymbolEngName ||
                             existingDbSymbol.ViCompanyName != item.SymbolName ||
-                            existingDbSymbol.Type != newType;
+                            existingDbSymbol.Type != newType ||
+                            existingDbSymbol.ListedShare != newListedShare;
 
                         if (isChanged)
                         {
@@ -129,6 +166,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
                             existingDbSymbol.EnCompanyName = item.SymbolEngName;
                             existingDbSymbol.ViCompanyName = item.SymbolName;
                             existingDbSymbol.Type = newType;
+                            existingDbSymbol.ListedShare = newListedShare;
 
                             updateList.Add(existingDbSymbol);
                         }
@@ -144,6 +182,7 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
                             ExchangeCode = newExchange,
                             Status = CommonStatus.Active,
                             Type = newType,
+                            ListedShare = newListedShare,
                             TradingStatus = SymbolStatus.Normal
                         });
                     }
@@ -201,6 +240,28 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSy
                 SsiConstantsV2.SSI_EXCHANGE_UPCOM => ExchangeConstant.EXCHANGE_UPCOM,
                 _ => "UNKNOWN",
             };
+        }
+
+        private static long? ParseListedShare(string? listedShare)
+        {
+            if (string.IsNullOrWhiteSpace(listedShare))
+            {
+                return null;
+            }
+
+            var normalized = listedShare.Trim();
+            if (long.TryParse(normalized, NumberStyles.AllowThousands | NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+
+            var digitsOnly = new string(normalized.Where(char.IsDigit).ToArray());
+            if (long.TryParse(digitsOnly, out parsed))
+            {
+                return parsed;
+            }
+
+            return null;
         }
     }
 }

@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
@@ -11,13 +12,16 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
     public class CreateFinancialReportCommandHandler : IRequestHandler<CreateFinancialReportCommand, ApiResponse<FinancialReportDto>>
     {
         private readonly IUnitOfWork _uow;
+        private readonly IFinancialReportIndicatorCalculationService _indicatorCalculationService;
         private readonly ILogger<CreateFinancialReportCommandHandler> _logger;
 
         public CreateFinancialReportCommandHandler(
             IUnitOfWork uow,
+            IFinancialReportIndicatorCalculationService indicatorCalculationService,
             ILogger<CreateFinancialReportCommandHandler> logger)
         {
             _uow = uow;
+            _indicatorCalculationService = indicatorCalculationService;
             _logger = logger;
         }
 
@@ -46,6 +50,18 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
                 }
 
                 // Create financial report entity
+                var (comparisonYear, comparisonPeriod) = GetComparisonPeriod(request.Year, request.Period);
+                var comparisonReport = await _uow.FinancialReports.GetByTickerYearPeriodAsync(
+                    request.Ticker,
+                    comparisonYear,
+                    (int)comparisonPeriod,
+                    cancellationToken);
+
+                var indicatorData = _indicatorCalculationService.Calculate(
+                    request.ReportData,
+                    request.Period,
+                    comparisonReport?.ReportData);
+
                 var financialReport = new FinancialReport
                 {
                     Id = Guid.NewGuid(),
@@ -53,6 +69,7 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
                     Year = request.Year,
                     Period = request.Period,
                     ReportData = request.ReportData,
+                    IndicatorData = indicatorData,
                     Status = FinancialReportStatus.Completed,
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
@@ -82,6 +99,7 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
                 Year = report.Year,
                 Period = report.Period,
                 ReportData = report.ReportData,
+                IndicatorData = report.IndicatorData,
                 FilePath = report.FilePath,
                 FileUrl = report.FilePath,
                 FileSize = report.FileSize,
@@ -89,6 +107,21 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Crea
                 CreatedAt = report.CreatedAt,
                 UpdatedAt = report.UpdatedAt
             };
+        }
+
+        private static (int comparisonYear, ReportPeriod comparisonPeriod) GetComparisonPeriod(int year, ReportPeriod period)
+        {
+            if (period == ReportPeriod.Yearly)
+            {
+                return (year - 1, ReportPeriod.Yearly);
+            }
+
+            if (period == ReportPeriod.Q1)
+            {
+                return (year - 1, ReportPeriod.Q4);
+            }
+
+            return (year, (ReportPeriod)((int)period - 1));
         }
     }
 }

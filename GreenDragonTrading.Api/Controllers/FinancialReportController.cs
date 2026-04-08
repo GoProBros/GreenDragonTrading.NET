@@ -4,7 +4,10 @@ using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.CreateFi
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.DeleteFinancialReport;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.UpdateFinancialReport;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportById;
+using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportIndicatorList;
+using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetRecentQuarterIndicators;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReports;
+using GreenDragonTrading.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,6 +45,28 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
+        /// Retrieves a paginated list of financial report indicators with filters,
+        /// aligned with the main financial reports list endpoint.
+        /// </summary>
+        /// <param name="query">Filter and pagination query.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Paginated indicator list.</returns>
+        [HttpGet("indicators")]
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<FinancialReportIndicatorListItemDto>>>> GetFinancialReportIndicatorsWithFilters(
+            [FromQuery] GetFinancialReportIndicatorListQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Retrieves a specific financial report by ID.
         /// </summary>
         /// <param name="id">The ID of the financial report to retrieve.</param>
@@ -59,6 +84,31 @@ namespace GreenDragonTrading.Api.Controllers
                 return NotFound(result);
             }
             
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Retrieves recent quarterly indicator snapshots for a ticker.
+        /// </summary>
+        /// <param name="ticker">Ticker symbol.</param>
+        /// <param name="count">Number of recent quarters to return. Default is 5.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Indicator snapshots of recent quarters.</returns>
+        [HttpGet("{ticker}/indicators/recent-quarters")]
+        public async Task<ActionResult<ApiResponse<IReadOnlyCollection<QuarterIndicatorItemDto>>>> GetRecentQuarterIndicators(
+            [FromRoute] string ticker,
+            [FromQuery] int count = 5,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(
+                new GetRecentQuarterIndicatorsQuery(ticker, count),
+                cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return NotFound(result);
+            }
+
             return Ok(result);
         }
 
