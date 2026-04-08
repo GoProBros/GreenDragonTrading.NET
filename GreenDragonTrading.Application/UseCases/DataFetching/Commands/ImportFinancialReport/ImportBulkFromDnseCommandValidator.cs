@@ -16,9 +16,5 @@ public class ImportBulkFromDnseCommandValidator : AbstractValidator<ImportBulkFr
         RuleFor(x => x.CycleNumber)
             .Must(cn => cn == 5 || cn == 10)
             .WithMessage("CycleNumber phải là 5 hoặc 10");
-
-        RuleFor(x => x.Tickers)
-            .Must(tickers => tickers == null || tickers.Count > 0)
-            .WithMessage("Danh sách Tickers không được rỗng nếu được cung cấp");
     }
 }

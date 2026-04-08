@@ -137,6 +137,7 @@ namespace GreenDragonTrading.Infrastructure
             
             // Register DNSE Data Mapper
             services.AddScoped<IDnseDataMapper, DnseDataMapper>();
+            services.AddScoped<IFinancialReportIndicatorCalculationService, FinancialReportIndicatorCalculationService>();
 
             // Register PayOS Service
             services.AddScoped<IPayOSService, PayOSService>();

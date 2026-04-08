@@ -42,6 +42,17 @@ namespace GreenDragonTrading.Domain.Interfaces
             int? period = null,
             int? status = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get a batch of financial reports for indicator data recalculation.
+        /// </summary>
+        Task<List<FinancialReport>> GetForIndicatorRecalculationAsync(
+            string? ticker = null,
+            int? year = null,
+            int? period = null,
+            bool onlyNullIndicatorData = true,
+            int maxRecords = 2000,
+            CancellationToken cancellationToken = default);
     }
 }
 

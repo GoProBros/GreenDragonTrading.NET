@@ -4,7 +4,9 @@ using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.CreateFi
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.DeleteFinancialReport;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Commands.UpdateFinancialReport;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportById;
+using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportIndicators;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReports;
+using GreenDragonTrading.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -59,6 +61,27 @@ namespace GreenDragonTrading.Api.Controllers
                 return NotFound(result);
             }
             
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Retrieves calculated indicator data of a specific financial report by ID.
+        /// </summary>
+        /// <param name="id">The ID of the financial report.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Calculated indicator data.</returns>
+        [HttpGet("{id}/indicators")]
+        public async Task<ActionResult<ApiResponse<FinancialReportIndicatorData>>> GetFinancialReportIndicators(
+            [FromRoute] Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new GetFinancialReportIndicatorsQuery(id), cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return NotFound(result);
+            }
+
             return Ok(result);
         }
 

@@ -39,6 +39,12 @@ namespace GreenDragonTrading.Domain.Entities
         public FinancialReportData ReportData { get; set; } = new();
 
         /// <summary>
+        /// Calculated financial indicators snapshot stored as JSON.
+        /// </summary>
+        [Column("indicator_data", TypeName = "jsonb")]
+        public FinancialReportIndicatorData? IndicatorData { get; set; }
+
+        /// <summary>
         /// Đường dẫn file PDF báo cáo tài chính
         /// </summary>
         [Column("file_path", TypeName = "varchar(500)")]

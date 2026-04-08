@@ -106,5 +106,43 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 
             return (items, totalCount);
         }
+
+        public async Task<List<FinancialReport>> GetForIndicatorRecalculationAsync(
+            string? ticker = null,
+            int? year = null,
+            int? period = null,
+            bool onlyNullIndicatorData = true,
+            int maxRecords = 2000,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.Set<FinancialReport>().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(ticker))
+            {
+                query = query.Where(f => f.Ticker == ticker);
+            }
+
+            if (year.HasValue)
+            {
+                query = query.Where(f => f.Year == year.Value);
+            }
+
+            if (period.HasValue)
+            {
+                query = query.Where(f => f.Period == (ReportPeriod)period.Value);
+            }
+
+            if (onlyNullIndicatorData)
+            {
+                query = query.Where(f => f.IndicatorData == null);
+            }
+
+            return await query
+                .OrderBy(f => f.Ticker)
+                .ThenBy(f => f.Year)
+                .ThenBy(f => f.Period)
+                .Take(maxRecords)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

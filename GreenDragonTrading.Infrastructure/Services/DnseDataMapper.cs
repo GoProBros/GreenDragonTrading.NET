@@ -62,8 +62,8 @@ public class DnseDataMapper : IDnseDataMapper
                     Type = series.Type,
                     Tooltip = series.Tooltip,
                     Y = periodIndex < series.Y.Count
-                        ? new List<decimal> { series.Y[periodIndex] }
-                        : new List<decimal> { 0 },
+                        ? new List<decimal?> { series.Y[periodIndex] }
+                        : new List<decimal?> { 0m },
                     YAxisPosition = series.YAxisPosition
                 }).ToList()
             };
@@ -346,8 +346,9 @@ public class DnseDataMapper : IDnseDataMapper
             }
 
             // For multiple periods, return the most recent (last) value
-            // This assumes X periods are sorted chronologically
-            return series.Y[series.Y.Count - 1];
+            // This assumes X periods are sorted chronologically.
+            // Prefer the latest non-null value to tolerate partial DNSE payloads.
+            return series.Y.LastOrDefault(v => v.HasValue);
         }
         catch (Exception ex)
         {
