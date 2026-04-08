@@ -144,5 +144,18 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .Take(maxRecords)
                 .ToListAsync(cancellationToken);
         }
+
+        public async Task<List<FinancialReport>> GetRecentQuarterlyByTickerAsync(
+            string ticker,
+            int count,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<FinancialReport>()
+                .Where(f => f.Ticker == ticker && f.Period != ReportPeriod.Yearly)
+                .OrderByDescending(f => f.Year)
+                .ThenByDescending(f => f.Period)
+                .Take(count)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

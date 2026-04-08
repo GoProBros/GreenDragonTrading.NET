@@ -53,6 +53,14 @@ namespace GreenDragonTrading.Domain.Interfaces
             bool onlyNullIndicatorData = true,
             int maxRecords = 2000,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get latest quarterly financial reports by ticker (excluding yearly reports).
+        /// </summary>
+        Task<List<FinancialReport>> GetRecentQuarterlyByTickerAsync(
+            string ticker,
+            int count,
+            CancellationToken cancellationToken = default);
     }
 }
 
