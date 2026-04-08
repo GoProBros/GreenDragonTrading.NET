@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
@@ -36,7 +37,23 @@ public class CurrentUserService : ICurrentUserService
     public string? Role => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value;
 
     /// <inheritdoc/>
-    public bool IsAdminOrStaff => Role == "Admin" || Role == "Staff";
+    public bool IsAdminOrStaff
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Role))
+            {
+                return false;
+            }
+
+            if (!Enum.TryParse<UserRole>(Role, true, out var parsedRole))
+            {
+                return false;
+            }
+
+            return parsedRole == UserRole.Admin || parsedRole == UserRole.Staff;
+        }
+    }
 
     /// <inheritdoc/>
     public Guid GetRequiredUserId()
