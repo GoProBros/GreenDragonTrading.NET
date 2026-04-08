@@ -18,6 +18,9 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("isin", TypeName = "varchar(25)")]
         public string? Isin { get; set; }
 
+        [Column("listed_share", TypeName = "bigint")]
+        public long? ListedShare { get; set; }
+
         [Column("en_company_name", TypeName = "varchar(255)")]
         [MaxLength(255)]
         public string? EnCompanyName { get; set; } = null!;

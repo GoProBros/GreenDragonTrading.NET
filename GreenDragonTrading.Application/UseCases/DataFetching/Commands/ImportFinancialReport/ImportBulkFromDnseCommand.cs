@@ -8,7 +8,6 @@ namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportFr
 /// Command to import financial reports from DNSE API in bulk
 /// </summary>
 public record ImportBulkFromDnseCommand(
-    List<string>? Tickers,
     string CycleType,
     int CycleNumber
 ) : IRequest<ApiResponse<DnseImportResult>>;

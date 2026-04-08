@@ -10,13 +10,16 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Upda
     public class UpdateFinancialReportCommandHandler : IRequestHandler<UpdateFinancialReportCommand, ApiResponse<FinancialReportDto>>
     {
         private readonly IUnitOfWork _uow;
+        private readonly IFinancialReportIndicatorCalculationService _indicatorCalculationService;
         private readonly ILogger<UpdateFinancialReportCommandHandler> _logger;
 
         public UpdateFinancialReportCommandHandler(
             IUnitOfWork uow,
+            IFinancialReportIndicatorCalculationService indicatorCalculationService,
             ILogger<UpdateFinancialReportCommandHandler> logger)
         {
             _uow = uow;
+            _indicatorCalculationService = indicatorCalculationService;
             _logger = logger;
         }
 
@@ -35,6 +38,18 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Upda
                 if (request.ReportData != null)
                 {
                     financialReport.ReportData = request.ReportData;
+
+                    var (comparisonYear, comparisonPeriod) = GetComparisonPeriod(financialReport.Year, financialReport.Period);
+                    var comparisonReport = await _uow.FinancialReports.GetByTickerYearPeriodAsync(
+                        financialReport.Ticker,
+                        comparisonYear,
+                        (int)comparisonPeriod,
+                        cancellationToken);
+
+                    financialReport.IndicatorData = _indicatorCalculationService.Calculate(
+                        request.ReportData,
+                        financialReport.Period,
+                        comparisonReport?.ReportData);
                 }
                 
                 if (request.Status.HasValue)
@@ -54,6 +69,7 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Upda
                     Year = financialReport.Year,
                     Period = financialReport.Period,
                     ReportData = financialReport.ReportData,
+                    IndicatorData = financialReport.IndicatorData,
                     FilePath = financialReport.FilePath,
                     FileUrl = financialReport.FilePath ?? null,
                     FileSize = financialReport.FileSize,
@@ -70,6 +86,23 @@ namespace GreenDragonTrading.Application.UseCases.FinancialReports.Commands.Upda
                 _logger.LogError(ex, "Error updating financial report {Id}", request.Id);
                 throw;
             }
+        }
+
+        private static (int comparisonYear, Domain.Enums.ReportPeriod comparisonPeriod) GetComparisonPeriod(
+            int year,
+            Domain.Enums.ReportPeriod period)
+        {
+            if (period == Domain.Enums.ReportPeriod.Yearly)
+            {
+                return (year - 1, Domain.Enums.ReportPeriod.Yearly);
+            }
+
+            if (period == Domain.Enums.ReportPeriod.Q1)
+            {
+                return (year - 1, Domain.Enums.ReportPeriod.Q4);
+            }
+
+            return (year, (Domain.Enums.ReportPeriod)((int)period - 1));
         }
     }
 }

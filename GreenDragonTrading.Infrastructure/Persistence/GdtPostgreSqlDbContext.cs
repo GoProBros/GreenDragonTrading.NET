@@ -169,6 +169,20 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                                c => JsonSerializer.Deserialize<FinancialReportData>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null) ?? new FinancialReportData()
                            )
                        );
+
+                            // Configure IndicatorData as JSONB column with proper serialization
+                            builder.Property(f => f.IndicatorData)
+                                      .HasColumnName("indicator_data")
+                                      .HasColumnType("jsonb")
+                                      .HasConversion(
+                                             v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                                             v => JsonSerializer.Deserialize<FinancialReportIndicatorData>(v, (JsonSerializerOptions?)null),
+                                             new ValueComparer<FinancialReportIndicatorData?>(
+                                                    (c1, c2) => JsonSerializer.Serialize(c1, (JsonSerializerOptions?)null) == JsonSerializer.Serialize(c2, (JsonSerializerOptions?)null),
+                                                    c => JsonSerializer.Serialize(c, (JsonSerializerOptions?)null).GetHashCode(),
+                                                    c => JsonSerializer.Deserialize<FinancialReportIndicatorData>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null)
+                                             )
+                                      );
             });
 
             modelBuilder.Entity<Transaction>(builder =>

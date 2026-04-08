@@ -19,6 +19,11 @@ namespace GreenDragonTrading.Application.DTOs
         /// Dữ liệu báo cáo tài chính dạng JSON
         /// </summary>
         public FinancialReportData ReportData { get; init; } = new();
+
+        /// <summary>
+        /// Dữ liệu chỉ số tài chính tính toán sẵn dạng JSON
+        /// </summary>
+        public FinancialReportIndicatorData? IndicatorData { get; init; }
         
         public string? FilePath { get; init; }
         public string? FileUrl { get; init; }

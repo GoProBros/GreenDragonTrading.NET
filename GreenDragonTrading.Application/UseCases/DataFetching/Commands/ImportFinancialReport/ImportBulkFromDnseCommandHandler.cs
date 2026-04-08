@@ -2,6 +2,7 @@ using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Constants.DNSE;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
@@ -15,11 +16,13 @@ public class ImportBulkFromDnseCommandHandler(
     IUnitOfWork uow,
     IDnseService dnseService,
     IDnseDataMapper mapper,
+    IFinancialReportIndicatorCalculationService indicatorCalculationService,
     ILogger<ImportBulkFromDnseCommandHandler> logger) : IRequestHandler<ImportBulkFromDnseCommand, ApiResponse<DnseImportResult>>
 {
     private readonly IUnitOfWork _uow = uow;
     private readonly IDnseService _dnseService = dnseService;
     private readonly IDnseDataMapper _mapper = mapper;
+    private readonly IFinancialReportIndicatorCalculationService _indicatorCalculationService = indicatorCalculationService;
     private readonly ILogger<ImportBulkFromDnseCommandHandler> _logger = logger;
 
     // All 17 report codes from DNSE API - import all by default
@@ -51,15 +54,27 @@ public class ImportBulkFromDnseCommandHandler(
             _logger.LogInformation("Starting bulk import from DNSE: CycleType={CycleType}, CycleNumber={CycleNumber}", 
                 request.CycleType, request.CycleNumber);
 
-            // Determine which tickers to import
-            var tickers = request.Tickers;
-            if (tickers == null || tickers.Count == 0)
+            var allowedExchanges = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                // Get all active symbols from database
-                var symbols = await _uow.Symbols.GetAllAsync(cancellationToken);
-                tickers = symbols.Select(s => s.Ticker).ToList();
-                _logger.LogInformation("No tickers specified, importing for all {Count} active symbols", tickers.Count);
+                ExchangeConstant.EXCHANGE_HSX,
+                ExchangeConstant.EXCHANGE_HNX
+            };
+
+            var symbols = await _uow.Symbols.GetAllAsync(cancellationToken);
+            var tickers = symbols
+                .Where(s => !string.IsNullOrWhiteSpace(s.ExchangeCode) && allowedExchanges.Contains(s.ExchangeCode.Trim()))
+                .Where(s => !string.IsNullOrWhiteSpace(s.Ticker))
+                .Select(s => s.Ticker.Trim().ToUpperInvariant())
+                .Distinct()
+                .ToList();
+
+            if (tickers.Count == 0)
+            {
+                _logger.LogWarning("No tickers found in database for HSX/HNX bulk DNSE import.");
+                return ApiResponse<DnseImportResult>.Failure("Không có ticker thuộc sàn HSX/HNX trong hệ thống để import");
             }
+
+            _logger.LogInformation("Importing bulk DNSE data for {Count} tickers on HSX/HNX", tickers.Count);
 
             var result = new DnseImportResult
             {
@@ -167,13 +182,25 @@ public class ImportBulkFromDnseCommandHandler(
                 var existingReport = await _uow.FinancialReports.GetByTickerYearPeriodAsync(
                     ticker, year, (int)period, cancellationToken);
 
+                var (comparisonYear, comparisonPeriod) = GetComparisonPeriod(year, period);
+                var comparisonReport = await _uow.FinancialReports.GetByTickerYearPeriodAsync(
+                    ticker,
+                    comparisonYear,
+                    (int)comparisonPeriod,
+                    cancellationToken);
+
                 // Map raw DNSE data to structured DTOs for this specific period
                 var reportData = _mapper.MapToFinancialReportDataForPeriod(reportsData, periodString);
+                var indicatorData = _indicatorCalculationService.Calculate(
+                    reportData,
+                    period,
+                    comparisonReport?.ReportData);
 
                 if (existingReport != null)
                 {
                     // Update existing report
                     existingReport.ReportData = reportData;
+                    existingReport.IndicatorData = indicatorData;
                     existingReport.UpdatedAt = DateTimeOffset.UtcNow;
                     _uow.FinancialReports.Update(existingReport);
                 }
@@ -187,6 +214,7 @@ public class ImportBulkFromDnseCommandHandler(
                         Year = year,
                         Period = period,
                         ReportData = reportData,
+                        IndicatorData = indicatorData,
                         Status = FinancialReportStatus.Completed,
                         CreatedAt = DateTimeOffset.UtcNow,
                         UpdatedAt = DateTimeOffset.UtcNow
@@ -201,5 +229,20 @@ public class ImportBulkFromDnseCommandHandler(
         }
 
         await _uow.SaveChangesAsync(cancellationToken);
+    }
+
+    private static (int comparisonYear, ReportPeriod comparisonPeriod) GetComparisonPeriod(int year, ReportPeriod period)
+    {
+        if (period == ReportPeriod.Yearly)
+        {
+            return (year - 1, ReportPeriod.Yearly);
+        }
+
+        if (period == ReportPeriod.Q1)
+        {
+            return (year - 1, ReportPeriod.Q4);
+        }
+
+        return (year, (ReportPeriod)((int)period - 1));
     }
 }
