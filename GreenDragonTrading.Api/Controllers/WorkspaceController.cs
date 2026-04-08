@@ -50,7 +50,7 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Create a new workspace layout
+        /// Create a new workspace layout, type 1 = web, type 2 = mobile
         /// </summary>
         /// <param name="command">Workspace creation data</param>
         /// <param name="cancellationToken"></param>
