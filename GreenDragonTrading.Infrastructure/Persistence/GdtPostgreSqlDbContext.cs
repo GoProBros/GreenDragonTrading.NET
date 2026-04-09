@@ -30,8 +30,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
         public DbSet<Alert> Alerts => Set<Alert>();
         public DbSet<NewsArticle> NewsArticles => Set<NewsArticle>();
-        public DbSet<ArticleTag> ArticleTags => Set<ArticleTag>();
-
+        public DbSet<ArticleTag> ArticleTags => Set<ArticleTag>();        public DbSet<MacroeconomicData> MacroeconomicData => Set<MacroeconomicData>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
