@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Constants.SSI;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
@@ -85,6 +86,18 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             _logger.LogInformation("SSI Streaming Background Service started.");
             
             await _streamingService.StartAsync(stoppingToken);
+
+            // Clear all intraday index lists and their DATE sentinel keys on every startup.
+            // This guarantees the chart never shows stale data from a previous session,
+            // regardless of whether the date-based reset in HandleIndexData already fired.
+            using (var cleanupScope = _serviceScopeFactory.CreateScope())
+            {
+                var redis = cleanupScope.ServiceProvider.GetRequiredService<IRedisService>();
+                var deletedCount = await redis.DeleteByPatternAsync(RedisConstants.IndexIntradayPattern());
+                _logger.LogInformation(
+                    "[Startup] Cleared {Count} stale INDEX:INTRADAY:* keys from Redis.",
+                    deletedCount);
+            }
 
             IEnumerable<string> tickers = [];
             IEnumerable<string> indexCodes = [];

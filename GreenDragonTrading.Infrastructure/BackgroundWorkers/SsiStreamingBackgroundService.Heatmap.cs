@@ -133,7 +133,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 };
 
                 var heatmapKey = RedisConstants.Heatmap(ticker);
-                QueueRedisStringWrite(heatmapKey, heatmapItem, TimeSpan.FromMinutes(10));
+                QueueRedisStringWrite(heatmapKey, heatmapItem);
                 QueueHeatmapBroadcast(heatmapItem);
 
                 _logger.LogDebug(
@@ -202,7 +202,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 };
 
                 var heatmapKey = RedisConstants.Heatmap(ticker);
-                QueueRedisStringWrite(heatmapKey, heatmapItem, TimeSpan.FromMinutes(10));
+                QueueRedisStringWrite(heatmapKey, heatmapItem);
                 QueueHeatmapBroadcast(heatmapItem);
 
                 _logger.LogInformation(
