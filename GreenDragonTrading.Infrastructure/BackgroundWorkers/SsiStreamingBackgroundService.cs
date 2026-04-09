@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Constants.SSI;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
@@ -86,6 +87,18 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             
             await _streamingService.StartAsync(stoppingToken);
 
+            // Clear all intraday index lists and their DATE sentinel keys on every startup.
+            // This guarantees the chart never shows stale data from a previous session,
+            // regardless of whether the date-based reset in HandleIndexData already fired.
+            using (var cleanupScope = _serviceScopeFactory.CreateScope())
+            {
+                var redis = cleanupScope.ServiceProvider.GetRequiredService<IRedisService>();
+                var deletedCount = await redis.DeleteByPatternAsync(RedisConstants.IndexIntradayPattern());
+                _logger.LogInformation(
+                    "[Startup] Cleared {Count} stale INDEX:INTRADAY:* keys from Redis.",
+                    deletedCount);
+            }
+
             IEnumerable<string> tickers = [];
             IEnumerable<string> indexCodes = [];
 
@@ -102,13 +115,32 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 await InitializeIndexCacheAsync(_uow, stoppingToken);
 
                 // Load active market index codes from the database
-                indexCodes = _uow.MarketIndices
+                var loadedIndexCodes = _uow.MarketIndices
                     .GetQueryable()
                     .Where(i => i.Status == CommonStatus.Active)
-                    .Select(i => i.Code)
+                    .Select(i => i.Code.ToUpper())
                     .ToList();
 
-                _logger.LogInformation("Loaded {Count} active market index codes from database", indexCodes.Count());
+                var duplicateCodes = loadedIndexCodes
+                    .GroupBy(code => code, StringComparer.Ordinal)
+                    .Where(group => group.Count() > 1)
+                    .Select(group => group.Key)
+                    .OrderBy(code => code)
+                    .ToList();
+
+                if (duplicateCodes.Count > 0)
+                {
+                    _logger.LogWarning(
+                        "Detected duplicate active market index codes in DB: {Codes}. Duplicates were removed before MI subscription.",
+                        string.Join(",", duplicateCodes));
+                }
+
+                indexCodes = loadedIndexCodes.Distinct(StringComparer.Ordinal).ToList();
+
+                _logger.LogInformation(
+                    "Loaded {UniqueCount} unique active market index codes from database (raw count: {RawCount})",
+                    indexCodes.Count(),
+                    loadedIndexCodes.Count);
             }
 
             string tickersString = string.Join("-", tickers);
