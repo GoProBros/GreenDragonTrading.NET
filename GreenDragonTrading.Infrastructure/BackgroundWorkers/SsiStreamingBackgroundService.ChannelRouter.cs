@@ -21,7 +21,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 using var scope = _serviceScopeFactory.CreateScope();
                 var redis = scope.ServiceProvider.GetRequiredService<IRedisService>();
-
+                //_logger.LogInformation(wrapperResponse.Content);
                 if (string.Equals(wrapperResponse.DataType, SsiConstantsV2.SSI_STREAMING_DATA_TYPE_X_TRADE))
                 {
                     var response = JsonSerializer.Deserialize<XTradeResponse>(wrapperResponse.Content!);

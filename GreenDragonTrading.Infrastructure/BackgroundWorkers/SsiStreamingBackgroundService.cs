@@ -145,35 +145,33 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
             string tickersString = string.Join("-", tickers);
 
-            // Subscribe to X-TRADE channel for all tickers
-            string xTradeFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_X_TRADE}:{tickersString}";
-            await _streamingService.SwitchChannelsAsync(xTradeFilter);
+            var filterList = new List<string>
+            {
+                $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_X_TRADE}:{tickersString}",
+                $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_FOREIGN}:{tickersString}",
+                $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_X}:{tickersString}",
+                $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_B}:{tickersString}"
+            };
 
-            // Subscribe to Foreign Room channel for all tickers
-            string foreignFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_FOREIGN}:{tickersString}";
-            await _streamingService.SwitchChannelsAsync(foreignFilter);
-
-            string snapshotFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_X}:{tickersString}";
-            await _streamingService.SwitchChannelsAsync(snapshotFilter);
-
-            // Subscribe to Channel B: Realtime OHLCV data (replaces tick aggregation)
-            string ohlcvFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_B}:{tickersString}";
-            _logger.LogInformation("Subscribing to OHLCV (Channel B) for {Count} symbols", tickers.Count());
-            await _streamingService.SwitchChannelsAsync(ohlcvFilter);
+            _logger.LogInformation("Prepared OHLCV/X/X-TRADE/FOREIGN filters for {Count} symbols", tickers.Count());
 
             // Subscribe to Channel MI: Realtime market index data
             if (indexCodes.Any())
             {
                 string indexCodesString = string.Join("-", indexCodes);
                 string indexFilter = $"{SsiConstantsV2.SSI_STREAMING_CHANNEL_MI}:{indexCodesString}";
-                _logger.LogInformation("Subscribing to Market Index (Channel MI) for {Count} indices: {Codes}",
+                filterList.Add(indexFilter);
+                _logger.LogInformation("Prepared Market Index (Channel MI) filter for {Count} indices: {Codes}",
                     indexCodes.Count(), indexCodesString);
-                await _streamingService.SwitchChannelsAsync(indexFilter);
             }
             else
             {
                 _logger.LogWarning("No market index codes configured – skipping MI channel subscription");
             }
+
+            // Switch to all channels simultaneously to prevent overwriting previous subscriptions
+            string combinedFilter = string.Join(",", filterList);
+            await _streamingService.SwitchChannelsAsync(combinedFilter);
 
             // Keep processing loops attached to hosted-service lifecycle.
             var redisWriteLoop = ProcessRedisWriteBatchAsync(stoppingToken);
