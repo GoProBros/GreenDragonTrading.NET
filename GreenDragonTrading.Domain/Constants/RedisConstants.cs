@@ -84,6 +84,10 @@ namespace GreenDragonTrading.Domain.Constants
         public static string IndexIntraday(string code)
             => $"{REDIS_KEY_PREFIX_INDEX_DATA}:INTRADAY:{code.ToUpperInvariant()}";
 
+        /// <summary>Wildcard pattern matching all intraday list keys and their DATE sentinel keys.</summary>
+        public static string IndexIntradayPattern()
+            => $"{REDIS_KEY_PREFIX_INDEX_DATA}:INTRADAY:*";
+
         /// <summary>SignalR group name clients subscribe to for live index broadcasts.</summary>
         public static string IndexSignalRGroup(string code)
             => $"{SIGNALR_GROUP_PREFIX_INDEX}:{code.ToUpperInvariant()}";

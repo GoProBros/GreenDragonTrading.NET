@@ -99,7 +99,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 // Persist current snapshot to Redis hash (key: INDEX:{CODE})
                 var redisKey = RedisConstants.IndexData(code);
-                QueueRedisStringWrite(redisKey, dto, expiry: TimeSpan.FromHours(24));
+                QueueRedisStringWrite(redisKey, dto);
 
                 // Append to intraday history list (newest-first, capped at 4000 points ≈ full trading day at 5s intervals).
                 // Use SSI's own Time field (already VN local HH:mm:ss); fall back to server UTC+7 if missing.
@@ -137,8 +137,8 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 // Queue SignalR broadcast to INDEX:{CODE} group
                 QueueIndexBroadcast(dto);
 
-                // _logger.LogInformation("[ChannelIndex] Queued MI data for {Code}: value={IndexValue} change={RatioChange:+0.00;-0.00}%",
-                //     code, dto.IndexValue, dto.RatioChange);
+                _logger.LogInformation("[ChannelIndex] Queued MI data for {Code}: value={IndexValue} change={RatioChange:+0.00;-0.00}%",
+                    code, dto.IndexValue, dto.RatioChange);
             }
             catch (Exception ex)
             {
