@@ -50,6 +50,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private INewsArticleRepository? newsArticles;
 
+        private IMacroeconomicDataRepository? macroeconomicData;
+
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
@@ -70,6 +72,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IChatParticipantRepository ChatParticipants => chatParticipants ??= new ChatParticipantRepository(_context);
         public IAlertRepository Alerts => alerts ??= new AlertRepository(_context);
         public INewsArticleRepository NewsArticles => newsArticles ??= new NewsArticleRepository(_context);
+        public IMacroeconomicDataRepository MacroeconomicData => macroeconomicData ??= new MacroeconomicDataRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
