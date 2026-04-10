@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
@@ -15,15 +16,18 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
         : IRequestHandler<SendSystemNotificationCommand, ApiResponse<SendSystemNotificationResponseDto>>
     {
         private readonly IUnitOfWork _uow;
+        private readonly INotificationBroadcaster _notificationBroadcaster;
         private readonly ITelegramBotService _telegramBotService;
         private readonly ILogger<SendSystemNotificationCommandHandler> _logger;
 
         public SendSystemNotificationCommandHandler(
             IUnitOfWork uow,
+            INotificationBroadcaster notificationBroadcaster,
             ITelegramBotService telegramBotService,
             ILogger<SendSystemNotificationCommandHandler> logger)
         {
             _uow = uow;
+            _notificationBroadcaster = notificationBroadcaster;
             _telegramBotService = telegramBotService;
             _logger = logger;
         }
@@ -164,6 +168,19 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
             _uow.ChatSessions.Update(systemSession);
 
             await _uow.SaveChangesAsync(cancellationToken);
+
+            await _notificationBroadcaster.BroadcastSystemChatMessageAsync(
+                userId,
+                new SystemChatMessageSignalREventDto
+                {
+                    SessionId = systemSession.Id,
+                    MessageId = systemMessage.Id,
+                    MessageType = systemMessage.MessageType.ToString(),
+                    Source = "SystemNotification",
+                    Content = systemMessage.Content,
+                    CreatedAt = systemMessage.CreatedAt,
+                },
+                cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(user.TelegramId))
             {

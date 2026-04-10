@@ -61,10 +61,10 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Create a new subscription package (Admin only)
+        /// Create a new subscription package (Admin/Staff)
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = nameof(UserRole.Admin))]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
         public async Task<ActionResult<ApiResponse<SubscriptionDto>>> CreateSubscription(
             [FromBody] CreateSubscriptionRequest request,
             CancellationToken cancellationToken)
@@ -83,31 +83,30 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Updates active/inactive status of a subscription package (Admin/Staff)
+        /// Toggles active/inactive status of a subscription package (Admin/Staff)
         /// </summary>
         [HttpPatch("{id}/status")]
         [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
         public async Task<ActionResult<ApiResponse<SubscriptionDto>>> UpdateSubscriptionStatus(
             [FromRoute] int id,
-            [FromBody] UpdateSubscriptionStatusRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new UpdateSubscriptionStatusCommand(id, request.IsActive);
+            var command = new UpdateSubscriptionStatusCommand(id);
             var result = await _mediator.Send(command, cancellationToken);
             return Ok(result);
         }
 
         /// <summary>
-        /// Updates only subscription price (Admin only)
+        /// Updates subscription fields (price and/or allowed modules) (Admin/Staff)
         /// </summary>
         [HttpPatch("{id}/price")]
-        [Authorize(Roles = nameof(UserRole.Admin))]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
         public async Task<ActionResult<ApiResponse<SubscriptionDto>>> UpdateSubscriptionPrice(
             [FromRoute] int id,
             [FromBody] UpdateSubscriptionPriceRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new UpdateSubscriptionPriceCommand(id, request.Price);
+            var command = new UpdateSubscriptionPriceCommand(id, request.Price, request.AllowedModules);
             var result = await _mediator.Send(command, cancellationToken);
             return Ok(result);
         }

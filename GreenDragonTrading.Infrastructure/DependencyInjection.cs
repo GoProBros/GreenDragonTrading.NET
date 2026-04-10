@@ -49,6 +49,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
+            services.AddSingleton<INotificationBroadcaster, NotificationBroadcaster>();
             services.AddSingleton<IUserIdProvider, MarketDataUserIdProvider>();
             services.AddScoped<IHeatmapService, HeatmapService>();
             services.AddSingleton<ITelegramBotService, TelegramBotService>();
@@ -196,7 +197,8 @@ namespace GreenDragonTrading.Infrastructure
                             var path = context.HttpContext.Request.Path;
 
                             if (!string.IsNullOrEmpty(accessToken)
-                                && path.StartsWithSegments("/hubs/marketdata"))
+                                && (path.StartsWithSegments("/hubs/marketdata")
+                                    || path.StartsWithSegments("/hubs/notifications")))
                             {
                                 context.Token = accessToken;
                             }

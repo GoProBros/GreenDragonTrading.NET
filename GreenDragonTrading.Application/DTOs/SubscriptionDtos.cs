@@ -26,14 +26,10 @@ namespace GreenDragonTrading.Application.DTOs
         public JsonElement AllowedModules { get; set; }
     }
 
-    public class UpdateSubscriptionStatusRequest
-    {
-        public CommonStatus IsActive { get; set; }
-    }
-
     public class UpdateSubscriptionPriceRequest
     {
-        public decimal Price { get; set; }
+        public decimal? Price { get; set; }
+        public JsonElement? AllowedModules { get; set; }
     }
 
     public class UserSubscriptionDto
