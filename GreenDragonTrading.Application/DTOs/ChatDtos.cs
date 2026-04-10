@@ -23,7 +23,6 @@ namespace GreenDragonTrading.Application.DTOs
         public Guid? SenderId { get; set; }
         public string Content { get; set; } = string.Empty;
         public string? ResponseData { get; set; }
-        public string? ErrorDetails { get; set; }
         public ChatMessageType MessageType { get; set; }
         public string? FileUrl { get; set; }
         public string? FileName { get; set; }

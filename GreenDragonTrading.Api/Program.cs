@@ -143,6 +143,7 @@ try
 
     // Map SignalR Hub
     app.MapHub<MarketDataHub>("/hubs/marketdata");
+    app.MapHub<NotificationHub>("/hubs/notifications");
     await app.RunAsync();
 }
 catch (Exception ex)

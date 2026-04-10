@@ -80,10 +80,3 @@ public class CreateStaffUserRequest
     public bool RequireEmailVerification { get; set; } = true;
 }
 
-/// <summary>
-/// Request to update user status (ban/unban).
-/// </summary>
-public class UpdateUserStatusRequest
-{
-    public CommonStatus Status { get; set; }
-}

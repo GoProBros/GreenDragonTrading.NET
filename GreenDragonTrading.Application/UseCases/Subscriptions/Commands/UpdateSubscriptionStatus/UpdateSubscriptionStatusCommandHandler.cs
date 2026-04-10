@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
@@ -31,7 +32,9 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateS
                 throw new NotFoundException("Gói đăng ký không tồn tại.");
             }
 
-            subscription.IsActive = request.IsActive;
+            subscription.IsActive = subscription.IsActive == CommonStatus.Active
+                ? CommonStatus.InActive
+                : CommonStatus.Active;
             _uow.Subscriptions.Update(subscription);
             await _uow.SaveChangesAsync(cancellationToken);
 
@@ -48,11 +51,11 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateS
             };
 
             _logger.LogInformation(
-                "Subscription status updated: SubscriptionId={SubscriptionId}, IsActive={IsActive}",
+                "Subscription status toggled: SubscriptionId={SubscriptionId}, IsActive={IsActive}",
                 subscription.Id,
                 subscription.IsActive);
 
-            return ApiResponse<SubscriptionDto>.Success(dto, "Cập nhật trạng thái gói đăng ký thành công.");
+            return ApiResponse<SubscriptionDto>.Success(dto, "Đổi trạng thái gói đăng ký thành công.");
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
@@ -11,14 +12,14 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
     public class PriceUpdatedEventHandler(
         IRedisService redisService,
         IUnitOfWork uow,
-        IMarketDataBroadcaster marketDataBroadcaster,
+        INotificationBroadcaster notificationBroadcaster,
         ITelegramBotService telegramBotService) : INotificationHandler<PriceUpdatedEvent>
     {
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> TickerLocks = new();
 
         private readonly IRedisService _redisService = redisService;
         private readonly IUnitOfWork _uow = uow;
-        private readonly IMarketDataBroadcaster _marketDataBroadcaster = marketDataBroadcaster;
+        private readonly INotificationBroadcaster _notificationBroadcaster = notificationBroadcaster;
         private readonly ITelegramBotService _telegramBotService = telegramBotService;
 
         public async Task Handle(PriceUpdatedEvent notification, CancellationToken cancellationToken)
@@ -146,28 +147,20 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
                     var savedMessage = await SaveAlertChatMessageAsync(systemSessionId, message, now, cancellationToken);
 
-                    await _marketDataBroadcaster.BroadcastChatMessageAsync(alert.UserId, new
-                    {
-                        MessageId = savedMessage.Id,
-                        SessionId = systemSessionId,
-                        SenderId = (Guid?)null,
-                        Content = savedMessage.Content,
-                        MessageType = savedMessage.MessageType.ToString(),
-                        CreatedAt = savedMessage.CreatedAt,
-                        UpdatedAt = savedMessage.UpdatedAt,
-                        AlertId = alert.Id,
-                        Ticker = ticker,
-                        CurrentPrice = currentPrice,
-                        CurrentVolume = currentVolume,
-                        BasePrice = alert.CurrentPrice,
-                        ChangePercentage = alert.ChangePercentage,
-                        ThresholdValue = alert.ThresholdValue,
-                        AlertType = alert.Type.ToString(),
-                        Condition = alert.Condition.ToString(),
-                        Message = message,
-                        TriggeredAt = now,
-                        ChatSessionId = systemSessionId
-                    }, cancellationToken);
+                    await _notificationBroadcaster.BroadcastSystemChatMessageAsync(
+                        alert.UserId,
+                        new SystemChatMessageSignalREventDto
+                        {
+                            SessionId = systemSessionId,
+                            MessageId = savedMessage.Id,
+                            MessageType = savedMessage.MessageType.ToString(),
+                            Source = "AlertTriggered",
+                            Content = savedMessage.Content,
+                            CreatedAt = savedMessage.CreatedAt,
+                            AlertId = alert.Id,
+                            Ticker = ticker,
+                        },
+                        cancellationToken);
 
                     await TrySendTelegramAsync(
                         telegramChatIdsByUser,
