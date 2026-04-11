@@ -87,7 +87,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                         PhoneNumber = user.PhoneNumber,
                         Role = user.Role.GetDisplayName(),
                         IsEmailVerified = user.IsEmailVerified,
-                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
+                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                        TelegramChatId = user.TelegramId,
+                        IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)
                     }
                 };
 

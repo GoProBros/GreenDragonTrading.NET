@@ -99,9 +99,9 @@ namespace GreenDragonTrading.Api.Controllers
         /// <summary>
         /// Updates subscription fields (price and/or allowed modules) (Admin/Staff)
         /// </summary>
-        [HttpPatch("{id}/price")]
+        [HttpPatch("{id}")]
         [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
-        public async Task<ActionResult<ApiResponse<SubscriptionDto>>> UpdateSubscriptionPrice(
+        public async Task<ActionResult<ApiResponse<SubscriptionDto>>> UpdateSubscription(
             [FromRoute] int id,
             [FromBody] UpdateSubscriptionPriceRequest request,
             CancellationToken cancellationToken)

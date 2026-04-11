@@ -5,7 +5,9 @@ using GreenDragonTrading.Application.UseCases.Payments.Commands.CreatePaymentLin
 using GreenDragonTrading.Application.UseCases.Payments.Commands.ProcessMomoIpn;
 using GreenDragonTrading.Application.UseCases.Payments.Commands.ProcessPayOSWebhook;
 using GreenDragonTrading.Application.UseCases.Payments.Commands.SyncMomoPayment;
+using GreenDragonTrading.Application.UseCases.Payments.Queries.GetMyTransactions;
 using GreenDragonTrading.Application.UseCases.Payments.Queries.GetPaymentStatus;
+using GreenDragonTrading.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -75,6 +77,18 @@ namespace GreenDragonTrading.Api.Controllers
             return result;
         }
 
+        /// <summary>
+        /// Gets transaction history of current authenticated user, sorted by newest first.
+        /// </summary>
+        [HttpGet("me/transactions")]
+        [Authorize(Roles = nameof(UserRole.User))]
+        public async Task<ActionResult<ApiResponse<List<PaymentTransactionDto>>>> GetMyTransactions(
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new GetMyTransactionsQuery(), cancellationToken);
+            return Ok(result);
+        }
+
         [HttpPost("cancel/{orderCode}")]
         [Authorize]
         public async Task<ActionResult<ApiResponse<PaymentInformationResponse>>> CancelPayment(
@@ -116,6 +130,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// If the payment was completed, the subscription will be activated immediately.
         /// </summary>
         /// <param name="orderCode">The order code returned when the payment link was created.</param>
+        /// <param name="cancellationToken"></param>
         [HttpPost("momo/sync/{orderCode}")]
         public async Task<ActionResult<ApiResponse<WebhookUpdateResult>>> SyncMomoPayment(
             [FromRoute] long orderCode,

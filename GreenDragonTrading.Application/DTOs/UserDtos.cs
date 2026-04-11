@@ -17,5 +17,7 @@
         public string Role { get; set; } = null!;
         public bool IsEmailVerified { get; set; }
         public string? SubscriptionLevel { get; set; }
+        public string? TelegramChatId { get; set; }
+        public bool IsTelegramLinked { get; set; }
     }
 }
