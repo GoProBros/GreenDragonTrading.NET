@@ -2,6 +2,8 @@
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
@@ -61,23 +63,100 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             int pageSize,
             CancellationToken cancellationToken = default)
         {
-            var queryable = _dbSet
+            var trimmedQuery = query?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(trimmedQuery))
+            {
+                var allQuery = _dbSet.AsNoTracking();
+                var totalAll = await allQuery.CountAsync(cancellationToken);
+                var allSymbols = await allQuery
+                    .OrderBy(s => s.Ticker)
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(cancellationToken);
+
+                return (allSymbols, totalAll);
+            }
+
+            if (isTickerOnly)
+            {
+                var tickerQueryable = _dbSet
+                    .AsNoTracking()
+                    .Where(s => EF.Functions.ILike(s.Ticker, $"%{trimmedQuery}%"));
+
+                var tickerTotalCount = await tickerQueryable.CountAsync(cancellationToken);
+                var tickerSymbols = await tickerQueryable
+                    .OrderBy(s => s.Ticker)
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(cancellationToken);
+
+                return (tickerSymbols, tickerTotalCount);
+            }
+
+            var normalizedQuery = NormalizeSearchText(trimmedQuery);
+
+            // Symbol count is typically small enough for in-memory normalized matching.
+            var allSymbolsForSearch = await _dbSet
                 .AsNoTracking()
-                .Where(s => EF.Functions.ILike(s.Ticker, $"%{query}%") ||
-                            (!isTickerOnly && EF.Functions.ILike(s.ViCompanyName!, $"%{query}%")) ||
-                            (!isTickerOnly && EF.Functions.ILike(s.EnCompanyName!, $"%{query}%")));
+                .ToListAsync(cancellationToken);
 
-            // Get total count before pagination
-            var totalCount = await queryable.CountAsync(cancellationToken);
+            var matchedSymbols = allSymbolsForSearch
+                .Where(s =>
+                    ContainsNormalized(s.Ticker, normalizedQuery) ||
+                    ContainsNormalized(s.ViCompanyName, normalizedQuery) ||
+                    ContainsNormalized(s.EnCompanyName, normalizedQuery));
 
-            // Apply pagination
-            var symbols = await queryable
+            var totalCount = matchedSymbols.Count();
+            var symbols = matchedSymbols
                 .OrderBy(s => s.Ticker)
                 .Skip((pageIndex - 1) * pageSize)
                 .Take(pageSize)
-                .ToListAsync(cancellationToken);
+                .ToList();
 
             return (symbols, totalCount);
+        }
+
+        private static bool ContainsNormalized(string? source, string normalizedQuery)
+        {
+            if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(normalizedQuery))
+            {
+                return false;
+            }
+
+            var normalizedSource = NormalizeSearchText(source);
+            return normalizedSource.Contains(normalizedQuery, StringComparison.Ordinal);
+        }
+
+        private static string NormalizeSearchText(string text)
+        {
+            var normalized = text.Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(normalized.Length);
+            var previousWasSpace = false;
+
+            foreach (var ch in normalized)
+            {
+                var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+                if (category == UnicodeCategory.NonSpacingMark)
+                {
+                    continue;
+                }
+
+                if (char.IsLetterOrDigit(ch))
+                {
+                    var lowered = char.ToLowerInvariant(ch);
+                    builder.Append(lowered == 'đ' ? 'd' : lowered);
+                    previousWasSpace = false;
+                    continue;
+                }
+
+                if (!previousWasSpace)
+                {
+                    builder.Append(' ');
+                    previousWasSpace = true;
+                }
+            }
+
+            return builder.ToString().Trim();
         }
 
         public async Task<List<Symbol>> GetActiveSymbolsForHeatmapAsync(
