@@ -19,4 +19,12 @@ public class NewsArticleDto
     public string? ThumbnailUrl { get; set; }
     public DateTimeOffset PublishedAt { get; set; }
     public List<string> Tickers { get; set; } = [];
+    public List<NewsArticleTickerScoreDto> TickerScores { get; set; } = [];
+}
+
+public class NewsArticleTickerScoreDto
+{
+    public string Ticker { get; set; } = string.Empty;
+    public decimal? RelevanceScore { get; set; }
+    public decimal? SentimentScore { get; set; }
 }

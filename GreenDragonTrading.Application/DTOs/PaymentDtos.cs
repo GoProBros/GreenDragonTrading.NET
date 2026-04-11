@@ -30,6 +30,25 @@ namespace GreenDragonTrading.Application.DTOs
         public DateTimeOffset CreatedAt { get; set; }
     }
 
+    public class PaymentTransactionDto
+    {
+        public Guid Id { get; set; }
+        public long OrderCode { get; set; }
+        public int SubscriptionId { get; set; }
+        public string SubscriptionName { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public TransactionStatus Status { get; set; }
+        public string StatusName { get; set; } = string.Empty;
+        public TransactionType Type { get; set; }
+        public string TypeName { get; set; } = string.Empty;
+        public PaymentType PaymentProvider { get; set; }
+        public string PaymentProviderName { get; set; } = string.Empty;
+        public string? ProviderTransactionId { get; set; }
+        public string? CheckoutUrl { get; set; }
+        public string? Description { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+    }
+
     public class CreatePaymentLinkRequest
     {
         public int SubscriptionId { get; set; }

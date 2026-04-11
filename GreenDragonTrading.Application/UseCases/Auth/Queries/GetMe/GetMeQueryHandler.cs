@@ -47,7 +47,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
                 PhoneNumber = user.PhoneNumber,
                 Role = user.Role.GetDisplayName(),
                 IsEmailVerified = user.IsEmailVerified,
-                SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
+                SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                TelegramChatId = user.TelegramId,
+                IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)
             };
 
             _logger.LogInformation("Successfully retrieved user information: {UserId}", userId);
