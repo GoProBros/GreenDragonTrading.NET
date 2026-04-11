@@ -1,8 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
-using GreenDragonTrading.Application.UseCases.Users.Commands.ActivateUser;
 using GreenDragonTrading.Application.UseCases.Users.Commands.CreateStaffUser;
-using GreenDragonTrading.Application.UseCases.Users.Commands.DeactivateUser;
+using GreenDragonTrading.Application.UseCases.Users.Commands.ToggleUserStatus;
 using GreenDragonTrading.Application.UseCases.Users.Queries.GetUserDetail;
 using GreenDragonTrading.Application.UseCases.Users.Queries.GetUsers;
 using GreenDragonTrading.Domain.Enums;
@@ -40,29 +39,15 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
-    /// Update user account status.
-    /// Admin can update Staff/User. Staff can update User only.
+    /// Toggle user account status.
+    /// Current status is automatically flipped between Active and InActive.
     /// </summary>
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<ApiResponse>> UpdateUserStatus(
         [FromRoute] Guid id,
-        [FromBody] UpdateUserStatusRequest request,
         CancellationToken cancellationToken)
     {
-        ApiResponse result;
-        if (request.Status == CommonStatus.Active)
-        {
-            result = await _mediator.Send(new ActivateUserCommand(id), cancellationToken);
-        }
-        else if (request.Status == CommonStatus.InActive)
-        {
-            result = await _mediator.Send(new DeactivateUserCommand(id), cancellationToken);
-        }
-        else
-        {
-            return BadRequest(ApiResponse.Failure("Status không hợp lệ. Chỉ hỗ trợ Active hoặc InActive."));
-        }
-
+        var result = await _mediator.Send(new ToggleUserStatusCommand(id), cancellationToken);
         return Ok(result);
     }
 

@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
@@ -15,15 +16,18 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendDirectMessag
     {
         private readonly IUnitOfWork _uow;
         private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationBroadcaster _notificationBroadcaster;
         private readonly ILogger<SendDirectMessageCommandHandler> _logger;
 
         public SendDirectMessageCommandHandler(
             IUnitOfWork uow,
             ICurrentUserService currentUserService,
+            INotificationBroadcaster notificationBroadcaster,
             ILogger<SendDirectMessageCommandHandler> logger)
         {
             _uow = uow;
             _currentUserService = currentUserService;
+            _notificationBroadcaster = notificationBroadcaster;
             _logger = logger;
         }
 
@@ -72,6 +76,28 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendDirectMessag
 
             var senderParticipant = session.Participants.FirstOrDefault(p => p.UserId == userId);
             var senderName = senderParticipant?.User?.Username ?? userId.ToString();
+
+            var recipientIds = session.Participants
+                .Where(p => p.UserId != userId)
+                .Select(p => p.UserId)
+                .Distinct()
+                .ToList();
+
+            foreach (var recipientId in recipientIds)
+            {
+                await _notificationBroadcaster.BroadcastDirectMessageAsync(
+                    recipientId,
+                    new DirectMessageSignalREventDto
+                    {
+                        SessionId = message.SessionId,
+                        MessageId = message.Id,
+                        SenderId = userId,
+                        SenderName = senderName,
+                        Content = message.Content,
+                        CreatedAt = message.CreatedAt,
+                    },
+                    cancellationToken);
+            }
 
             _logger.LogDebug("User {UserId} sent Direct message {MessageId} in session {SessionId}",
                 userId, message.Id, session.Id);

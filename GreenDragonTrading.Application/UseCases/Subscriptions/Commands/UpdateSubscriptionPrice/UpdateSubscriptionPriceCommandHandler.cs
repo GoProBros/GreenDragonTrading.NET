@@ -31,7 +31,20 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateS
                 throw new NotFoundException("Gói đăng ký không tồn tại.");
             }
 
-            subscription.Price = request.Price;
+            var updatedFields = new List<string>();
+
+            if (request.Price.HasValue)
+            {
+                subscription.Price = request.Price.Value;
+                updatedFields.Add("Price");
+            }
+
+            if (request.AllowedModules.HasValue)
+            {
+                subscription.AllowedModules = request.AllowedModules.Value.GetRawText();
+                updatedFields.Add("AllowedModules");
+            }
+
             _uow.Subscriptions.Update(subscription);
             await _uow.SaveChangesAsync(cancellationToken);
 
@@ -48,11 +61,12 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateS
             };
 
             _logger.LogInformation(
-                "Subscription price updated: SubscriptionId={SubscriptionId}, Price={Price}",
+                "Subscription updated: SubscriptionId={SubscriptionId}, UpdatedFields={UpdatedFields}, Price={Price}",
                 subscription.Id,
+                string.Join(",", updatedFields),
                 subscription.Price);
 
-            return ApiResponse<SubscriptionDto>.Success(dto, "Cập nhật giá gói đăng ký thành công.");
+            return ApiResponse<SubscriptionDto>.Success(dto, "Cập nhật gói đăng ký thành công.");
         }
     }
 }

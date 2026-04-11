@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
@@ -18,6 +19,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
         private readonly IUnitOfWork _uow;
         private readonly ICurrentUserService _currentUserService;
         private readonly IAiChatService _aiChatService;
+        private readonly INotificationBroadcaster _notificationBroadcaster;
         private readonly ILogger<SendChatMessageCommandHandler> _logger;
         private readonly AiEngineOptions _aiOptions;
 
@@ -25,12 +27,14 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             IUnitOfWork uow,
             ICurrentUserService currentUserService,
             IAiChatService aiChatService,
+            INotificationBroadcaster notificationBroadcaster,
             IOptions<AiEngineOptions> aiOptions,
             ILogger<SendChatMessageCommandHandler> logger)
         {
             _uow = uow;
             _currentUserService = currentUserService;
             _aiChatService = aiChatService;
+            _notificationBroadcaster = notificationBroadcaster;
             _aiOptions = aiOptions.Value;
             _logger = logger;
         }
@@ -102,9 +106,9 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             var aiResponse = await _aiChatService.SendMessageAsync(
                 conversationId, request.Message, context, cancellationToken);
 
-            var aiContent = aiResponse.Success && !string.IsNullOrEmpty(aiResponse.Response)
+            var aiContent = !string.IsNullOrWhiteSpace(aiResponse.Response)
                 ? aiResponse.Response
-                : aiResponse.Error ?? "Chổ này chưa xong, AI trả về null!";
+                : "Toi chua co du thong tin de tra loi cau hoi nay.";
 
             var aiMessage = new ChatMessage
             {
@@ -114,7 +118,6 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 ResponseData = aiResponse.ResponseData != null
                     ? JsonSerializer.Serialize(aiResponse.ResponseData)
                     : null,
-                ErrorDetails = aiResponse.Error,
                 MessageType = ChatMessageType.Text,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -127,9 +130,22 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
 
             await _uow.SaveChangesAsync(cancellationToken);
 
+            await _notificationBroadcaster.BroadcastAiChatResponseAsync(
+                userId.Value,
+                new AiChatResponseSignalREventDto
+                {
+                    SessionId = request.SessionId,
+                    UserMessageId = userMessage.Id,
+                    AiMessageId = aiMessage.Id,
+                    Content = aiMessage.Content,
+                    CreatedAt = aiMessage.CreatedAt,
+                },
+                cancellationToken);
+
             _logger.LogInformation(
-                "Saved AI response {MessageId} in session {SessionId}, AI success: {AiSuccess}",
-                aiMessage.Id, request.SessionId, aiResponse.Success);
+                "Saved AI response {MessageId} in session {SessionId}",
+                aiMessage.Id,
+                request.SessionId);
 
             await TryUpdateSummaryAsync(request.SessionId, cancellationToken);
 
@@ -226,7 +242,6 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 SenderId = message.SenderId,
                 Content = message.Content,
                 ResponseData = message.ResponseData,
-                ErrorDetails = message.ErrorDetails,
                 MessageType = message.MessageType,
                 FileUrl = message.FileUrl,
                 FileName = message.FileName,
