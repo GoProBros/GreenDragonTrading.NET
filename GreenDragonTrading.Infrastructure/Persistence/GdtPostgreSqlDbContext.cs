@@ -30,7 +30,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
         public DbSet<Alert> Alerts => Set<Alert>();
         public DbSet<NewsArticle> NewsArticles => Set<NewsArticle>();
-        public DbSet<ArticleTag> ArticleTags => Set<ArticleTag>();        public DbSet<MacroeconomicData> MacroeconomicData => Set<MacroeconomicData>();
+        public DbSet<ArticleTag> ArticleTags => Set<ArticleTag>();        
+        public DbSet<MacroeconomicData> MacroeconomicData => Set<MacroeconomicData>();
+        public DbSet<Portfolio> Portfolios => Set<Portfolio>();
+        public DbSet<TradingTransaction> TradingTransactions => Set<TradingTransaction>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -331,6 +334,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
                 builder.HasIndex(at => at.Ticker);
                 builder.HasIndex(at => new { at.NewsArticleId, at.Ticker }).IsUnique();
+            });
+
+            modelBuilder.Entity<Portfolio>(builder => {
+                builder.ToTable("portfolios");
+                builder.HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId);
             });
             DatabaseSeeder.SeedAll(modelBuilder);
         }
