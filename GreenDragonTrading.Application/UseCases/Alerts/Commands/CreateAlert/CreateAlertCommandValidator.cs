@@ -19,11 +19,13 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 .Must(c => c is ConditionType.Above or ConditionType.Below or ConditionType.PercentChangeUp or ConditionType.PercentChangeDown)
                 .WithMessage("Điều kiện cảnh báo chỉ hỗ trợ 1, 2, 3, 4");
 
-            RuleFor(x => x.CurrentPrice)
-                .GreaterThan(0).WithMessage("Giá hiện tại phải lớn hơn 0");
-
             RuleFor(x => x.ThresholdValue)
+                .NotNull().WithMessage("Ngưỡng cảnh báo không được để trống")
                 .GreaterThan(0).WithMessage("Ngưỡng cảnh báo phải lớn hơn 0")
+                .When(x => x.Condition is ConditionType.Above or ConditionType.Below);
+
+            RuleFor(x => x.ChangePercentage)
+                .Null().WithMessage("Condition 1,2 không sử dụng changePercentage")
                 .When(x => x.Condition is ConditionType.Above or ConditionType.Below);
 
             RuleFor(x => x.ChangePercentage)
@@ -31,13 +33,13 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 .GreaterThan(0).WithMessage("Phần trăm thay đổi phải lớn hơn 0")
                 .When(x => x.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown);
 
+            RuleFor(x => x.ThresholdValue)
+                .Null().WithMessage("Condition 3,4 không cần nhập thresholdValue")
+                .When(x => x.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown);
+
             RuleFor(x => x.Name)
                 .MaximumLength(255).WithMessage("Tên cảnh báo không được vượt quá 255 ký tự")
                 .When(x => !string.IsNullOrWhiteSpace(x.Name));
-
-            RuleFor(x => x.NotifyVia)
-                .Must(n => n is NotificationChannel.System or NotificationChannel.Message or NotificationChannel.Telegram)
-                .WithMessage("Kênh thông báo hiện chỉ hỗ trợ System(1), Message(2) hoặc Telegram(3)");
         }
     }
 }

@@ -27,6 +27,45 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<(List<Transaction> Transactions, int TotalCount)> GetPaginatedByUserIdAsync(
+            Guid userId,
+            TransactionStatus? status,
+            PaymentType? paymentProvider,
+            int pageIndex,
+            int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            var validPageIndex = pageIndex < 1 ? 1 : pageIndex;
+            var validPageSize = pageSize < 1 ? 10 : pageSize;
+
+            var query = _context.Set<Transaction>()
+                .AsNoTracking()
+                .Include(t => t.Subscription)
+                .Where(t => t.UserId == userId)
+                .AsQueryable();
+
+            if (status.HasValue)
+            {
+                query = query.Where(t => t.Status == status.Value);
+            }
+
+            if (paymentProvider.HasValue)
+            {
+                query = query.Where(t => t.PaymentProvider == paymentProvider.Value);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var transactions = await query
+                .OrderByDescending(t => t.CreatedAt)
+                .ThenByDescending(t => t.OrderCode)
+                .Skip((validPageIndex - 1) * validPageSize)
+                .Take(validPageSize)
+                .ToListAsync(cancellationToken);
+
+            return (transactions, totalCount);
+        }
+
         public async Task<IEnumerable<Transaction>> GetExpiredPendingMomoAsync(
             int expirationMinutes,
             CancellationToken cancellationToken = default)
