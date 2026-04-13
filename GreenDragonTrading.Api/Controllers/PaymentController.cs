@@ -78,14 +78,17 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Gets transaction history of current authenticated user, sorted by newest first.
+        /// Gets paginated transaction history of current authenticated user.
+        /// Supports optional filters by transaction status and payment provider.
+        /// paymentProvider filter values: 1 = PayOS, 2 = Momo. status filter values: 0 = Pending, 1 = Completed, 2 = Cancelled, 3 = Expired.
         /// </summary>
         [HttpGet("me/transactions")]
         [Authorize(Roles = nameof(UserRole.User))]
-        public async Task<ActionResult<ApiResponse<List<PaymentTransactionDto>>>> GetMyTransactions(
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<PaymentTransactionDto>>>> GetMyTransactions(
+            [FromQuery] GetMyTransactionsQuery query,
             CancellationToken cancellationToken)
         {
-            var result = await _mediator.Send(new GetMyTransactionsQuery(), cancellationToken);
+            var result = await _mediator.Send(query, cancellationToken);
             return Ok(result);
         }
 

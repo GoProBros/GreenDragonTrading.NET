@@ -128,17 +128,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         volumePercentUp,
                         volumePercentDown);
 
-                    if (alert.NotifyVia == NotificationChannel.Telegram)
-                    {
-                        await TrySendTelegramAsync(
-                            telegramChatIdsByUser,
-                            alert.UserId,
-                            message,
-                            cancellationToken);
-
-                        continue;
-                    }
-
                     if (!systemSessionIdsByUser.TryGetValue(alert.UserId, out var systemSessionId))
                     {
                         systemSessionId = await GetOrCreateSystemSessionIdAsync(alert.UserId, now, cancellationToken);

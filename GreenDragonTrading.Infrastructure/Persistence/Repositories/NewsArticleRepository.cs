@@ -10,6 +10,14 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         {
         }
 
+        public async Task<NewsArticle?> GetByIdWithTagsAsync(int id, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Include(x => x.ArticleTags)
+                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        }
+
         public async Task<List<string>> GetExistingLinksAsync(IEnumerable<string> links, CancellationToken cancellationToken = default)
         {
             var normalizedLinks = links

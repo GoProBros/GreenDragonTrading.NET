@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace GreenDragonTrading.Domain.Enums
 {
@@ -14,8 +9,5 @@ namespace GreenDragonTrading.Domain.Enums
 
         [Display(Name = "Momo")]
         Momo = 2,
-
-        [Display(Name = "VnPay")]
-        VnPay = 3
     }
 }

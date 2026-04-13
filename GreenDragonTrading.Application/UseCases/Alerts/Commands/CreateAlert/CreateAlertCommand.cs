@@ -11,12 +11,10 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
         public AlertType Type { get; set; }
         public ConditionType Condition { get; set; }
         public decimal? ChangePercentage { get; set; }
-        public decimal CurrentPrice { get; set; }
-        public decimal ThresholdValue { get; set; }
+        public decimal? ThresholdValue { get; set; }
         public string? Name { get; set; }
         public bool IsActive { get; set; } = true;
         public int? ChatSessionId { get; set; }
         public string? MessageTemplate { get; set; }
-        public NotificationChannel NotifyVia { get; set; }
     }
 }

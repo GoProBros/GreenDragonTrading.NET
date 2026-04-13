@@ -10,26 +10,36 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Queries.GetAlertsByUser
 public class GetAlertsByUserIdQueryHandler(
     IUnitOfWork uow,
     ICurrentUserService currentUserService)
-    : IRequestHandler<GetAlertsByUserIdQuery, ApiResponse<List<AlertDto>>>
+    : IRequestHandler<GetAlertsByUserIdQuery, ApiResponse<PaginatedResponse<AlertDto>>>
 {
     private readonly IUnitOfWork _uow = uow;
     private readonly ICurrentUserService _currentUserService = currentUserService;
 
-    public async Task<ApiResponse<List<AlertDto>>> Handle(GetAlertsByUserIdQuery request, CancellationToken cancellationToken)
+    public async Task<ApiResponse<PaginatedResponse<AlertDto>>> Handle(GetAlertsByUserIdQuery request, CancellationToken cancellationToken)
     {
-        if (request.UserId == Guid.Empty)
+        if (request.UserId.HasValue && request.UserId.Value == Guid.Empty)
         {
             throw new BusinessRuleException("UserId không hợp lệ.");
         }
 
         var currentUserId = _currentUserService.GetRequiredUserId();
+        var targetUserId = request.UserId ?? currentUserId;
 
-        if (!_currentUserService.IsAdminOrStaff && request.UserId != currentUserId)
+        if (!_currentUserService.IsAdminOrStaff && targetUserId != currentUserId)
         {
             throw new AccessDeniedException("Bạn chỉ có thể xem cảnh báo của chính mình.");
         }
 
-        var alerts = await _uow.Alerts.GetByUserIdAsync(request.UserId, cancellationToken);
+        var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
+        var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
+
+        var (alerts, totalCount) = await _uow.Alerts.GetPaginatedByUserIdAsync(
+            targetUserId,
+            request.Type,
+            request.Condition,
+            pageIndex,
+            pageSize,
+            cancellationToken);
 
         var data = alerts.Select(alert => new AlertDto
         {
@@ -39,7 +49,6 @@ public class GetAlertsByUserIdQueryHandler(
             Type = alert.Type,
             Condition = alert.Condition,
             ChangePercentage = alert.ChangePercentage,
-            CurrentPrice = alert.CurrentPrice,
             ThresholdValue = alert.ThresholdValue,
             Name = alert.Name,
             IsActive = alert.IsActive,
@@ -47,11 +56,14 @@ public class GetAlertsByUserIdQueryHandler(
             LastTriggeredAt = alert.LastTriggeredAt,
             ChatSessionId = alert.ChatSessionId,
             MessageTemplate = alert.MessageTemplate,
-            NotifyVia = alert.NotifyVia,
             CreatedAt = alert.CreatedAt,
             UpdatedAt = alert.UpdatedAt
         }).ToList();
 
-        return ApiResponse<List<AlertDto>>.Success(data, "Lấy danh sách cảnh báo thành công.");
+        var paginatedResponse = PaginatedResponse<AlertDto>.Create(data, totalCount, pageIndex, pageSize);
+
+        return ApiResponse<PaginatedResponse<AlertDto>>.Success(
+            paginatedResponse,
+            "Lấy danh sách cảnh báo thành công.");
     }
 }

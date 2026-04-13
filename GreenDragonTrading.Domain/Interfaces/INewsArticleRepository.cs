@@ -6,6 +6,8 @@ namespace GreenDragonTrading.Domain.Interfaces
     {
         Task<List<string>> GetExistingLinksAsync(IEnumerable<string> links, CancellationToken cancellationToken = default);
 
+        Task<NewsArticle?> GetByIdWithTagsAsync(int id, CancellationToken cancellationToken = default);
+
         Task<(List<NewsArticle> Articles, int TotalCount)> GetPaginatedAsync(
             string? search,
             string? ticker,
