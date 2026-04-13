@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.News.Queries.GetNewsById;
 using GreenDragonTrading.Application.UseCases.News.Queries.GetNews;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,21 @@ public class NewsController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Retrieves a single news article by id.
+    /// </summary>
+    /// <param name="id">News article id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>News article details.</returns>
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<ApiResponse<NewsArticleDto>>> GetNewsById(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _mediator.Send(new GetNewsByIdQuery(id), cancellationToken);
         return Ok(result);
     }
 }

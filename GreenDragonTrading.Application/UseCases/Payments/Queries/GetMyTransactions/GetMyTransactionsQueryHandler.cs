@@ -13,13 +13,13 @@ public class GetMyTransactionsQueryHandler(
     IUnitOfWork uow,
     ICurrentUserService currentUserService,
     ILogger<GetMyTransactionsQueryHandler> logger)
-    : IRequestHandler<GetMyTransactionsQuery, ApiResponse<List<PaymentTransactionDto>>>
+    : IRequestHandler<GetMyTransactionsQuery, ApiResponse<PaginatedResponse<PaymentTransactionDto>>>
 {
     private readonly IUnitOfWork _uow = uow;
     private readonly ICurrentUserService _currentUserService = currentUserService;
     private readonly ILogger<GetMyTransactionsQueryHandler> _logger = logger;
 
-    public async Task<ApiResponse<List<PaymentTransactionDto>>> Handle(
+    public async Task<ApiResponse<PaginatedResponse<PaymentTransactionDto>>> Handle(
         GetMyTransactionsQuery request,
         CancellationToken cancellationToken)
     {
@@ -30,11 +30,18 @@ public class GetMyTransactionsQueryHandler(
             throw new AccessDeniedException("Chỉ người dùng role User mới được xem danh sách giao dịch.");
         }
 
-        var transactions = await _uow.Transactions.GetByUserIdAsync(userId, cancellationToken);
+        var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
+        var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
+
+        var (transactions, totalCount) = await _uow.Transactions.GetPaginatedByUserIdAsync(
+            userId,
+            request.Status,
+            request.PaymentProvider,
+            pageIndex,
+            pageSize,
+            cancellationToken);
 
         var items = transactions
-            .OrderByDescending(t => t.CreatedAt)
-            .ThenByDescending(t => t.OrderCode)
             .Select(t => new PaymentTransactionDto
             {
                 Id = t.Id,
@@ -55,11 +62,24 @@ public class GetMyTransactionsQueryHandler(
             })
             .ToList();
 
-        _logger.LogInformation(
-            "Retrieved {TransactionCount} transactions for user {UserId}",
-            items.Count,
-            userId);
+        var paginatedResponse = PaginatedResponse<PaymentTransactionDto>.Create(
+            items,
+            totalCount,
+            pageIndex,
+            pageSize);
 
-        return ApiResponse<List<PaymentTransactionDto>>.Success(items, "Lấy danh sách giao dịch thành công.");
+        _logger.LogInformation(
+            "Retrieved transaction history for user {UserId}: Total={TotalCount}, Returned={ReturnedCount}, Status={Status}, PaymentProvider={PaymentProvider}, PageIndex={PageIndex}, PageSize={PageSize}",
+            userId,
+            totalCount,
+            items.Count,
+            request.Status,
+            request.PaymentProvider,
+            pageIndex,
+            pageSize);
+
+        return ApiResponse<PaginatedResponse<PaymentTransactionDto>>.Success(
+            paginatedResponse,
+            "Lấy danh sách giao dịch thành công.");
     }
 }

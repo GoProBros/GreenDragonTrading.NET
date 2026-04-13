@@ -13,7 +13,6 @@ namespace GreenDragonTrading.Domain.Enums
         [Display(Name = "Cancelled")]
         Cancelled = 2,
 
-        /// <summary>Payment link expired — timed out before user completed payment.</summary>
         [Display(Name = "Expired")]
         Expired = 3
     }

@@ -30,7 +30,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 throw new NotFoundException("Mã cổ phiếu không tồn tại");
             }
 
-            var calculatedThreshold = CalculateThresholdValue(request);
+            var currentMonitoredValue = await GetCurrentMonitoredValueAsync(request.Type, ticker);
+            var calculatedThreshold = CalculateThresholdValue(request, currentMonitoredValue);
 
             var alert = new Alert
             {
@@ -38,15 +39,19 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 Ticker = ticker,
                 Type = request.Type,
                 Condition = request.Condition,
-                ChangePercentage = request.ChangePercentage,
-                CurrentPrice = request.CurrentPrice,
+                ChangePercentage = request.Condition is ConditionType.Above or ConditionType.Below
+                    ? null
+                    : request.ChangePercentage,
+                CurrentPrice = currentMonitoredValue,
                 ThresholdValue = calculatedThreshold,
                 Name = request.Name?.Trim(),
                 IsActive = request.IsActive,
                 IsTriggered = false,
                 ChatSessionId = request.ChatSessionId,
-                MessageTemplate = request.MessageTemplate,
-                NotifyVia = request.NotifyVia,
+                MessageTemplate = string.IsNullOrWhiteSpace(request.MessageTemplate)
+                    ? null
+                    : request.MessageTemplate.Trim(),
+                NotifyVia = NotificationChannel.System,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
             };
@@ -71,26 +76,56 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
             return RedisConstants.AlertsByTypeAndCondition(alert.Ticker, alert.Type, alert.Condition);
         }
 
-        private static decimal CalculateThresholdValue(CreateAlertCommand request)
+        private async Task<decimal> GetCurrentMonitoredValueAsync(AlertType type, string ticker)
+        {
+            var marketData = await _redisService.GetHashAsync<MarketSymbolDto>(
+                RedisConstants.MarketDataSymbol(ticker));
+
+            if (marketData == null)
+            {
+                throw new BusinessRuleException("Không tìm thấy dữ liệu thị trường hiện tại trên Redis");
+            }
+
+            var monitoredValue = type == AlertType.Price
+                ? (decimal)marketData.LastPrice
+                : (decimal)marketData.TotalVol;
+
+            if (monitoredValue <= 0)
+            {
+                throw new BusinessRuleException(
+                    type == AlertType.Price
+                        ? "Giá hiện tại chưa sẵn sàng để đặt cảnh báo"
+                        : "Khối lượng hiện tại chưa sẵn sàng để đặt cảnh báo");
+            }
+
+            return monitoredValue;
+        }
+
+        private static decimal CalculateThresholdValue(CreateAlertCommand request, decimal currentMonitoredValue)
         {
             if (request.Condition is ConditionType.Above or ConditionType.Below)
             {
-                return request.ThresholdValue;
+                if (!request.ThresholdValue.HasValue)
+                {
+                    throw new BusinessRuleException("Condition 1,2 yêu cầu thresholdValue");
+                }
+
+                return request.ThresholdValue.Value;
             }
 
-            if (request.Type == AlertType.Volume)
+            if (!request.ChangePercentage.HasValue)
             {
-                return request.ThresholdValue;
+                throw new BusinessRuleException("Condition 3,4 yêu cầu changePercentage");
             }
 
-            var pct = request.ChangePercentage ?? 0m;
+            var pct = request.ChangePercentage.Value;
             var factor = pct / 100m;
 
             return request.Condition switch
             {
-                ConditionType.PercentChangeUp => request.CurrentPrice * (1m + factor),
-                ConditionType.PercentChangeDown => request.CurrentPrice * (1m - factor),
-                _ => request.ThresholdValue,
+                ConditionType.PercentChangeUp => currentMonitoredValue * (1m + factor),
+                ConditionType.PercentChangeDown => currentMonitoredValue * (1m - factor),
+                _ => throw new BusinessRuleException("Condition không hợp lệ"),
             };
         }
 
@@ -104,7 +139,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 Type = alert.Type,
                 Condition = alert.Condition,
                 ChangePercentage = alert.ChangePercentage,
-                CurrentPrice = alert.CurrentPrice,
                 ThresholdValue = alert.ThresholdValue,
                 Name = alert.Name,
                 IsActive = alert.IsActive,
@@ -112,7 +146,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 LastTriggeredAt = alert.LastTriggeredAt,
                 ChatSessionId = alert.ChatSessionId,
                 MessageTemplate = alert.MessageTemplate,
-                NotifyVia = alert.NotifyVia,
                 CreatedAt = alert.CreatedAt,
                 UpdatedAt = alert.UpdatedAt,
             };
