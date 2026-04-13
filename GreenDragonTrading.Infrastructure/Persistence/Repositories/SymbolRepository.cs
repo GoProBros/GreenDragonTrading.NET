@@ -40,7 +40,16 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 
             if (!string.IsNullOrWhiteSpace(sector))
             {
-                query = query.Where(s => s.SectorId == sector);
+                var level4SectorIds = await GetLevel4SectorIdsForFilterAsync(sector, cancellationToken);
+
+                if (level4SectorIds.Count == 0)
+                {
+                    query = query.Where(_ => false);
+                }
+                else
+                {
+                    query = query.Where(s => s.SectorId != null && level4SectorIds.Contains(s.SectorId));
+                }
             }
 
             // Get total count before pagination
@@ -54,6 +63,65 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
 
             return (symbols, totalCount);
+        }
+
+        /// <summary>
+        /// Resolves a sector filter to level-4 sector IDs because symbols are linked to leaf sectors.
+        /// </summary>
+        private async Task<List<string>> GetLevel4SectorIdsForFilterAsync(
+            string sectorId,
+            CancellationToken cancellationToken)
+        {
+            var currentSector = await _context.Sectors
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    s => s.Id == sectorId && s.Status == CommonStatus.Active,
+                    cancellationToken);
+
+            if (currentSector == null)
+            {
+                return [];
+            }
+
+            if (currentSector.Level == 4)
+            {
+                return [currentSector.Id];
+            }
+
+            var allActiveSectors = await _context.Sectors
+                .AsNoTracking()
+                .Where(s => s.Status == CommonStatus.Active)
+                .ToListAsync(cancellationToken);
+
+            return GetAllLevel4Children(currentSector.Id, allActiveSectors)
+                .Distinct()
+                .ToList();
+        }
+
+        /// <summary>
+        /// Recursively collects level-4 descendants for a parent sector.
+        /// </summary>
+        private static List<string> GetAllLevel4Children(string parentId, List<Sector> allSectors)
+        {
+            var result = new List<string>();
+
+            var children = allSectors
+                .Where(s => s.ParentId == parentId)
+                .ToList();
+
+            foreach (var child in children)
+            {
+                if (child.Level == 4)
+                {
+                    result.Add(child.Id);
+                }
+                else
+                {
+                    result.AddRange(GetAllLevel4Children(child.Id, allSectors));
+                }
+            }
+
+            return result;
         }
 
         public async Task<(IEnumerable<Symbol> Symbols, int TotalCount)> SearchSymbolsAsync(
