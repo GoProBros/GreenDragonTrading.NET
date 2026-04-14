@@ -8,7 +8,7 @@ namespace GreenDragonTrading.Api.Controllers;
 /// Controller xử lý các API liên quan đến heatmap
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/heatmap")]
 public class HeatmapController : ControllerBase
 {
     private readonly IMediator _mediator;

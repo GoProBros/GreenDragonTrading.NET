@@ -11,7 +11,7 @@ namespace GreenDragonTrading.Api.Controllers
     /// Controller để quản lý OHLCV (Open, High, Low, Close, Volume) data
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/ohlcv")]
     public class OhlcvController : ControllerBase
     {
         private readonly IMediator _mediator;
