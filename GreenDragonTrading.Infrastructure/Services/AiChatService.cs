@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -12,15 +13,18 @@ namespace GreenDragonTrading.Infrastructure.Services
     public class AiChatService : IAiChatService
     {
         private readonly HttpClient _httpClient;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AiChatService> _logger;
         private readonly AiEngineOptions _options;
 
         public AiChatService(
             HttpClient httpClient,
+            IHttpContextAccessor httpContextAccessor,
             IOptions<AiEngineOptions> options,
             ILogger<AiChatService> logger)
         {
             _httpClient = httpClient;
+            _httpContextAccessor = httpContextAccessor;
             _options = options.Value;
             _logger = logger;
         }
@@ -44,10 +48,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.PostAsJsonAsync(
-                    NormalizeEndpoint(_options.ChatEndpoint),
-                    request,
-                    cancellationToken);
+                using var requestMessage = CreatePostRequest(NormalizeEndpoint(_options.ChatEndpoint), request);
+                response = await _httpClient.SendAsync(requestMessage, cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -112,10 +114,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.PostAsJsonAsync(
-                    NormalizeEndpoint(_options.ConversationSummaryEndpoint),
-                    request,
-                    cancellationToken);
+                using var requestMessage = CreatePostRequest(NormalizeEndpoint(_options.ConversationSummaryEndpoint), request);
+                response = await _httpClient.SendAsync(requestMessage, cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -155,10 +155,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.PostAsJsonAsync(
-                    NormalizeEndpoint(_options.NewsSummarizationEndpoint),
-                    request,
-                    cancellationToken);
+                using var requestMessage = CreatePostRequest(NormalizeEndpoint(_options.NewsSummarizationEndpoint), request);
+                response = await _httpClient.SendAsync(requestMessage, cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -181,6 +179,27 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
 
             return summaryResponse;
+        }
+
+        private HttpRequestMessage CreatePostRequest(string endpoint, object payload)
+        {
+            var requestMessage = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = JsonContent.Create(payload)
+            };
+
+            AttachAuthorizationHeader(requestMessage);
+            return requestMessage;
+        }
+
+        private void AttachAuthorizationHeader(HttpRequestMessage requestMessage)
+        {
+            var incomingAuthHeader = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrWhiteSpace(incomingAuthHeader)
+                && incomingAuthHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                requestMessage.Headers.TryAddWithoutValidation("Authorization", incomingAuthHeader);
+            }
         }
 
         private static string NormalizeEndpoint(string endpoint)
