@@ -131,8 +131,28 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                         currentTradingDate);
                 }
 
-                // Full trading day (9:00-11:30 + 13:00-15:00) at 5s intervals ≈ 3,240 points. Use 4,000 as buffer.
-                await redis.ListPushTrimAsync(intradayKey, historyPoint, maxLength: 4000);
+                // Skip stale SSI replay ticks. When subscribing, SSI replays the last known value
+                // (e.g., "15:05:05" from the previous session's close). Detect replay by comparing
+                // the response's time-of-day against the current server VN time: if the reported
+                // time is more than 2 minutes ahead of now, it must be yesterday's data.
+                bool isStaleReplay = false;
+                if (!string.IsNullOrWhiteSpace(response.Time)
+                    && TimeSpan.TryParse(response.Time, out var parsedResponseTime))
+                {
+                    isStaleReplay = (parsedResponseTime - vnNow.TimeOfDay).TotalMinutes > 2;
+                }
+
+                if (isStaleReplay)
+                {
+                    _logger.LogDebug(
+                        "[ChannelIndex] Skipped stale replay tick for {Code}: ResponseTime={ResponseTime}, ServerTime={ServerTime}",
+                        code, response.Time, vnNow.ToString("HH:mm:ss"));
+                }
+                else
+                {
+                    // Full trading day (9:00-11:30 + 13:00-15:00) at 5s intervals ≈ 3,240 points. Use 4,000 as buffer.
+                    await redis.ListPushTrimAsync(intradayKey, historyPoint, maxLength: 4000);
+                }
 
                 // Queue SignalR broadcast to INDEX:{CODE} group
                 QueueIndexBroadcast(dto);
