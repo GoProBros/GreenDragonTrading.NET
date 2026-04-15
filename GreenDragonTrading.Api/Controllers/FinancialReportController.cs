@@ -7,6 +7,7 @@ using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinanc
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReportIndicatorList;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetRecentQuarterIndicators;
 using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.GetFinancialReports;
+using GreenDragonTrading.Application.UseCases.FinancialReports.Queries.QueryFinancialReportsByFields;
 using GreenDragonTrading.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -41,6 +42,28 @@ namespace GreenDragonTrading.Api.Controllers
                 return BadRequest(result);
             }
             
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Advanced query for financial reports by specific fields, including deep JSON paths
+        /// inside reportData and indicatorData.
+        /// </summary>
+        /// <param name="query">Advanced field query model.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Paginated financial report records with selected field values.</returns>
+        [HttpPost("query/advanced")]
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<FinancialReportFieldQueryItemDto>>>> QueryFinancialReportsByFields(
+            [FromBody] QueryFinancialReportsByFieldsQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
             return Ok(result);
         }
 

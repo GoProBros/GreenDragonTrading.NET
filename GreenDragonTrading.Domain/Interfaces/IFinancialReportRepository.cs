@@ -44,6 +44,18 @@ namespace GreenDragonTrading.Domain.Interfaces
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Get financial reports with base filters for advanced field-level query.
+        /// </summary>
+        Task<List<FinancialReport>> GetForFieldQueryAsync(
+            string? ticker = null,
+            int? yearFrom = null,
+            int? yearTo = null,
+            int? period = null,
+            int? status = null,
+            int maxRecords = 5000,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Get a batch of financial reports for indicator data recalculation.
         /// </summary>
         Task<List<FinancialReport>> GetForIndicatorRecalculationAsync(
