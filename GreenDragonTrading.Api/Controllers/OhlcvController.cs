@@ -2,6 +2,7 @@
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportDailyOhlcvFromSsi;
 using GreenDragonTrading.Application.UseCases.Ohlcv.Commands.ImportIntradayOhlcvFromSsi;
 using GreenDragonTrading.Application.UseCases.Ohlcv.Queries.GetOhlcv;
+using GreenDragonTrading.Application.UseCases.Ohlcv.Queries.QueryOhlcvByFields;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -54,6 +55,22 @@ namespace GreenDragonTrading.Api.Controllers
                 UseCache = useCache
             };
 
+            var result = await _mediator.Send(query, cancellationToken);
+
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+
+        /// <summary>
+        /// Query OHLCV chi tiết theo từng field với điều kiện linh hoạt.
+        /// </summary>
+        /// <param name="query">Advanced query model</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Danh sách OHLCV đã lọc theo field</returns>
+        [HttpPost("query/advanced")]
+        public async Task<IActionResult> QueryOhlcvByFields(
+            [FromBody] QueryOhlcvByFieldsQuery query,
+            CancellationToken cancellationToken = default)
+        {
             var result = await _mediator.Send(query, cancellationToken);
 
             return result.IsSuccess ? Ok(result) : BadRequest(result);
