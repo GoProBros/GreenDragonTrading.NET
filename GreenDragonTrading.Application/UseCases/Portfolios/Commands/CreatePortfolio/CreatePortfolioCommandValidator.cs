@@ -6,6 +6,10 @@ public class CreatePortfolioCommandValidator : AbstractValidator<CreatePortfolio
 {
     public CreatePortfolioCommandValidator()
     {
+        RuleFor(x => x.Ticker)
+            .NotEmpty().WithMessage("Ticker không được để trống")
+            .MaximumLength(20).WithMessage("Ticker không được vượt quá 20 ký tự");
+
         RuleFor(x => x.Name)
             .MaximumLength(100).WithMessage("Tên portfolio không được vượt quá 100 ký tự")
             .When(x => x.Name != null);

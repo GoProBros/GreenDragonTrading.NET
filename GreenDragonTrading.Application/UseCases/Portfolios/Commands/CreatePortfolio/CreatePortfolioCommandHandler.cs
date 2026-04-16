@@ -34,10 +34,23 @@ public class CreatePortfolioCommandHandler : IRequestHandler<CreatePortfolioComm
         }
 
         var userId = _currentUserService.GetRequiredUserId();
+        var user = await _uow.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null)
+        {
+            throw new NotFoundException("Người dùng không tồn tại.");
+        }
+
+        var normalizedTicker = request.Ticker.Trim().ToUpperInvariant();
+        var symbol = await _uow.Symbols.GetByIdAsync(normalizedTicker, cancellationToken);
+        if (symbol == null)
+        {
+            throw new NotFoundException("Mã cổ phiếu không tồn tại.");
+        }
 
         var portfolio = new Portfolio
         {
             UserId = userId,
+            Ticker = normalizedTicker,
             Name = NormalizeNullableText(request.Name),
             Description = NormalizeNullableText(request.Description),
             Status = request.Status,
@@ -49,7 +62,7 @@ public class CreatePortfolioCommandHandler : IRequestHandler<CreatePortfolioComm
 
         _logger.LogInformation("Portfolio {PortfolioId} created by user {UserId}", portfolio.Id, userId);
 
-        return ApiResponse<PortfolioDto>.Success(ToDto(portfolio), "Tạo portfolio thành công");
+        return ApiResponse<PortfolioDto>.Success(ToDto(portfolio, user.InvestmentCapital ?? 0m), "Tạo portfolio thành công");
     }
 
     private static string? NormalizeNullableText(string? value)
@@ -63,8 +76,12 @@ public class CreatePortfolioCommandHandler : IRequestHandler<CreatePortfolioComm
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 
-    private static PortfolioDto ToDto(Portfolio portfolio)
+    private static PortfolioDto ToDto(Portfolio portfolio, decimal availableCapital)
     {
+        var normalizedTicker = string.IsNullOrWhiteSpace(portfolio.Ticker)
+            ? string.Empty
+            : portfolio.Ticker.Trim().ToUpperInvariant();
+
         return new PortfolioDto
         {
             Id = portfolio.Id,
@@ -72,7 +89,13 @@ public class CreatePortfolioCommandHandler : IRequestHandler<CreatePortfolioComm
             Name = portfolio.Name,
             Description = portfolio.Description,
             Status = portfolio.Status,
-            CreatedAt = portfolio.CreatedAt
+            CreatedAt = portfolio.CreatedAt,
+            Ticker = normalizedTicker,
+            AvailableCapital = availableCapital,
+            Summary = new PortfolioSummaryDto(),
+            HistoryPerformance = new PortfolioHistoryPerformanceDto(),
+            Overall = new PortfolioOverallDto(),
+            TransactionHistory = []
         };
     }
 }

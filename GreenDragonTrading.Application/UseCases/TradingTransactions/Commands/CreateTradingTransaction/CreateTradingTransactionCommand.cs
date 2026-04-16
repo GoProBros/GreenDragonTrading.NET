@@ -7,12 +7,9 @@ namespace GreenDragonTrading.Application.UseCases.TradingTransactions.Commands.C
 
 public record CreateTradingTransactionCommand(
     int PortfolioId = 0,
-    string Ticker = "",
     TransactionSide? Side = null,
     decimal? Quantity = null,
     decimal? Price = null,
-    decimal? Fee = null,
-    decimal? Tax = null,
     DateTimeOffset? TransactionDate = null,
     string? Note = null,
     string? OriginalMessage = null

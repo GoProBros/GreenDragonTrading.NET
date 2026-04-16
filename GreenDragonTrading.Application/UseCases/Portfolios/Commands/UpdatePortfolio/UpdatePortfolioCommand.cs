@@ -7,6 +7,7 @@ namespace GreenDragonTrading.Application.UseCases.Portfolios.Commands.UpdatePort
 
 public record UpdatePortfolioCommand(
     int Id,
+    string? Ticker = null,
     string? Name = null,
     string? Description = null,
     CommonStatus? Status = null

@@ -10,8 +10,6 @@ public class TradingTransactionDto
     public TransactionSide Side { get; set; }
     public decimal? Quantity { get; set; }
     public decimal? Price { get; set; }
-    public decimal? Fee { get; set; }
-    public decimal? Tax { get; set; }
     public DateTimeOffset TransactionDate { get; set; }
     public DateTimeOffset RecordedAt { get; set; }
     public string? Note { get; set; }
