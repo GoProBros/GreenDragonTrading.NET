@@ -3,9 +3,11 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateSubscription;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateSubscriptionPrice;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateSubscriptionStatus;
+using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetCustomerRetentionStatistics;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySubscription;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubscriptionStatistics;
 using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubscriptions;
+using GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetWatchListTopInterestedSymbols;
 using GreenDragonTrading.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -57,6 +59,30 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new GetSubscriptionStatisticsQuery(), cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get customer retention statistics based on number of package registrations.
+        /// </summary>
+        [HttpGet("statistics/customer-retention")]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
+        public async Task<ActionResult<ApiResponse<CustomerRetentionStatisticsDto>>> GetCustomerRetentionStatistics(
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new GetCustomerRetentionStatisticsQuery(), cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get top interested symbols from active users' watch lists.
+        /// </summary>
+        [HttpGet("statistics/watchlist-top-symbols")]
+        [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
+        public async Task<ActionResult<ApiResponse<WatchListTopInterestedSymbolsDto>>> GetWatchListTopInterestedSymbols(
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new GetWatchListTopInterestedSymbolsQuery(), cancellationToken);
             return Ok(result);
         }
 

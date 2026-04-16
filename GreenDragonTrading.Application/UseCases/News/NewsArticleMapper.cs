@@ -26,7 +26,11 @@ internal static class NewsArticleMapper
                     SentimentScore = bestTag.SentimentScore
                 };
             })
-            .OrderBy(t => t.Ticker)
+            .OrderByDescending(t => t.RelevanceScore.HasValue)
+            .ThenByDescending(t => t.RelevanceScore)
+            .ThenByDescending(t => t.SentimentScore.HasValue)
+            .ThenByDescending(t => t.SentimentScore)
+            .ThenBy(t => t.Ticker)
             .ToList();
 
         return new NewsArticleDto
