@@ -31,7 +31,15 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("created_at", TypeName = "timestamp with time zone")]
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+        [Required]
+        [MaxLength(20)]
+        [Column("ticker", TypeName = "varchar(20)")]
+        public string Ticker { get; set; } = string.Empty;
+
         // Navigation Property
+        [ForeignKey("Ticker")]
+        public virtual Symbol Symbol { get; set; } = default!;
+
         [ForeignKey("UserId")]
         public virtual User User { get; set; } = default!;
 

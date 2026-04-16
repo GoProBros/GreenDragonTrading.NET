@@ -1,4 +1,4 @@
-﻿using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Infrastructure.Persistence.Seeding;
 using Microsoft.EntityFrameworkCore;
@@ -335,10 +335,26 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.HasIndex(at => at.Ticker);
                 builder.HasIndex(at => new { at.NewsArticleId, at.Ticker }).IsUnique();
             });
-
-            modelBuilder.Entity<Portfolio>(builder => {
+            modelBuilder.Entity<Portfolio>(builder =>
+            {
                 builder.ToTable("portfolios");
-                builder.HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId);
+                builder.HasOne(p => p.User)
+                    .WithMany(u => u.Portfolios)
+                    .HasForeignKey(p => p.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                builder.HasIndex(p => p.Ticker);
+            });
+
+            modelBuilder.Entity<TradingTransaction>(builder =>
+            {
+                builder.ToTable("trading_transactions");
+
+                builder.HasOne(t => t.Portfolio)
+                    .WithMany(p => p.Transactions)
+                    .HasForeignKey(t => t.PortfolioId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
             });
             DatabaseSeeder.SeedAll(modelBuilder);
         }

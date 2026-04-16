@@ -41,6 +41,24 @@ public class UpdatePortfolioCommandHandler : IRequestHandler<UpdatePortfolioComm
             throw new NotFoundException("Portfolio không tồn tại hoặc bạn không có quyền cập nhật.");
         }
 
+        var user = await _uow.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null)
+        {
+            throw new NotFoundException("Người dùng không tồn tại.");
+        }
+
+        if (request.Ticker != null)
+        {
+            var normalizedTicker = request.Ticker.Trim().ToUpperInvariant();
+            var symbol = await _uow.Symbols.GetByIdAsync(normalizedTicker, cancellationToken);
+            if (symbol == null)
+            {
+                throw new NotFoundException("Mã cổ phiếu không tồn tại.");
+            }
+
+            portfolio.Ticker = normalizedTicker;
+        }
+
         portfolio.Name = NormalizeNullableText(request.Name);
         portfolio.Description = NormalizeNullableText(request.Description);
 
@@ -54,7 +72,7 @@ public class UpdatePortfolioCommandHandler : IRequestHandler<UpdatePortfolioComm
 
         _logger.LogInformation("Portfolio {PortfolioId} updated by user {UserId}", portfolio.Id, userId);
 
-        return ApiResponse<PortfolioDto>.Success(ToDto(portfolio), "Cập nhật portfolio thành công");
+        return ApiResponse<PortfolioDto>.Success(ToDto(portfolio, user.InvestmentCapital ?? 0m), "Cập nhật portfolio thành công");
     }
 
     private static string? NormalizeNullableText(string? value)
@@ -68,8 +86,12 @@ public class UpdatePortfolioCommandHandler : IRequestHandler<UpdatePortfolioComm
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 
-    private static PortfolioDto ToDto(Portfolio portfolio)
+    private static PortfolioDto ToDto(Portfolio portfolio, decimal availableCapital)
     {
+        var normalizedTicker = string.IsNullOrWhiteSpace(portfolio.Ticker)
+            ? string.Empty
+            : portfolio.Ticker.Trim().ToUpperInvariant();
+
         return new PortfolioDto
         {
             Id = portfolio.Id,
@@ -77,7 +99,13 @@ public class UpdatePortfolioCommandHandler : IRequestHandler<UpdatePortfolioComm
             Name = portfolio.Name,
             Description = portfolio.Description,
             Status = portfolio.Status,
-            CreatedAt = portfolio.CreatedAt
+            CreatedAt = portfolio.CreatedAt,
+            Ticker = normalizedTicker,
+            AvailableCapital = availableCapital,
+            Summary = new PortfolioSummaryDto(),
+            HistoryPerformance = new PortfolioHistoryPerformanceDto(),
+            Overall = new PortfolioOverallDto(),
+            TransactionHistory = []
         };
     }
 }

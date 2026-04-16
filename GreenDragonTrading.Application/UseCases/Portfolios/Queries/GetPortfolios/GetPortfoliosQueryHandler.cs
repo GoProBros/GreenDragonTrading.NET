@@ -1,6 +1,8 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Application.UseCases.Portfolios.Common;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
@@ -14,15 +16,18 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
 {
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IRedisService _redisService;
     private readonly ILogger<GetPortfoliosQueryHandler> _logger;
 
     public GetPortfoliosQueryHandler(
         IUnitOfWork uow,
         ICurrentUserService currentUserService,
+        IRedisService redisService,
         ILogger<GetPortfoliosQueryHandler> logger)
     {
         _uow = uow;
         _currentUserService = currentUserService;
+        _redisService = redisService;
         _logger = logger;
     }
 
@@ -32,17 +37,34 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
         var role = _currentUserService.Role;
 
         List<Portfolio> portfolios;
+        Dictionary<Guid, decimal> availableCapitalByUserId;
 
         if (string.Equals(role, nameof(UserRole.User), StringComparison.OrdinalIgnoreCase))
         {
+            var user = await _uow.Users.GetByIdAsync(currentUserId, cancellationToken);
+            if (user == null)
+            {
+                throw new NotFoundException("Người dùng không tồn tại.");
+            }
+
             portfolios = await _uow.Portfolios.GetByUserIdAsync(currentUserId, cancellationToken);
+            availableCapitalByUserId = new Dictionary<Guid, decimal>
+            {
+                [currentUserId] = user.InvestmentCapital ?? 0m
+            };
         }
         else if (_currentUserService.IsAdminOrStaff)
         {
-            var endUserIds = (await _uow.Users.GetAllAsync(cancellationToken))
+            var endUsers = (await _uow.Users.GetAllAsync(cancellationToken))
                 .Where(x => x.Role == UserRole.User)
+                .ToList();
+
+            var endUserIds = endUsers
                 .Select(x => x.Id)
                 .ToHashSet();
+
+            availableCapitalByUserId = endUsers
+                .ToDictionary(x => x.Id, x => x.InvestmentCapital ?? 0m);
 
             portfolios = (await _uow.Portfolios.GetAllAsync(cancellationToken))
                 .Where(x => endUserIds.Contains(x.UserId))
@@ -60,9 +82,42 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
             throw new AccessDeniedException("Bạn không có quyền xem danh sách portfolio.");
         }
 
+        var portfolioIds = portfolios
+            .Select(x => x.Id)
+            .Distinct()
+            .ToList();
+
+        var transactions = await _uow.TradingTransactions.GetByPortfolioIdsAsync(portfolioIds, cancellationToken);
+
+        var transactionsByPortfolioId = transactions
+            .GroupBy(x => x.PortfolioId)
+            .ToDictionary(x => x.Key, x => (IEnumerable<TradingTransaction>)x.ToList());
+
+        var currentPricesByTicker = await GetCurrentPricesByTickerAsync(
+            portfolios
+                .Select(x => x.Ticker)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim().ToUpperInvariant()));
+
         var result = portfolios
             .OrderByDescending(x => x.CreatedAt)
-            .Select(ToDto)
+            .Select(portfolio =>
+            {
+                transactionsByPortfolioId.TryGetValue(portfolio.Id, out var portfolioTransactions);
+                availableCapitalByUserId.TryGetValue(portfolio.UserId, out var availableCapital);
+
+                var normalizedTicker = string.IsNullOrWhiteSpace(portfolio.Ticker)
+                    ? string.Empty
+                    : portfolio.Ticker.Trim().ToUpperInvariant();
+
+                currentPricesByTicker.TryGetValue(normalizedTicker, out var currentPrice);
+
+                return PortfolioMetricsMapper.ToDto(
+                    portfolio,
+                    portfolioTransactions ?? [],
+                    availableCapital,
+                    currentPrice);
+            })
             .ToList();
 
         _logger.LogInformation("Retrieved {Count} portfolios for {Role} {UserId}", result.Count, role, currentUserId);
@@ -70,16 +125,37 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
         return ApiResponse<List<PortfolioDto>>.Success(result, "Lấy danh sách portfolio thành công");
     }
 
-    private static PortfolioDto ToDto(Portfolio portfolio)
+    private async Task<Dictionary<string, decimal>> GetCurrentPricesByTickerAsync(IEnumerable<string> tickers)
     {
-        return new PortfolioDto
+        var normalizedTickers = tickers
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (normalizedTickers.Count == 0)
         {
-            Id = portfolio.Id,
-            UserId = portfolio.UserId,
-            Name = portfolio.Name,
-            Description = portfolio.Description,
-            Status = portfolio.Status,
-            CreatedAt = portfolio.CreatedAt
-        };
+            return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var redisKeys = normalizedTickers
+            .Select(RedisConstants.MarketDataSymbol)
+            .ToList();
+
+        var snapshots = await _redisService.GetHashBatchAsync<MarketSymbolDto>(redisKeys);
+
+        var currentPrices = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var ticker in normalizedTickers)
+        {
+            var redisKey = RedisConstants.MarketDataSymbol(ticker);
+            if (!snapshots.TryGetValue(redisKey, out var snapshot) || snapshot == null)
+            {
+                continue;
+            }
+
+            currentPrices[ticker] = Convert.ToDecimal(snapshot.LastPrice);
+        }
+
+        return currentPrices;
     }
 }
