@@ -41,7 +41,12 @@ public class CreateTradingTransactionCommandHandler : IRequestHandler<CreateTrad
             throw new NotFoundException("Portfolio không tồn tại hoặc bạn không có quyền truy cập.");
         }
 
-        var normalizedTicker = request.Ticker.Trim().ToUpperInvariant();
+        var normalizedTicker = portfolio.Ticker.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedTicker))
+        {
+            throw new BusinessRuleException("Portfolio chưa có mã cổ phiếu hợp lệ.");
+        }
+
         var symbol = await _uow.Symbols.GetByIdAsync(normalizedTicker, cancellationToken);
         if (symbol == null)
         {
@@ -51,12 +56,9 @@ public class CreateTradingTransactionCommandHandler : IRequestHandler<CreateTrad
         var transaction = new TradingTransaction
         {
             PortfolioId = request.PortfolioId,
-            Ticker = normalizedTicker,
             Side = request.Side!.Value,
             Quantity = request.Quantity,
             Price = request.Price,
-            Fee = request.Fee,
-            Tax = request.Tax,
             TransactionDate = request.TransactionDate ?? DateTimeOffset.UtcNow,
             RecordedAt = DateTimeOffset.UtcNow,
             Note = NormalizeNullableText(request.Note),
@@ -72,7 +74,7 @@ public class CreateTradingTransactionCommandHandler : IRequestHandler<CreateTrad
             transaction.PortfolioId,
             userId);
 
-        return ApiResponse<TradingTransactionDto>.Success(ToDto(transaction), "Tạo giao dịch thành công");
+        return ApiResponse<TradingTransactionDto>.Success(ToDto(transaction, normalizedTicker), "Tạo giao dịch thành công");
     }
 
     private static string? NormalizeNullableText(string? value)
@@ -86,18 +88,16 @@ public class CreateTradingTransactionCommandHandler : IRequestHandler<CreateTrad
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 
-    private static TradingTransactionDto ToDto(TradingTransaction transaction)
+    private static TradingTransactionDto ToDto(TradingTransaction transaction, string ticker)
     {
         return new TradingTransactionDto
         {
             Id = transaction.Id,
             PortfolioId = transaction.PortfolioId,
-            Ticker = transaction.Ticker,
+            Ticker = ticker,
             Side = transaction.Side,
             Quantity = transaction.Quantity,
             Price = transaction.Price,
-            Fee = transaction.Fee,
-            Tax = transaction.Tax,
             TransactionDate = transaction.TransactionDate,
             RecordedAt = transaction.RecordedAt,
             Note = transaction.Note,

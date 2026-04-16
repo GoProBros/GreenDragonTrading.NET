@@ -2,6 +2,7 @@ using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Portfolios.Commands.CreatePortfolio;
 using GreenDragonTrading.Application.UseCases.Portfolios.Commands.DeletePortfolio;
+using GreenDragonTrading.Application.UseCases.Portfolios.Commands.UpdateMyInvestmentCapital;
 using GreenDragonTrading.Application.UseCases.Portfolios.Commands.UpdatePortfolio;
 using GreenDragonTrading.Application.UseCases.Portfolios.Queries.GetPortfolioById;
 using GreenDragonTrading.Application.UseCases.Portfolios.Queries.GetPortfolios;
@@ -90,6 +91,16 @@ public class PortfolioController : ControllerBase
     {
         var request = command with { PortfolioId = portfolioId };
         var result = await _mediator.Send(request, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPatch("investment-capital")]
+    [Authorize(Roles = nameof(UserRole.User))]
+    public async Task<ActionResult<ApiResponse<UserInvestmentCapitalDto>>> UpdateMyInvestmentCapital(
+        [FromBody] UpdateMyInvestmentCapitalCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(command, cancellationToken);
         return Ok(result);
     }
 }

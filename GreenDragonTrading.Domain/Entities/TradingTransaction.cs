@@ -17,11 +17,6 @@ namespace GreenDragonTrading.Domain.Entities
         public int PortfolioId { get; set; }
 
         [Required]
-        [MaxLength(20)]
-        [Column("ticker", TypeName = "varchar(20)")]
-        public string Ticker { get; set; } = string.Empty;
-
-        [Required]
         [Column("transaction_type", TypeName = "smallint")]
         public TransactionSide Side { get; set; } 
 
@@ -30,12 +25,6 @@ namespace GreenDragonTrading.Domain.Entities
 
         [Column("price", TypeName = "numeric(18, 4)")]
         public decimal? Price { get; set; } = null;
-
-        [Column("fee", TypeName = "numeric(18, 4)")]
-        public decimal? Fee { get; set; } = null;
-
-        [Column("tax", TypeName = "numeric(18, 4)")]
-        public decimal? Tax { get; set; } = null;
 
         [Required]
         [Column("transaction_date", TypeName = "timestamp with time zone")]
@@ -54,7 +43,5 @@ namespace GreenDragonTrading.Domain.Entities
         [ForeignKey("PortfolioId")]
         public virtual Portfolio Portfolio { get; set; } = default!;
 
-        [ForeignKey("Ticker")]
-        public virtual Symbol Symbol { get; set; } = default!;
     }
 }
