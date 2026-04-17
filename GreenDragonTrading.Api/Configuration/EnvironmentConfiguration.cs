@@ -35,6 +35,7 @@ public static class EnvironmentConfiguration
 
             // App Settings
             ["AppSettings:BaseUrl"] = Environment.GetEnvironmentVariable("APP_BASE_URL"),
+            ["AppSettings:EmailVerificationUrl"] = Environment.GetEnvironmentVariable("APP_EMAIL_VERIFICATION_URL"),
 
             // JWT
             ["Jwt:Secret"] = Environment.GetEnvironmentVariable("JWT_SECRET"),

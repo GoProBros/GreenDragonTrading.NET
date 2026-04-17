@@ -39,11 +39,23 @@ public class DeletePortfolioCommandHandler : IRequestHandler<DeletePortfolioComm
             throw new NotFoundException("Portfolio không tồn tại hoặc bạn không có quyền xóa.");
         }
 
-        _uow.Portfolios.Remove(portfolio);
+        portfolio.Status = portfolio.Status == CommonStatus.Active
+            ? CommonStatus.InActive
+            : CommonStatus.Active;
+
+        _uow.Portfolios.Update(portfolio);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Portfolio {PortfolioId} deleted by user {UserId}", portfolio.Id, userId);
+        _logger.LogInformation(
+            "Portfolio {PortfolioId} status toggled to {Status} by user {UserId}",
+            portfolio.Id,
+            portfolio.Status,
+            userId);
 
-        return ApiResponse.Success("Xóa portfolio thành công");
+        var message = portfolio.Status == CommonStatus.Active
+            ? "Khôi phục portfolio thành công"
+            : "Ẩn portfolio thành công";
+
+        return ApiResponse.Success(message);
     }
 }

@@ -22,7 +22,7 @@
         public async Task SendVerificationEmailAsync(string toEmail, string verificationToken, string verificationUrl, CancellationToken cancellationToken = default)
         {
             var subject = "Verify Your Email - Green Dragon Trading";
-            var verifyLink = $"{verificationUrl}?token={Uri.EscapeDataString(verificationToken)}";
+            var verifyLink = BuildVerificationLink(verificationUrl, verificationToken);
 
             var body = $@"
                 <html>
@@ -52,6 +52,25 @@
                 </html>";
 
             await SendEmailAsync(toEmail, subject, body, cancellationToken);
+        }
+
+        private static string BuildVerificationLink(string verificationUrl, string verificationToken)
+        {
+            if (string.IsNullOrWhiteSpace(verificationUrl))
+            {
+                throw new ArgumentException("Verification URL must be provided.", nameof(verificationUrl));
+            }
+
+            var normalizedUrl = verificationUrl.Trim();
+            var encodedToken = Uri.EscapeDataString(verificationToken);
+
+            if (normalizedUrl.Contains("{token}"))
+            {
+                return normalizedUrl.Replace("{token}", encodedToken);
+            }
+
+            var separator = normalizedUrl.Contains('?') ? "&" : "?";
+            return $"{normalizedUrl}{separator}token={encodedToken}";
         }
 
         public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken cancellationToken = default)

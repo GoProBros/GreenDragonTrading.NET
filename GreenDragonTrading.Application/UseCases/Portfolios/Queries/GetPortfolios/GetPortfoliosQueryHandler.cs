@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.Portfolios.Queries.GetPortfolios;
 
-public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, ApiResponse<List<PortfolioDto>>>
+public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, ApiResponse<PaginatedResponse<PortfolioDto>>>
 {
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUserService;
@@ -31,7 +31,7 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
         _logger = logger;
     }
 
-    public async Task<ApiResponse<List<PortfolioDto>>> Handle(GetPortfoliosQuery request, CancellationToken cancellationToken)
+    public async Task<ApiResponse<PaginatedResponse<PortfolioDto>>> Handle(GetPortfoliosQuery request, CancellationToken cancellationToken)
     {
         var currentUserId = _currentUserService.GetRequiredUserId();
         var role = _currentUserService.Role;
@@ -48,6 +48,10 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
             }
 
             portfolios = await _uow.Portfolios.GetByUserIdAsync(currentUserId, cancellationToken);
+            portfolios = portfolios
+                .Where(x => x.Status == CommonStatus.Active)
+                .ToList();
+
             availableCapitalByUserId = new Dictionary<Guid, decimal>
             {
                 [currentUserId] = user.InvestmentCapital ?? 0m
@@ -76,10 +80,27 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
                     .Where(x => x.UserId == request.UserId.Value)
                     .ToList();
             }
+
+            if (request.Status.HasValue)
+            {
+                portfolios = portfolios
+                    .Where(x => x.Status == request.Status.Value)
+                    .ToList();
+            }
         }
         else
         {
             throw new AccessDeniedException("Bạn không có quyền xem danh sách portfolio.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Ticker))
+        {
+            var normalizedTickerSearch = request.Ticker.Trim().ToUpperInvariant();
+
+            portfolios = portfolios
+                .Where(x => !string.IsNullOrWhiteSpace(x.Ticker)
+                            && x.Ticker.Trim().ToUpperInvariant().Contains(normalizedTickerSearch, StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
 
         var portfolioIds = portfolios
@@ -120,9 +141,43 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
             })
             .ToList();
 
-        _logger.LogInformation("Retrieved {Count} portfolios for {Role} {UserId}", result.Count, role, currentUserId);
+        result = request.OverallFilter switch
+        {
+            PortfolioOverallFilter.Profit => result
+                .Where(x => x.Overall.TotalPnL > 0m)
+                .ToList(),
+            PortfolioOverallFilter.Loss => result
+                .Where(x => x.Overall.TotalPnL < 0m)
+                .ToList(),
+            _ => result
+        };
 
-        return ApiResponse<List<PortfolioDto>>.Success(result, "Lấy danh sách portfolio thành công");
+        result = result
+            .OrderByDescending(x => x.Overall.TotalPnL)
+            .ThenByDescending(x => x.CreatedAt)
+            .ToList();
+
+        var totalCount = result.Count;
+        var pagedItems = result
+            .Skip((request.PageIndex - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToList();
+
+        var paginatedResponse = PaginatedResponse<PortfolioDto>.Create(
+            pagedItems,
+            totalCount,
+            request.PageIndex,
+            request.PageSize);
+
+        _logger.LogInformation(
+            "Retrieved {Count} portfolios (paged {PageIndex}/{PageSize}) for {Role} {UserId}",
+            totalCount,
+            request.PageIndex,
+            request.PageSize,
+            role,
+            currentUserId);
+
+        return ApiResponse<PaginatedResponse<PortfolioDto>>.Success(paginatedResponse, "Lấy danh sách portfolio thành công");
     }
 
     private async Task<Dictionary<string, decimal>> GetCurrentPricesByTickerAsync(IEnumerable<string> tickers)
