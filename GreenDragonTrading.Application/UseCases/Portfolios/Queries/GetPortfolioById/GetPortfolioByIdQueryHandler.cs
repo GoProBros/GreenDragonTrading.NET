@@ -42,7 +42,7 @@ public class GetPortfolioByIdQueryHandler : IRequestHandler<GetPortfolioByIdQuer
         if (string.Equals(role, nameof(UserRole.User), StringComparison.OrdinalIgnoreCase))
         {
             portfolio = await _uow.Portfolios.GetByIdAndUserIdAsync(request.Id, userId, cancellationToken);
-            if (portfolio == null)
+            if (portfolio == null || portfolio.Status != CommonStatus.Active)
             {
                 throw new NotFoundException("Portfolio không tồn tại hoặc bạn không có quyền truy cập.");
             }

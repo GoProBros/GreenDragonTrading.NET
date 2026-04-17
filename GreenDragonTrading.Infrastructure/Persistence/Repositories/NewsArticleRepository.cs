@@ -40,6 +40,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         public async Task<(List<NewsArticle> Articles, int TotalCount)> GetPaginatedAsync(
             string? search,
             string? ticker,
+            bool publishedToday,
             int pageIndex,
             int pageSize,
             CancellationToken cancellationToken = default)
@@ -62,6 +63,22 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             {
                 var normalizedTicker = ticker.Trim().ToUpper();
                 query = query.Where(x => x.ArticleTags.Any(t => t.Ticker == normalizedTicker));
+            }
+
+            if (publishedToday)
+            {
+                var nowUtc = DateTimeOffset.UtcNow;
+                var startOfTodayUtc = new DateTimeOffset(
+                    nowUtc.Year,
+                    nowUtc.Month,
+                    nowUtc.Day,
+                    0,
+                    0,
+                    0,
+                    TimeSpan.Zero);
+                var startOfTomorrowUtc = startOfTodayUtc.AddDays(1);
+
+                query = query.Where(x => x.PublishedAt >= startOfTodayUtc && x.PublishedAt < startOfTomorrowUtc);
             }
 
             var totalCount = await query.CountAsync(cancellationToken);

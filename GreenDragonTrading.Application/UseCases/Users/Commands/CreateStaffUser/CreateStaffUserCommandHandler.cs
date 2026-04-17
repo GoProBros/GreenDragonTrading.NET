@@ -74,8 +74,12 @@ public class CreateStaffUserCommandHandler : IRequestHandler<CreateStaffUserComm
             var redisKey = $"verify:email:token:{verificationToken}";
             await _redisService.SetAsync(redisKey, user.Id, TimeSpan.FromHours(1));
 
-            var baseUrl = _configuration["AppSettings:BaseUrl"];
-            var verificationUrl = $"{baseUrl}/api/v1/auth/verify-email";
+            var verificationUrl = _configuration["AppSettings:EmailVerificationUrl"];
+            if (string.IsNullOrWhiteSpace(verificationUrl))
+            {
+                var baseUrl = _configuration["AppSettings:BaseUrl"];
+                verificationUrl = $"{baseUrl}/api/v1/auth/verify-email?token={{token}}";
+            }
 
             await _emailService.SendVerificationEmailAsync(user.Email, verificationToken, verificationUrl, cancellationToken);
 

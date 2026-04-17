@@ -19,15 +19,17 @@ public class GetNewsQueryHandler(
     public async Task<ApiResponse<PaginatedResponse<NewsArticleDto>>> Handle(GetNewsQuery request, CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Getting news list with Search={Search}, Ticker={Ticker}, PageIndex={PageIndex}, PageSize={PageSize}",
+            "Getting news list with Search={Search}, Ticker={Ticker}, PublishedToday={PublishedToday}, PageIndex={PageIndex}, PageSize={PageSize}",
             request.Search,
             request.Ticker,
+            request.PublishedToday,
             request.PageIndex,
             request.PageSize);
 
         var (articles, totalCount) = await _uow.NewsArticles.GetPaginatedAsync(
             request.Search,
             request.Ticker,
+            request.PublishedToday,
             request.PageIndex,
             request.PageSize,
             cancellationToken);
