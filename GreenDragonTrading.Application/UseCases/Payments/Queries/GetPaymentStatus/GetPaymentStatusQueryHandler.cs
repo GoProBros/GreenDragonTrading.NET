@@ -64,17 +64,17 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Queries.GetPaymentSta
                 throw new NotFoundException("Giao dịch không tồn tại.");
             }
 
-            // If IPN is delayed/missed, automatically sync Momo pending transactions
+            // If webhook/IPN is delayed or missed, automatically sync pending transactions
             // so frontend only needs to call the status endpoint.
-            if (response.PaymentProvider == PaymentType.Momo
-                && response.Status == TransactionStatus.Pending
+            if (response.Status == TransactionStatus.Pending
                 && DateTimeOffset.UtcNow - response.CreatedAt >= TimeSpan.FromSeconds(10))
             {
                 _logger.LogInformation(
-                    "Auto syncing pending Momo payment for OrderCode={OrderCode}",
-                    request.OrderCode);
+                    "Auto syncing pending payment for OrderCode={OrderCode}, Provider={Provider}",
+                    request.OrderCode,
+                    response.PaymentProvider);
 
-                await _paymentService.SyncMomoPaymentAsync(request.OrderCode, cancellationToken);
+                await _paymentService.SyncPaymentAsync(request.OrderCode, cancellationToken);
 
                 response = await _paymentService.GetPaymentStatusAsync(
                     request.OrderCode,

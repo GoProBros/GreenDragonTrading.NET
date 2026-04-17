@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Options;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
@@ -16,22 +17,28 @@ namespace GreenDragonTrading.Infrastructure.Services
     {
         private readonly IPayOSService _payOSService;
         private readonly IMomoService _momoService;
+        private readonly IRedisService _redisService;
         private readonly IUnitOfWork _uow;
         private readonly ILogger<PaymentService> _logger;
         private readonly PayOSOptions _payOSOptions;
+        private readonly MomoOptions _momoOptions;
 
         public PaymentService(
             IPayOSService payOSService,
             IMomoService momoService,
+            IRedisService redisService,
             IUnitOfWork uow,
             ILogger<PaymentService> logger,
-            IOptions<PayOSOptions> payOSOptions)
+            IOptions<PayOSOptions> payOSOptions,
+            IOptions<MomoOptions> momoOptions)
         {
             _payOSService = payOSService;
             _momoService = momoService;
+            _redisService = redisService;
             _uow = uow;
             _logger = logger;
             _payOSOptions = payOSOptions.Value;
+            _momoOptions = momoOptions.Value;
         }
 
         public async Task<PaymentLinkResponse> CreateVipPaymentAsync(Guid userId, int subscriptionId, CancellationToken cancellationToken = default)
@@ -80,6 +87,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             await _uow.Transactions.AddAsync(transaction, cancellationToken);
 
             var listItems = new List<ItemData>();
+            var payOSExpiredAt = BuildPayOSExpiredAtUnix(purchasedAt, _payOSOptions.ExpirationMinutes);
 
             var result = await _payOSService.CreatePaymentLinkAsync(
                 orderCode,
@@ -87,11 +95,14 @@ namespace GreenDragonTrading.Infrastructure.Services
                 gatewayDescription,
                 listItems,
                 _payOSOptions.ReturnUrl,
-                _payOSOptions.CancelUrl
+                _payOSOptions.CancelUrl,
+                payOSExpiredAt,
+                cancellationToken
             );
 
             transaction.CheckoutUrl = result.checkoutUrl;
             await _uow.SaveChangesAsync(cancellationToken);
+            await TrackPendingPaymentForSyncAsync(orderCode, payOSExpiredAt);
 
             _logger.LogInformation("PayOS payment link created: OrderCode={OrderCode}", orderCode);
 
@@ -109,12 +120,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             if (transaction == null)
             {
                 _logger.LogWarning("Transaction not found for OrderCode={OrderCode}", data.orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(data.orderCode);
                 return new WebhookUpdateResult { IsSuccess = false, Message = "Không tìm thấy đơn hàng" };
             }
 
             if (transaction.Status == TransactionStatus.Completed)
             {
                 _logger.LogInformation("Transaction already completed: OrderCode={OrderCode}", data.orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(data.orderCode);
                 return new WebhookUpdateResult { IsSuccess = true };
             }
 
@@ -185,6 +198,7 @@ namespace GreenDragonTrading.Infrastructure.Services
 
                     await _uow.SaveChangesAsync(cancellationToken);
                     await _uow.CommitTransactionAsync(cancellationToken);
+                    await RemovePendingPaymentFromSyncQueueAsync(data.orderCode);
 
                     _logger.LogInformation(
                         "PayOS payment completed: OrderCode={OrderCode}, UserId={UserId}, Type={Type}, ProviderRef={Ref}",
@@ -252,6 +266,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             transaction.Status = TransactionStatus.Cancelled;
             _uow.Transactions.Update(transaction);
             await _uow.SaveChangesAsync(cancellationToken);
+            await RemovePendingPaymentFromSyncQueueAsync(orderCode);
 
             return new PaymentInformationResponse
             {
@@ -260,6 +275,42 @@ namespace GreenDragonTrading.Infrastructure.Services
                 Status = TransactionStatus.Cancelled.ToString(),
                 CancellationReason = reason,
                 CreatedAt = transaction.CreatedAt.UtcDateTime
+            };
+        }
+
+        public async Task<WebhookUpdateResult> SyncPaymentAsync(long orderCode, CancellationToken cancellationToken = default)
+        {
+            var transaction = await _uow.Transactions.GetByOrderCodeAsync(orderCode, cancellationToken);
+            if (transaction == null)
+            {
+                _logger.LogWarning("Sync payment: transaction not found for OrderCode={OrderCode}", orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    Message = "Không tìm thấy đơn hàng"
+                };
+            }
+
+            if (transaction.PaymentProvider == PaymentType.Payos)
+            {
+                return await SyncPayOSPaymentAsync(transaction, cancellationToken);
+            }
+
+            if (transaction.PaymentProvider == PaymentType.Momo)
+            {
+                return await SyncMomoPaymentAsync(orderCode, cancellationToken);
+            }
+
+            _logger.LogWarning(
+                "Sync payment: unsupported provider {Provider} for OrderCode={OrderCode}",
+                transaction.PaymentProvider,
+                orderCode);
+
+            return new WebhookUpdateResult
+            {
+                IsSuccess = false,
+                Message = "Nhà cung cấp thanh toán không được hỗ trợ"
             };
         }
 
@@ -331,6 +382,9 @@ namespace GreenDragonTrading.Infrastructure.Services
             transaction.CheckoutUrl = momoResponse.PayUrl;
             await _uow.SaveChangesAsync(cancellationToken);
 
+            var momoExpiredAt = BuildMomoExpiredAtUnix(purchasedAt, _momoOptions.ExpirationMinutes);
+            await TrackPendingPaymentForSyncAsync(transaction.OrderCode, momoExpiredAt);
+
             _logger.LogInformation("Momo payment link created: OrderId={OrderId}", orderId);
 
             return new MomoPaymentLinkResponse
@@ -372,6 +426,54 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             _logger.LogInformation("Syncing Momo payment status: OrderCode={OrderCode}", orderCode);
 
+            var transaction = await _uow.Transactions.GetByOrderCodeAsync(orderCode, cancellationToken);
+            if (transaction == null)
+            {
+                _logger.LogWarning("Momo sync: transaction not found for OrderCode={OrderCode}", orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    Message = "Không tìm thấy đơn hàng"
+                };
+            }
+
+            if (transaction.PaymentProvider != PaymentType.Momo)
+            {
+                _logger.LogWarning(
+                    "Momo sync called for non-Momo transaction: OrderCode={OrderCode}, Provider={Provider}",
+                    orderCode,
+                    transaction.PaymentProvider);
+
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    Message = "Đơn hàng này không sử dụng Momo"
+                };
+            }
+
+            if (transaction.Status == TransactionStatus.Completed)
+            {
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = true,
+                    OrderCode = orderCode,
+                    Message = "Giao dịch đã hoàn tất"
+                };
+            }
+
+            if (transaction.Status == TransactionStatus.Cancelled || transaction.Status == TransactionStatus.Expired)
+            {
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    OrderCode = orderCode,
+                    Message = $"Giao dịch đã ở trạng thái {transaction.Status.GetDisplayName()}"
+                };
+            }
+
             var queryResult = await _momoService.QueryTransactionAsync(orderCode.ToString(), cancellationToken);
 
             _logger.LogInformation(
@@ -387,6 +489,26 @@ namespace GreenDragonTrading.Infrastructure.Services
                     cancellationToken);
             }
 
+            if (HasTimedOut(transaction.CreatedAt, _momoOptions.ExpirationMinutes))
+            {
+                transaction.Status = TransactionStatus.Expired;
+                _uow.Transactions.Update(transaction);
+                await _uow.SaveChangesAsync(cancellationToken);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+
+                _logger.LogWarning(
+                    "Momo sync marked transaction as Expired due timeout: OrderCode={OrderCode}, ResultCode={ResultCode}",
+                    orderCode,
+                    queryResult.ResultCode);
+
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    OrderCode = orderCode,
+                    Message = "Giao dịch đã hết hạn và được cập nhật trong hệ thống"
+                };
+            }
+
             _logger.LogWarning(
                 "Momo sync: payment not confirmed for OrderCode={OrderCode}, ResultCode={ResultCode}, Message={Message}",
                 orderCode, queryResult.ResultCode, queryResult.Message);
@@ -396,6 +518,284 @@ namespace GreenDragonTrading.Infrastructure.Services
                 IsSuccess = false,
                 Message = $"Thanh toán chưa hoàn tất: {queryResult.Message}"
             };
+        }
+
+        private async Task<WebhookUpdateResult> SyncPayOSPaymentAsync(
+            Transaction transaction,
+            CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Syncing PayOS payment status: OrderCode={OrderCode}", transaction.OrderCode);
+
+            if (transaction.Status == TransactionStatus.Completed)
+            {
+                await RemovePendingPaymentFromSyncQueueAsync(transaction.OrderCode);
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = true,
+                    OrderCode = transaction.OrderCode,
+                    Message = "Giao dịch đã hoàn tất"
+                };
+            }
+
+            if (transaction.Status == TransactionStatus.Cancelled || transaction.Status == TransactionStatus.Expired)
+            {
+                await RemovePendingPaymentFromSyncQueueAsync(transaction.OrderCode);
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    OrderCode = transaction.OrderCode,
+                    Message = $"Giao dịch đã ở trạng thái {transaction.Status.GetDisplayName()}"
+                };
+            }
+
+            PaymentLinkInformation payOSInfo;
+            try
+            {
+                payOSInfo = await _payOSService.GetPaymentLinkInformation(transaction.OrderCode, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to query PayOS payment information: OrderCode={OrderCode}", transaction.OrderCode);
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    Message = "Không thể đồng bộ trạng thái PayOS lúc này"
+                };
+            }
+
+            var payOSStatus = (payOSInfo.status ?? string.Empty).Trim().ToUpperInvariant();
+
+            _logger.LogInformation(
+                "PayOS sync result: OrderCode={OrderCode}, Status={Status}, AmountPaid={AmountPaid}, AmountRemaining={AmountRemaining}",
+                transaction.OrderCode,
+                payOSStatus,
+                payOSInfo.amountPaid,
+                payOSInfo.amountRemaining);
+
+            if (payOSStatus == "PAID" || payOSStatus == "SUCCESS")
+            {
+                var providerReference = string.IsNullOrWhiteSpace(payOSInfo.id)
+                    ? transaction.OrderCode.ToString()
+                    : payOSInfo.id;
+
+                return await ActivatePayOSSubscriptionAsync(
+                    transaction.OrderCode,
+                    providerReference,
+                    cancellationToken);
+            }
+
+            if (payOSStatus == "EXPIRED" || HasTimedOut(transaction.CreatedAt, _payOSOptions.ExpirationMinutes))
+            {
+                transaction.Status = TransactionStatus.Expired;
+                _uow.Transactions.Update(transaction);
+                await _uow.SaveChangesAsync(cancellationToken);
+                await RemovePendingPaymentFromSyncQueueAsync(transaction.OrderCode);
+
+                _logger.LogWarning(
+                    "PayOS sync marked transaction as Expired: OrderCode={OrderCode}, PayOSStatus={Status}",
+                    transaction.OrderCode,
+                    payOSStatus);
+
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    OrderCode = transaction.OrderCode,
+                    Message = "Giao dịch đã hết hạn và được cập nhật trong hệ thống"
+                };
+            }
+
+            if (payOSStatus == "CANCELLED" || payOSStatus == "CANCELED")
+            {
+                transaction.Status = TransactionStatus.Cancelled;
+                _uow.Transactions.Update(transaction);
+                await _uow.SaveChangesAsync(cancellationToken);
+                await RemovePendingPaymentFromSyncQueueAsync(transaction.OrderCode);
+
+                _logger.LogWarning(
+                    "PayOS sync marked transaction as Cancelled: OrderCode={OrderCode}",
+                    transaction.OrderCode);
+
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    OrderCode = transaction.OrderCode,
+                    Message = "Giao dịch đã bị hủy và được cập nhật trong hệ thống"
+                };
+            }
+
+            return new WebhookUpdateResult
+            {
+                IsSuccess = false,
+                OrderCode = transaction.OrderCode,
+                Message = "Thanh toán chưa hoàn tất"
+            };
+        }
+
+        private async Task<WebhookUpdateResult> ActivatePayOSSubscriptionAsync(
+            long orderCode,
+            string providerReference,
+            CancellationToken cancellationToken)
+        {
+            var transaction = await _uow.Transactions.GetByOrderCodeAsync(orderCode, cancellationToken);
+
+            if (transaction == null)
+            {
+                _logger.LogWarning("Transaction not found for PayOS OrderCode={OrderCode}", orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+                return new WebhookUpdateResult { IsSuccess = false, Message = "Không tìm thấy đơn hàng" };
+            }
+
+            if (transaction.Status == TransactionStatus.Completed)
+            {
+                _logger.LogInformation("PayOS transaction already completed: OrderCode={OrderCode}", orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+                return new WebhookUpdateResult { IsSuccess = true, OrderCode = orderCode };
+            }
+
+            await _uow.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                var newSubscription = await _uow.Subscriptions.GetByIdAsync(transaction.SubscriptionId, cancellationToken)
+                    ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
+
+                int durationDays = newSubscription.DurationInDays;
+
+                var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(transaction.UserId, cancellationToken);
+
+                DateTimeOffset startDate;
+                DateTimeOffset endDate;
+
+                if (currentHighestSub == null)
+                {
+                    startDate = DateTimeOffset.UtcNow;
+                    endDate = startDate.AddDays(durationDays);
+
+                    _logger.LogInformation(
+                        "PayOS sync case 1 - New purchase: UserId={UserId}, SubscriptionId={SubscriptionId}",
+                        transaction.UserId,
+                        transaction.SubscriptionId);
+                }
+                else if (newSubscription.Id == currentHighestSub.SubscriptionId)
+                {
+                    var maxEndDate = await _uow.UserSubscriptions.GetMaxEndDateBySubscriptionIdAsync(
+                        transaction.UserId,
+                        newSubscription.Id,
+                        cancellationToken);
+
+                    startDate = maxEndDate ?? DateTimeOffset.UtcNow;
+                    endDate = startDate.AddDays(durationDays);
+
+                    _logger.LogInformation(
+                        "PayOS sync case 2 - Stacking: UserId={UserId}, SubscriptionId={SubscriptionId}, StartDate={StartDate}",
+                        transaction.UserId,
+                        transaction.SubscriptionId,
+                        startDate);
+                }
+                else if (newSubscription.LevelOrder > currentHighestSub.Subscription.LevelOrder)
+                {
+                    startDate = DateTimeOffset.UtcNow;
+                    endDate = startDate.AddDays(durationDays);
+
+                    await _uow.UserSubscriptions.MarkAllActiveAsUpgradedAsync(transaction.UserId, cancellationToken);
+
+                    _logger.LogInformation(
+                        "PayOS sync case 3 - Upgrade: UserId={UserId}, OldLevel={OldLevel}, NewLevel={NewLevel}",
+                        transaction.UserId,
+                        currentHighestSub.Subscription.LevelOrder,
+                        newSubscription.LevelOrder);
+                }
+                else
+                {
+                    _logger.LogError("PayOS sync downgrade attempt detected: UserId={UserId}", transaction.UserId);
+                    throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ.");
+                }
+
+                transaction.Status = TransactionStatus.Completed;
+                transaction.ProviderTransactionId = providerReference;
+                _uow.Transactions.Update(transaction);
+
+                var newUserSub = new UserSubscription
+                {
+                    UserId = transaction.UserId,
+                    SubscriptionId = transaction.SubscriptionId,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    Status = SubscriptionStatus.Active
+                };
+                await _uow.UserSubscriptions.AddAsync(newUserSub, cancellationToken);
+
+                await _uow.SaveChangesAsync(cancellationToken);
+                await _uow.CommitTransactionAsync(cancellationToken);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+
+                _logger.LogInformation(
+                    "PayOS payment completed by sync: OrderCode={OrderCode}, UserId={UserId}, ProviderRef={Ref}",
+                    transaction.OrderCode,
+                    transaction.UserId,
+                    providerReference);
+
+                return new WebhookUpdateResult { IsSuccess = true, OrderCode = transaction.OrderCode };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error activating PayOS subscription for OrderCode={OrderCode}", orderCode);
+                await _uow.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
+        }
+
+        private static bool HasTimedOut(DateTimeOffset createdAt, int expirationMinutes)
+        {
+            var validExpirationMinutes = expirationMinutes > 0 ? expirationMinutes : 1;
+            return DateTimeOffset.UtcNow - createdAt >= TimeSpan.FromMinutes(validExpirationMinutes);
+        }
+
+        private static long BuildPayOSExpiredAtUnix(DateTimeOffset createdAt, int expirationMinutes)
+        {
+            var validExpirationMinutes = expirationMinutes > 0 ? expirationMinutes : 30;
+            return createdAt.AddMinutes(validExpirationMinutes).ToUnixTimeSeconds();
+        }
+
+        private static long BuildMomoExpiredAtUnix(DateTimeOffset createdAt, int expirationMinutes)
+        {
+            var validExpirationMinutes = expirationMinutes > 0 ? expirationMinutes : 15;
+            return createdAt.AddMinutes(validExpirationMinutes).ToUnixTimeSeconds();
+        }
+
+        private async Task TrackPendingPaymentForSyncAsync(long orderCode, long expiredAtUnix)
+        {
+            try
+            {
+                await _redisService.SortedSetAddAsync(
+                    RedisConstants.PendingPaymentSyncQueue(),
+                    orderCode.ToString(),
+                    expiredAtUnix);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to track pending payment in Redis queue: OrderCode={OrderCode}, ExpiredAtUnix={ExpiredAtUnix}",
+                    orderCode,
+                    expiredAtUnix);
+            }
+        }
+
+        private async Task RemovePendingPaymentFromSyncQueueAsync(long orderCode)
+        {
+            try
+            {
+                await _redisService.SortedSetRemoveAsync(
+                    RedisConstants.PendingPaymentSyncQueue(),
+                    orderCode.ToString());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to remove pending payment from Redis queue: OrderCode={OrderCode}",
+                    orderCode);
+            }
         }
 
         private async Task EnsureSubscriptionCanBePurchasedAsync(
@@ -460,12 +860,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             if (transaction == null)
             {
                 _logger.LogWarning("Transaction not found for Momo OrderCode={OrderCode}", orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
                 return new WebhookUpdateResult { IsSuccess = false, Message = "Không tìm thấy đơn hàng" };
             }
 
             if (transaction.Status == TransactionStatus.Completed)
             {
                 _logger.LogInformation("Momo transaction already completed: OrderCode={OrderCode}", orderCode);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
                 return new WebhookUpdateResult { IsSuccess = true, OrderCode = orderCode };
             }
 
@@ -540,6 +942,7 @@ namespace GreenDragonTrading.Infrastructure.Services
 
                     await _uow.SaveChangesAsync(cancellationToken);
                     await _uow.CommitTransactionAsync(cancellationToken);
+                    await RemovePendingPaymentFromSyncQueueAsync(orderCode);
 
                     _logger.LogInformation(
                         "Momo payment completed: OrderCode={OrderCode}, UserId={UserId}, TransId={TransId}",
@@ -558,6 +961,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             transaction.Status = TransactionStatus.Cancelled;
             _uow.Transactions.Update(transaction);
             await _uow.SaveChangesAsync(cancellationToken);
+            await RemovePendingPaymentFromSyncQueueAsync(orderCode);
 
             return new WebhookUpdateResult { IsSuccess = false, Message = "Thanh toán Momo thất bại" };
         }

@@ -128,14 +128,14 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Manually syncs a Momo payment status by querying Momo's transactionStatus API.
-        /// Use this after completing a Momo payment when IPN is unreliable (e.g., sandbox/local testing).
-        /// If the payment was completed, the subscription will be activated immediately.
+        /// Manually syncs payment status by order code.
+        /// If payment is confirmed, subscription data is updated in DB.
+        /// If payment has timed out and is auto-cancelled by provider, transaction status is also updated in DB.
         /// </summary>
         /// <param name="orderCode">The order code returned when the payment link was created.</param>
         /// <param name="cancellationToken"></param>
-        [HttpPost("momo/sync/{orderCode}")]
-        public async Task<ActionResult<ApiResponse<WebhookUpdateResult>>> SyncMomoPayment(
+        [HttpPost("sync/{orderCode}")]
+        public async Task<ActionResult<ApiResponse<WebhookUpdateResult>>> SyncPayment(
             [FromRoute] long orderCode,
             CancellationToken cancellationToken)
         {
