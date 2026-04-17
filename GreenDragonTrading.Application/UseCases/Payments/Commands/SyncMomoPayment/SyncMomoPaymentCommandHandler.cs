@@ -8,7 +8,7 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Commands.SyncMomoPaym
 {
     /// <summary>
     /// Handles <see cref="SyncMomoPaymentCommand"/>.
-    /// Calls Momo's transaction query API and activates the subscription on success.
+    /// Syncs payment status with the configured payment provider and updates local DB state.
     /// </summary>
     public class SyncMomoPaymentCommandHandler
         : IRequestHandler<SyncMomoPaymentCommand, ApiResponse<WebhookUpdateResult>>
@@ -28,13 +28,13 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Commands.SyncMomoPaym
             SyncMomoPaymentCommand request,
             CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Syncing Momo payment for OrderCode={OrderCode}", request.OrderCode);
+            _logger.LogInformation("Syncing payment for OrderCode={OrderCode}", request.OrderCode);
 
-            var result = await _paymentService.SyncMomoPaymentAsync(request.OrderCode, cancellationToken);
+            var result = await _paymentService.SyncPaymentAsync(request.OrderCode, cancellationToken);
 
             if (result.IsSuccess)
             {
-                return ApiResponse<WebhookUpdateResult>.Success(result, "Đồng bộ thanh toán Momo thành công.");
+                return ApiResponse<WebhookUpdateResult>.Success(result, "Đồng bộ thanh toán thành công.");
             }
 
             return ApiResponse<WebhookUpdateResult>.Failure(result.Message);
