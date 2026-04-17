@@ -17,7 +17,7 @@ public class NewsController(IMediator mediator) : ControllerBase
     private readonly IMediator _mediator = mediator;
 
     /// <summary>
-    /// Retrieves paginated news articles with optional keyword and ticker filters.
+    /// Retrieves paginated news articles with optional keyword, ticker, and published-today filter.
     /// </summary>
     /// <param name="query">Pagination and filter query.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

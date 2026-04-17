@@ -11,6 +11,7 @@ namespace GreenDragonTrading.Domain.Interfaces
         Task<(List<NewsArticle> Articles, int TotalCount)> GetPaginatedAsync(
             string? search,
             string? ticker,
+            bool publishedToday,
             int pageIndex,
             int pageSize,
             CancellationToken cancellationToken = default);
