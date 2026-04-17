@@ -16,7 +16,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             _payOS = new PayOS(settings.ClientId, settings.ApiKey, settings.ChecksumKey);
         }
 
-        public async Task<CreatePaymentResult> CreatePaymentLinkAsync(long orderCode, int amount, string description, List<ItemData> listItems, string returnUrl, string cancelUrl, CancellationToken cancellationToken = default)
+        public async Task<CreatePaymentResult> CreatePaymentLinkAsync(long orderCode, int amount, string description, List<ItemData> listItems, string returnUrl, string cancelUrl, long? expiredAt = null, CancellationToken cancellationToken = default)
         {
 
             var paymentData = new PaymentData(
@@ -26,7 +26,10 @@ namespace GreenDragonTrading.Infrastructure.Services
                 listItems,
                 cancelUrl,
                 returnUrl
-            );
+            )
+            {
+                expiredAt = expiredAt
+            };
 
             return await _payOS.createPaymentLink(paymentData);
         }
@@ -34,6 +37,11 @@ namespace GreenDragonTrading.Infrastructure.Services
         public WebhookData VerifyWebhook(WebhookType webhookBody, CancellationToken cancellationToken = default)
         {
             return _payOS.verifyPaymentWebhookData(webhookBody);
+        }
+
+        public async Task<PaymentLinkInformation> GetPaymentLinkInformation(long orderCode, CancellationToken cancellationToken = default)
+        {
+            return await _payOS.getPaymentLinkInformation(orderCode);
         }
 
         public async Task<PaymentLinkInformation> CancelPaymentLink(long orderCode, string reason, CancellationToken cancellationToken = default)

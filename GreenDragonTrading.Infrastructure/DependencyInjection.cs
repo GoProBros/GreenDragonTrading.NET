@@ -213,6 +213,8 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHostedService<SsiStreamingBackgroundService>();
             services.AddHostedService<PriceAdjustmentCheckService>();
             services.AddHostedService<IndicatorCalculationBackgroundService>();
+            services.AddHostedService<PendingPaymentSyncBackgroundService>();
+            services.AddHostedService<NewsRssImportBackgroundService>();
 
             return services;
         }

@@ -10,6 +10,7 @@ namespace GreenDragonTrading.Application.Interfaces
         Task<WebhookUpdateResult> ProcessWebhookAsync(WebhookType webhookBody, CancellationToken cancellationToken = default);
         Task<PaymentStatusResponse?> GetPaymentStatusAsync(long orderCode, Guid userId, CancellationToken cancellationToken = default);
         Task<PaymentInformationResponse> CancelPaymentAsync(long orderCode, string reason, CancellationToken cancellationToken = default);
+        Task<WebhookUpdateResult> SyncPaymentAsync(long orderCode, CancellationToken cancellationToken = default);
 
         //Momo 
         Task<MomoPaymentLinkResponse> CreateMomoVipPaymentAsync(Guid userId, int subscriptionId, CancellationToken cancellationToken = default);
