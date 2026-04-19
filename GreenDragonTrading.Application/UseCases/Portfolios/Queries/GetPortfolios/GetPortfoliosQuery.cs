@@ -16,4 +16,4 @@ public record GetPortfoliosQuery(
 	string? Ticker = null,
 	PortfolioOverallFilter? OverallFilter = null,
 	CommonStatus? Status = null
-) : PaginationQuery, IRequest<ApiResponse<PaginatedResponse<PortfolioDto>>>;
+) : PaginationQuery, IRequest<ApiResponse<PortfolioListResponseDto>>;

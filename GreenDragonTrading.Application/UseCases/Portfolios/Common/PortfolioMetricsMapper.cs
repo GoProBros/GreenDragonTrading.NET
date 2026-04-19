@@ -14,10 +14,95 @@ internal static class PortfolioMetricsMapper
         decimal availableCapital,
         decimal currentPrice)
     {
+        var metrics = CalculateMetrics(transactions, currentPrice);
+
+        return new PortfolioDto
+        {
+            Id = portfolio.Id,
+            UserId = portfolio.UserId,
+            Name = portfolio.Name,
+            Description = portfolio.Description,
+            Status = portfolio.Status,
+            CreatedAt = portfolio.CreatedAt,
+            Ticker = NormalizeTicker(portfolio.Ticker),
+            AvailableCapital = availableCapital,
+            Summary = new PortfolioSummaryDto
+            {
+                RemainingQuantity = metrics.RemainingQuantity,
+                AveragePrice = metrics.AveragePrice,
+                CurrentPrice = currentPrice,
+                HoldingValue = metrics.HoldingValue,
+                UnrealizedPnL = metrics.UnrealizedPnL,
+                UnrealizedPnLPercent = metrics.UnrealizedPnLPercent
+            },
+            HistoryPerformance = new PortfolioHistoryPerformanceDto
+            {
+                TotalBuyQuantity = metrics.TotalBuyQuantity,
+                TotalSellQuantity = metrics.TotalSellQuantity,
+                RealizedPnL = metrics.RealizedPnL,
+                LastTradeDate = metrics.LastTradeDate?.ToString("yyyy-MM-dd")
+            },
+            Overall = new PortfolioOverallDto
+            {
+                TotalPnL = metrics.TotalPnL
+            },
+            TransactionHistory = metrics.TransactionHistory
+        };
+    }
+
+    public static PortfolioListItemDto ToListItemDto(
+        Portfolio portfolio,
+        IEnumerable<TradingTransaction> transactions,
+        decimal currentPrice)
+    {
+        var metrics = CalculateMetrics(transactions, currentPrice);
+
+        return new PortfolioListItemDto
+        {
+            Id = portfolio.Id,
+            UserId = portfolio.UserId,
+            Name = portfolio.Name,
+            Description = portfolio.Description,
+            Status = portfolio.Status,
+            CreatedAt = portfolio.CreatedAt,
+            Ticker = NormalizeTicker(portfolio.Ticker),
+            TotalInvestedAmount = metrics.TotalInvestedAmount,
+            TotalSoldAmount = metrics.TotalSoldAmount,
+            TotalHoldingAmount = metrics.TotalHoldingAmount,
+            Summary = new PortfolioSummaryDto
+            {
+                RemainingQuantity = metrics.RemainingQuantity,
+                AveragePrice = metrics.AveragePrice,
+                CurrentPrice = currentPrice,
+                HoldingValue = metrics.HoldingValue,
+                UnrealizedPnL = metrics.UnrealizedPnL,
+                UnrealizedPnLPercent = metrics.UnrealizedPnLPercent
+            },
+            HistoryPerformance = new PortfolioHistoryPerformanceDto
+            {
+                TotalBuyQuantity = metrics.TotalBuyQuantity,
+                TotalSellQuantity = metrics.TotalSellQuantity,
+                RealizedPnL = metrics.RealizedPnL,
+                LastTradeDate = metrics.LastTradeDate?.ToString("yyyy-MM-dd")
+            },
+            Overall = new PortfolioOverallDto
+            {
+                TotalPnL = metrics.TotalPnL
+            },
+            TransactionHistory = metrics.TransactionHistory
+        };
+    }
+
+    private static PortfolioCalculatedMetrics CalculateMetrics(
+        IEnumerable<TradingTransaction> transactions,
+        decimal currentPrice)
+    {
         decimal totalBuyQuantity = 0m;
         decimal totalSellQuantity = 0m;
+        decimal totalBuyAmount = 0m;
+        decimal totalSoldAmount = 0m;
         decimal remainingQuantity = 0m;
-        decimal averagePrice = 0m;
+        decimal remainingAveragePrice = 0m;
         decimal realizedPnL = 0m;
         DateTimeOffset? lastTradeDate = null;
         var transactionHistory = new List<PortfolioTransactionHistoryItemDto>();
@@ -52,11 +137,12 @@ internal static class PortfolioMetricsMapper
             {
                 totalBuyQuantity += quantity;
 
-                var currentCost = remainingQuantity * averagePrice;
+                var currentCost = remainingQuantity * remainingAveragePrice;
                 var buyCost = quantity * price;
+                totalBuyAmount += buyCost;
 
                 remainingQuantity += quantity;
-                averagePrice = remainingQuantity > 0m
+                remainingAveragePrice = remainingQuantity > 0m
                     ? (currentCost + buyCost) / remainingQuantity
                     : 0m;
 
@@ -73,22 +159,27 @@ internal static class PortfolioMetricsMapper
                     continue;
                 }
 
-                realizedPnL += (price - averagePrice) * sellableQuantity;
+                realizedPnL += (price - remainingAveragePrice) * sellableQuantity;
+                totalSoldAmount += sellableQuantity * price;
                 remainingQuantity -= sellableQuantity;
 
                 if (remainingQuantity == 0m)
                 {
-                    averagePrice = 0m;
+                    remainingAveragePrice = 0m;
                 }
             }
         }
+
+        var averageBuyPrice = totalBuyQuantity > 0m
+            ? totalBuyAmount / totalBuyQuantity
+            : 0m;
 
         var holdingValue = remainingQuantity > 0m
             ? remainingQuantity * currentPrice
             : 0m;
 
         var investedCapital = remainingQuantity > 0m
-            ? averagePrice * remainingQuantity
+            ? remainingAveragePrice * remainingQuantity
             : 0m;
 
         var unrealizedPnL = holdingValue - investedCapital;
@@ -96,40 +187,42 @@ internal static class PortfolioMetricsMapper
             ? (unrealizedPnL / investedCapital) * 100m
             : 0m;
 
-        var totalPnL = realizedPnL + unrealizedPnL;
-
-        return new PortfolioDto
+        return new PortfolioCalculatedMetrics
         {
-            Id = portfolio.Id,
-            UserId = portfolio.UserId,
-            Name = portfolio.Name,
-            Description = portfolio.Description,
-            Status = portfolio.Status,
-            CreatedAt = portfolio.CreatedAt,
-            Ticker = NormalizeTicker(portfolio.Ticker),
-            AvailableCapital = availableCapital,
-            Summary = new PortfolioSummaryDto
-            {
-                RemainingQuantity = remainingQuantity,
-                AveragePrice = averagePrice,
-                CurrentPrice = currentPrice,
-                HoldingValue = holdingValue,
-                UnrealizedPnL = unrealizedPnL,
-                UnrealizedPnLPercent = unrealizedPnLPercent
-            },
-            HistoryPerformance = new PortfolioHistoryPerformanceDto
-            {
-                TotalBuyQuantity = totalBuyQuantity,
-                TotalSellQuantity = totalSellQuantity,
-                RealizedPnL = realizedPnL,
-                LastTradeDate = lastTradeDate?.ToString("yyyy-MM-dd")
-            },
-            Overall = new PortfolioOverallDto
-            {
-                TotalPnL = totalPnL
-            },
+            TotalBuyQuantity = totalBuyQuantity,
+            TotalSellQuantity = totalSellQuantity,
+            TotalBuyAmount = totalBuyAmount,
+            TotalSoldAmount = totalSoldAmount,
+            RemainingQuantity = remainingQuantity,
+            AveragePrice = averageBuyPrice,
+            RealizedPnL = realizedPnL,
+            LastTradeDate = lastTradeDate,
+            HoldingValue = holdingValue,
+            UnrealizedPnL = unrealizedPnL,
+            UnrealizedPnLPercent = unrealizedPnLPercent,
+            TotalPnL = realizedPnL + unrealizedPnL,
             TransactionHistory = transactionHistory
         };
+    }
+
+    private sealed class PortfolioCalculatedMetrics
+    {
+        public decimal TotalBuyQuantity { get; init; }
+        public decimal TotalSellQuantity { get; init; }
+        public decimal TotalBuyAmount { get; init; }
+        public decimal TotalSoldAmount { get; init; }
+        public decimal RemainingQuantity { get; init; }
+        public decimal AveragePrice { get; init; }
+        public decimal RealizedPnL { get; init; }
+        public DateTimeOffset? LastTradeDate { get; init; }
+        public decimal HoldingValue { get; init; }
+        public decimal UnrealizedPnL { get; init; }
+        public decimal UnrealizedPnLPercent { get; init; }
+        public decimal TotalPnL { get; init; }
+        public List<PortfolioTransactionHistoryItemDto> TransactionHistory { get; init; } = [];
+
+        public decimal TotalInvestedAmount => TotalBuyAmount;
+        public decimal TotalHoldingAmount => HoldingValue;
     }
 
     private static string GetSideDisplayName(TransactionSide side)
