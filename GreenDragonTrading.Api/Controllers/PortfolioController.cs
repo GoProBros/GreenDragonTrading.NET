@@ -52,7 +52,7 @@ public class PortfolioController : ControllerBase
     /// <returns>Paginated portfolio list.</returns>
     [HttpGet]
     [Authorize(Roles = $"{nameof(UserRole.User)},{nameof(UserRole.Admin)},{nameof(UserRole.Staff)}")]
-    public async Task<ActionResult<ApiResponse<PaginatedResponse<PortfolioDto>>>> GetPortfolios(
+    public async Task<ActionResult<ApiResponse<PortfolioListResponseDto>>> GetPortfolios(
         [FromQuery] Guid? userId,
         [FromQuery] string? ticker,
         [FromQuery] PortfolioOverallFilter? overallFilter,

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenDragonTrading.Application.UseCases.Portfolios.Queries.GetPortfolios;
 
-public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, ApiResponse<PaginatedResponse<PortfolioDto>>>
+public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, ApiResponse<PortfolioListResponseDto>>
 {
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUserService;
@@ -31,7 +31,7 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
         _logger = logger;
     }
 
-    public async Task<ApiResponse<PaginatedResponse<PortfolioDto>>> Handle(GetPortfoliosQuery request, CancellationToken cancellationToken)
+    public async Task<ApiResponse<PortfolioListResponseDto>> Handle(GetPortfoliosQuery request, CancellationToken cancellationToken)
     {
         var currentUserId = _currentUserService.GetRequiredUserId();
         var role = _currentUserService.Role;
@@ -125,7 +125,6 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
             .Select(portfolio =>
             {
                 transactionsByPortfolioId.TryGetValue(portfolio.Id, out var portfolioTransactions);
-                availableCapitalByUserId.TryGetValue(portfolio.UserId, out var availableCapital);
 
                 var normalizedTicker = string.IsNullOrWhiteSpace(portfolio.Ticker)
                     ? string.Empty
@@ -133,10 +132,9 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
 
                 currentPricesByTicker.TryGetValue(normalizedTicker, out var currentPrice);
 
-                return PortfolioMetricsMapper.ToDto(
+                return PortfolioMetricsMapper.ToListItemDto(
                     portfolio,
                     portfolioTransactions ?? [],
-                    availableCapital,
                     currentPrice);
             })
             .ToList();
@@ -157,17 +155,36 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
             .ThenByDescending(x => x.CreatedAt)
             .ToList();
 
+        var totalInvestedAmount = result.Sum(x => x.TotalInvestedAmount);
+        var totalSoldAmount = result.Sum(x => x.TotalSoldAmount);
+        var totalHoldingAmount = result.Sum(x => x.TotalHoldingAmount);
+        var investmentCapital = CalculateInvestmentCapital(
+            role,
+            currentUserId,
+            request.UserId,
+            result,
+            availableCapitalByUserId);
+
         var totalCount = result.Count;
         var pagedItems = result
             .Skip((request.PageIndex - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToList();
 
-        var paginatedResponse = PaginatedResponse<PortfolioDto>.Create(
+        var paginatedResponse = PaginatedResponse<PortfolioListItemDto>.Create(
             pagedItems,
             totalCount,
             request.PageIndex,
             request.PageSize);
+
+        var response = new PortfolioListResponseDto
+        {
+            Portfolios = paginatedResponse,
+            InvestmentCapital = investmentCapital,
+            TotalInvestedAmount = totalInvestedAmount,
+            TotalSoldAmount = totalSoldAmount,
+            TotalHoldingAmount = totalHoldingAmount
+        };
 
         _logger.LogInformation(
             "Retrieved {Count} portfolios (paged {PageIndex}/{PageSize}) for {Role} {UserId}",
@@ -177,7 +194,36 @@ public class GetPortfoliosQueryHandler : IRequestHandler<GetPortfoliosQuery, Api
             role,
             currentUserId);
 
-        return ApiResponse<PaginatedResponse<PortfolioDto>>.Success(paginatedResponse, "Lấy danh sách portfolio thành công");
+        return ApiResponse<PortfolioListResponseDto>.Success(response, "Lấy danh sách portfolio thành công");
+    }
+
+    private static decimal CalculateInvestmentCapital(
+        string? role,
+        Guid currentUserId,
+        Guid? requestedUserId,
+        IEnumerable<PortfolioListItemDto> portfolios,
+        IReadOnlyDictionary<Guid, decimal> availableCapitalByUserId)
+    {
+        if (string.Equals(role, nameof(UserRole.User), StringComparison.OrdinalIgnoreCase))
+        {
+            return availableCapitalByUserId.TryGetValue(currentUserId, out var currentUserCapital)
+                ? currentUserCapital
+                : 0m;
+        }
+
+        if (requestedUserId.HasValue)
+        {
+            return availableCapitalByUserId.TryGetValue(requestedUserId.Value, out var requestedCapital)
+                ? requestedCapital
+                : 0m;
+        }
+
+        return portfolios
+            .Select(x => x.UserId)
+            .Distinct()
+            .Sum(userId => availableCapitalByUserId.TryGetValue(userId, out var userCapital)
+                ? userCapital
+                : 0m);
     }
 
     private async Task<Dictionary<string, decimal>> GetCurrentPricesByTickerAsync(IEnumerable<string> tickers)
