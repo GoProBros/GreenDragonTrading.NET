@@ -34,6 +34,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<MacroeconomicData> MacroeconomicData => Set<MacroeconomicData>();
         public DbSet<Portfolio> Portfolios => Set<Portfolio>();
         public DbSet<TradingTransaction> TradingTransactions => Set<TradingTransaction>();
+        public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -356,6 +358,20 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                     .OnDelete(DeleteBehavior.Cascade);
 
             });
+
+            // UserPushToken
+            modelBuilder.Entity<UserPushToken>(builder =>
+            {
+                builder.ToTable("user_push_tokens");
+                builder.Property(t => t.Id).HasDefaultValueSql("gen_random_uuid()");
+                builder.HasIndex(t => t.UserId);
+                builder.HasIndex(t => t.Token).IsUnique();
+                builder.HasOne(t => t.User)
+                       .WithMany()
+                       .HasForeignKey(t => t.UserId)
+                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
             DatabaseSeeder.SeedAll(modelBuilder);
         }
     }

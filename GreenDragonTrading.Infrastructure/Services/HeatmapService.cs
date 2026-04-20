@@ -25,13 +25,31 @@ public class HeatmapService : IHeatmapService
         _logger = logger;
     }
 
+    private static readonly TimeSpan HeatmapCacheTtl = TimeSpan.FromSeconds(10);
+
     public async Task<HeatmapDataDto> GetHeatmapDataAsync(
         string? exchange = null,
         string? sector = null,
+        string[]? tickers = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
+            // ── Fast path: read pre-computed items directly from HEATMAP:{ticker} Redis keys ──
+            if (tickers is { Length: > 0 })
+            {
+                return await GetHeatmapByTickersAsync(tickers);
+            }
+
+            // ── Standard path (full market) with response cache ──
+            var cacheKey = RedisConstants.HeatmapResponse(exchange, sector);
+            var cached = await _redisService.GetAsync<HeatmapDataDto>(cacheKey);
+            if (cached != null)
+            {
+                _logger.LogDebug("Returning cached heatmap data for exchange={Exchange}, sector={Sector}", exchange, sector);
+                return cached;
+            }
+
             _logger.LogInformation("Fetching heatmap data for exchange={Exchange}, sector={Sector}", exchange, sector);
 
             // 1. Lấy danh sách symbols active từ database.
@@ -71,8 +89,7 @@ public class HeatmapService : IHeatmapService
                 level: null, status: null, pageIndex: 1, pageSize: 10000, cancellationToken);
             var sectorDict = allSectors.ToDictionary(s => s.Id);
 
-            var tickers = symbols.Select(s => s.Ticker).ToList();
-            _logger.LogInformation("Found {Count} symbols to fetch market data", tickers.Count);
+            _logger.LogInformation("Found {Count} symbols to fetch market data", symbols.Count());
 
             // Fix #2: Fetch market data from Redis using BATCH operation
             // Reduces 1800 sequential calls to 1 pipeline call
@@ -138,14 +155,19 @@ public class HeatmapService : IHeatmapService
 
             _logger.LogInformation("Successfully processed {Count} heatmap items", marketDataItems.Count);
 
-            // 5. Return HeatmapDataDto
-            return new HeatmapDataDto
+            // 5. Build response, cache, and return
+            var result = new HeatmapDataDto
             {
                 Exchange = exchange,
                 Sector = sector,
                 Items = marketDataItems,
                 Timestamp = DateTime.UtcNow
             };
+
+            // Cache response in Redis for 10 seconds
+            await _redisService.SetAsync(cacheKey, result, HeatmapCacheTtl);
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -153,6 +175,37 @@ public class HeatmapService : IHeatmapService
                 exchange, sector);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Fast path: reads pre-computed HeatmapItemDto directly from HEATMAP:{ticker} Redis keys.
+    /// No DB queries — background service writes these on every SSI streaming tick.
+    /// </summary>
+    private async Task<HeatmapDataDto> GetHeatmapByTickersAsync(string[] tickers)
+    {
+        _logger.LogInformation("Fast-path heatmap for {Count} tickers", tickers.Length);
+
+        var items = new List<HeatmapItemDto>(tickers.Length);
+        var tasks = tickers.Select(async ticker =>
+        {
+            var key = RedisConstants.Heatmap(ticker);
+            return await _redisService.GetAsync<HeatmapItemDto>(key);
+        });
+
+        var results = await Task.WhenAll(tasks);
+        foreach (var item in results)
+        {
+            if (item != null)
+                items.Add(item);
+        }
+
+        _logger.LogInformation("Fast-path returned {Count}/{Total} heatmap items", items.Count, tickers.Length);
+
+        return new HeatmapDataDto
+        {
+            Items = items,
+            Timestamp = DateTime.UtcNow
+        };
     }
 
     /// <summary>

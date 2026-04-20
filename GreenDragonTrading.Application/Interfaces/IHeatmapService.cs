@@ -12,11 +12,13 @@ public interface IHeatmapService
     /// </summary>
     /// <param name="exchange">Mã sàn (HSX, HNX, UPCOM) - null để lấy tất cả</param>
     /// <param name="sector">Mã ngành - null để lấy tất cả</param>
+    /// <param name="tickers">Danh sách mã cổ phiếu cụ thể - khi có sẽ đọc từ Redis cache trực tiếp</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Dữ liệu heatmap</returns>
     Task<HeatmapDataDto> GetHeatmapDataAsync(
         string? exchange = null,
         string? sector = null,
+        string[]? tickers = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
