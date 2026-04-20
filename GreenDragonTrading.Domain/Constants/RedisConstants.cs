@@ -45,6 +45,9 @@ namespace GreenDragonTrading.Domain.Constants
         public static string HeatmapPattern()
             => $"{REDIS_KEY_PREFIX_HEATMAP}:*";
 
+        public static string HeatmapResponse(string? exchange, string? sector)
+            => $"{REDIS_KEY_PREFIX_HEATMAP}:RESPONSE:{exchange?.ToUpperInvariant() ?? "ALL"}:{sector ?? "ALL"}";
+
         public static string HeatmapExchangeGroup(string exchange)
             => $"{REDIS_KEY_PREFIX_HEATMAP}:{exchange.ToLowerInvariant()}";
 

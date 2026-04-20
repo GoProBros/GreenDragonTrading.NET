@@ -27,6 +27,7 @@ public class HeatmapController : ControllerBase
     /// </summary>
     /// <param name="exchange">Mã sàn (HSX, HNX, UPCOM) - optional</param>
     /// <param name="sector">Mã ngành - optional</param>
+    /// <param name="tickers">Danh sách mã cổ phiếu cách nhau bởi dấu phẩy - optional. Khi có sẽ đọc trực tiếp từ cache.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Dữ liệu heatmap</returns>
     /// <response code="200">Trả về dữ liệu heatmap thành công</response>
@@ -37,17 +38,21 @@ public class HeatmapController : ControllerBase
     public async Task<IActionResult> GetHeatmapData(
         [FromQuery] string? exchange,
         [FromQuery] string? sector,
+        [FromQuery] string? tickers,
         CancellationToken cancellationToken)
     {
         try
         {
-            _logger.LogInformation("GET /api/heatmap called with exchange={Exchange}, sector={Sector}",
-                exchange, sector);
+            _logger.LogInformation("GET /api/heatmap called with exchange={Exchange}, sector={Sector}, tickers={Tickers}",
+                exchange, sector, tickers);
 
             var query = new GetHeatmapDataQuery
             {
                 Exchange = exchange,
-                Sector = sector
+                Sector = sector,
+                Tickers = string.IsNullOrWhiteSpace(tickers)
+                    ? null
+                    : tickers.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             };
 
             var result = await _mediator.Send(query, cancellationToken);
