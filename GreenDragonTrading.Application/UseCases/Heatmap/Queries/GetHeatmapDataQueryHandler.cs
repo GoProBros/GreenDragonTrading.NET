@@ -34,6 +34,7 @@ public class GetHeatmapDataQueryHandler : IRequestHandler<GetHeatmapDataQuery, A
             var data = await _heatmapService.GetHeatmapDataAsync(
                 request.Exchange,
                 request.Sector,
+                request.Tickers,
                 cancellationToken);
 
             return ApiResponse<HeatmapDataDto>.Success(

@@ -18,4 +18,9 @@ public class GetHeatmapDataQuery : IRequest<ApiResponse<HeatmapDataDto>>
     /// Mã ngành - null để lấy tất cả
     /// </summary>
     public string? Sector { get; set; }
+
+    /// <summary>
+    /// Danh sách mã cổ phiếu cụ thể - khi có sẽ đọc trực tiếp từ Redis cache (fast path)
+    /// </summary>
+    public string[]? Tickers { get; set; }
 }

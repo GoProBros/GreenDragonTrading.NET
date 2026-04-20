@@ -55,6 +55,15 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<ITelegramBotService, TelegramBotService>();
             services.AddScoped<ITelegramLinkService, TelegramLinkService>();
 
+            // Expo Push (FCM) — named HttpClient + Singleton service
+            services.AddHttpClient("ExpoPush", client =>
+            {
+                client.BaseAddress = new Uri("https://exp.host/");
+                client.Timeout = TimeSpan.FromSeconds(15);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+            });
+            services.AddSingleton<IExpoPushService, ExpoPushService>();
+
             // Register JWT Service
             services.AddScoped<IJwtService, JwtService>();
 

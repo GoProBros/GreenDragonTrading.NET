@@ -25,6 +25,7 @@
         IAlertRepository Alerts { get; }
         INewsArticleRepository NewsArticles { get; }
         IMacroeconomicDataRepository MacroeconomicData { get; }
+        IUserPushTokenRepository UserPushTokens { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);
