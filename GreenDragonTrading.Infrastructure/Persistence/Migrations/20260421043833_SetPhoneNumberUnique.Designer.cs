@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260421043833_SetPhoneNumberUnique")]
+    partial class SetPhoneNumberUnique
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1572,41 +1575,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.UserPushToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("token");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Token")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("user_push_tokens", (string)null);
-                });
-
             modelBuilder.Entity("GreenDragonTrading.Domain.Entities.UserSubscription", b =>
                 {
                     b.Property<int>("Id")
@@ -2016,17 +1984,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Subscription");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GreenDragonTrading.Domain.Entities.UserPushToken", b =>
-                {
-                    b.HasOne("GreenDragonTrading.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("User");
                 });
