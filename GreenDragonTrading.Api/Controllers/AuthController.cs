@@ -6,6 +6,7 @@ using GreenDragonTrading.Application.UseCases.Auth.Commands.Login;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Logout;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Register;
+using GreenDragonTrading.Application.UseCases.Auth.Commands.ResendVerificationEmail;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.ResetPassword;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail;
 using GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe;
@@ -43,6 +44,16 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         [HttpGet("verify-email")]
         public async Task<ActionResult<ApiResponse>> VerifyEmail([FromQuery] VerifyEmailCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Resend email verification link
+        /// </summary>
+        [HttpPost("resend-verification-email")]
+        public async Task<ActionResult<ApiResponse>> ResendVerificationEmail([FromBody] ResendVerificationEmailCommand command, CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
             return result;

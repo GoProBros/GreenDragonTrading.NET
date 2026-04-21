@@ -50,6 +50,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail
                 await _uow.SaveChangesAsync(cancellationToken);
 
                 await _redisService.RemoveAsync(redisKey);
+                await _redisService.RemoveAsync($"verify:email:user:{user.Id}");
 
                 _logger.LogInformation("Email verified successfully: {Email}", user.Email);
                 return ApiResponse.Success("Xác thực email thành công.");
