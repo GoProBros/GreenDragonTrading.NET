@@ -68,7 +68,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
                 var verificationToken = GenerateSecureToken();
                 
                 var redisKey = $"verify:email:token:{verificationToken}";
-                await _redisService.SetAsync(redisKey, user.Id, TimeSpan.FromHours(1));
+                var userTokenKey = $"verify:email:user:{user.Id}";
+                var expiry = TimeSpan.FromHours(1);
+
+                await _redisService.SetAsync(redisKey, user.Id, expiry);
+                await _redisService.SetAsync(userTokenKey, verificationToken, expiry);
 
                 var verificationUrl = _configuration["AppSettings:EmailVerificationUrl"];
                 if (string.IsNullOrWhiteSpace(verificationUrl))
