@@ -80,6 +80,17 @@
         Task<List<T>> ListRangeAsync<T>(string key, int count);
 
         /// <summary>
+        /// Append one item to the end of a Redis list.
+        /// </summary>
+        Task<long> ListRightPushAsync<T>(string key, T value);
+
+        /// <summary>
+        /// Pop one item from the head of a Redis list.
+        /// Returns null when the list is empty.
+        /// </summary>
+        Task<T?> ListLeftPopAsync<T>(string key);
+
+        /// <summary>
         /// Add or update one member in a Redis sorted set.
         /// </summary>
         Task<bool> SortedSetAddAsync(string key, string member, double score);
