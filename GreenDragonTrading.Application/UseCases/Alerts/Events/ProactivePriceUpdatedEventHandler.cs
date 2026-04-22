@@ -410,7 +410,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             => $"alerts:proactive:eval:{ticker}";
 
         private static string WatchListTickerIndexCacheKey()
-            => "alerts:proactive:watchlist-index";
+            => RedisConstants.ProactiveWatchListTickerIndex();
 
         private static string ProactiveUserCooldownKey(Guid userId, string ticker)
             => $"alerts:proactive:cooldown:{userId:N}:{ticker}";
