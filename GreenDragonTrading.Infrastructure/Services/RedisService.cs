@@ -292,6 +292,30 @@ namespace GreenDragonTrading.Infrastructure.Services
         }
 
         /// <inheritdoc/>
+        public async Task<long> ListRightPushAsync<T>(string key, T value)
+        {
+            var json = JsonSerializer.Serialize(value, _jsonOptions);
+            return await _db.ListRightPushAsync(key, json);
+        }
+
+        /// <inheritdoc/>
+        public async Task<T?> ListLeftPopAsync<T>(string key)
+        {
+            var value = await _db.ListLeftPopAsync(key);
+            if (value.IsNullOrEmpty)
+            {
+                return default;
+            }
+
+            if (typeof(T) == typeof(string))
+            {
+                return (T)(object)value.ToString();
+            }
+
+            return JsonSerializer.Deserialize<T>(value.ToString(), _jsonOptions);
+        }
+
+        /// <inheritdoc/>
         public async Task<bool> SortedSetAddAsync(string key, string member, double score)
         {
             return await _db.SortedSetAddAsync(key, member, score);

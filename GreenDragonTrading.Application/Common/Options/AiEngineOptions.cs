@@ -8,6 +8,7 @@ namespace GreenDragonTrading.Application.Common.Options
         public string ChatEndpoint { get; set; } = "/api/chat";
         public string ConversationSummaryEndpoint { get; set; } = "/api/conv-summary";
         public string NewsSummarizationEndpoint { get; set; } = "/api/summarization";
+        public string ProactiveAlertEvaluationEndpoint { get; set; } = "/api/proactive-alerts/evaluate";
         /// <summary>
         /// Number of recent messages (user + AI combined) to include as context in each request.
         /// </summary>

@@ -94,6 +94,7 @@ public static class EnvironmentConfiguration
             ["AiEngine:ChatEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_CHAT_ENDPOINT"),
             ["AiEngine:ConversationSummaryEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_CONV_SUMMARY_ENDPOINT"),
             ["AiEngine:NewsSummarizationEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_SUMMARIZATION_ENDPOINT"),
+            ["AiEngine:ProactiveAlertEvaluationEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_PROACTIVE_ALERT_EVALUATE_ENDPOINT"),
 
             // Telegram Bot
             ["TelegramBot:BotToken"] = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN"),
