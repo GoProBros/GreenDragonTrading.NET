@@ -5,7 +5,7 @@ namespace GreenDragonTrading.Domain.Constants
         // ── HOSE (HSX) broad market indices ─────────────────────────────────────
 
         /// <summary>Main composite index for all stocks listed on HOSE.</summary>
-        public const string VNINDEX = "VNINDEX";
+        public const string VNINDEX = "VNIndex";
 
         /// <summary>Top 30 large-cap, high-liquidity stocks on HOSE.</summary>
         public const string VN30 = "VN30";
@@ -22,7 +22,7 @@ namespace GreenDragonTrading.Domain.Constants
         // ── HNX indices ─────────────────────────────────────────────────────────
 
         /// <summary>Main composite index for all stocks listed on HNX.</summary>
-        public const string HNXINDEX = "HNXINDEX";
+        public const string HNXINDEX = "HNXIndex";
 
         /// <summary>Top 30 large-cap, high-liquidity stocks on HNX.</summary>
         public const string HNX30 = "HNX30";
