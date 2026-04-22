@@ -7,5 +7,5 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
     public record SendChatMessageCommand(
         int SessionId,
         string Message
-    ) : IRequest<ApiResponse<SendChatMessageResponseDto>>;
+    ) : IRequest<ApiResponse<SendChatMessageResultDto>>;
 }

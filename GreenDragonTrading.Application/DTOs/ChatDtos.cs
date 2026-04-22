@@ -60,6 +60,27 @@ namespace GreenDragonTrading.Application.DTOs
         public List<AiIntentDto>? Intents { get; set; }
     }
 
+    public class SendChatMessageResultDto
+    {
+        public bool Accepted { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? JobId { get; set; }
+        public string? PollUrl { get; set; }
+        public string? IntentHint { get; set; }
+        public ChatMessageDto UserMessage { get; set; } = default!;
+        public SendChatMessageResponseDto? Result { get; set; }
+    }
+
+    public class ChatAsyncJobStatusDto
+    {
+        public bool Success { get; set; }
+        public bool Accepted { get; set; }
+        public string JobId { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public SendChatMessageResponseDto? Result { get; set; }
+        public string? Error { get; set; }
+    }
+
     public class AiIntentDto
     {
         public string Intent { get; set; } = string.Empty;

@@ -13,5 +13,7 @@ namespace GreenDragonTrading.Application.Common.Options
         /// Number of recent messages (user + AI combined) to include as context in each request.
         /// </summary>
         public int RecentMessagesLimit { get; set; } = 20;
+        public int ChatAsyncPollingIntervalSeconds { get; set; } = 2;
+        public int ChatAsyncJobTtlMinutes { get; set; } = 30;
     }
 }
