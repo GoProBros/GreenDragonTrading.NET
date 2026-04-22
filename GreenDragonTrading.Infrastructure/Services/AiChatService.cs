@@ -40,7 +40,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             {
                 ConversationId = conversationId,
                 Message = message,
-                Context = context
+                Context = context,
+                ExecutionMode = "auto"
             };
 
             _logger.LogDebug("Sending message to AI Engine for conversation {ConversationId}", conversationId);
@@ -62,7 +63,18 @@ namespace GreenDragonTrading.Infrastructure.Services
                 };
             }
 
-            if (!response.IsSuccessStatusCode)
+            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                var syncBody = await response.Content.ReadFromJsonAsync<AiChatResponse>(cancellationToken: cancellationToken);
+                if (syncBody == null)
+                {
+                    _logger.LogWarning("AI Engine returned null sync response for conversation {ConversationId}", conversationId);
+                    return new AiChatResponse { Success = false, ConversationId = conversationId, Error = "AI Engine returned empty sync response" };
+                }
+                return syncBody;
+            }
+
+            if (response.StatusCode != System.Net.HttpStatusCode.Accepted)
             {
                 var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
                 _logger.LogWarning(
@@ -77,21 +89,83 @@ namespace GreenDragonTrading.Infrastructure.Services
                 };
             }
 
-            var aiResponse = await response.Content.ReadFromJsonAsync<AiChatResponse>(cancellationToken: cancellationToken);
-
-            if (aiResponse == null)
+            var accepted = await response.Content.ReadFromJsonAsync<AiChatAcceptedResponse>(cancellationToken: cancellationToken);
+            if (accepted == null)
             {
-                _logger.LogWarning("AI Engine returned null response for conversation {ConversationId}", conversationId);
-                return new AiChatResponse
-                {
-                    Success = false,
-                    ConversationId = conversationId,
-                    Error = "AI Engine returned empty response"
-                };
+                _logger.LogWarning("AI Engine returned null accepted response for conversation {ConversationId}", conversationId);
+                return new AiChatResponse { Success = false, ConversationId = conversationId, Error = "AI Engine returned invalid accepted response" };
             }
 
-            _logger.LogDebug("Received AI response for conversation {ConversationId}, success: {Success}", conversationId, aiResponse.Success);
-            return aiResponse;
+            // Polling loop
+            var pollPath = string.IsNullOrWhiteSpace(accepted.PollUrl)
+                ? $"/api/chat/jobs/{accepted.JobId}"
+                : accepted.PollUrl;
+
+            // Make it an absolute path to the base address
+            if (pollPath.StartsWith("/"))
+            {
+                pollPath = NormalizeEndpoint(pollPath);
+            }
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+
+                HttpResponseMessage pollRes;
+                try
+                {
+                    using var pollReq = new HttpRequestMessage(HttpMethod.Get, pollPath);
+                    AttachAuthorizationHeader(pollReq);
+                    pollRes = await _httpClient.SendAsync(pollReq, cancellationToken);
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogWarning(ex, "Polling failed for conversation {ConversationId}", conversationId);
+                    return new AiChatResponse { Success = false, ConversationId = conversationId, Error = "Polling failed: " + ex.Message };
+                }
+
+                if (pollRes.StatusCode == System.Net.HttpStatusCode.Accepted)
+                {
+                    continue;
+                }
+
+                if (pollRes.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Async job {JobId} not found or expired for {ConversationId}", accepted.JobId, conversationId);
+                    return new AiChatResponse { Success = false, ConversationId = conversationId, Error = "Async job not found or expired." };
+                }
+
+                if (pollRes.IsSuccessStatusCode)
+                {
+                    var job = await pollRes.Content.ReadFromJsonAsync<AiChatJobStatusResponse>(cancellationToken: cancellationToken);
+                    if (job == null)
+                    {
+                        return new AiChatResponse { Success = false, ConversationId = conversationId, Error = "Invalid poll response" };
+                    }
+
+                    if (string.Equals(job.Status, "completed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (job.Result != null)
+                        {
+                            job.Result.ConversationId ??= conversationId;
+                            return job.Result;
+                        }
+                        return new AiChatResponse { Success = false, ConversationId = conversationId, Error = "Empty completed result" };
+                    }
+
+                    if (string.Equals(job.Status, "failed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new AiChatResponse { Success = false, ConversationId = conversationId, Error = $"Async chat failed: {job.Error}" };
+                    }
+                }
+                else
+                {
+                    var err = await pollRes.Content.ReadAsStringAsync(cancellationToken);
+                    return new AiChatResponse { Success = false, ConversationId = conversationId, Error = $"Unexpected poll status {pollRes.StatusCode}: {err}" };
+                }
+            }
+
+            return new AiChatResponse { Success = false, ConversationId = conversationId, Error = "Polling cancelled" };
         }
 
         /// <inheritdoc />
