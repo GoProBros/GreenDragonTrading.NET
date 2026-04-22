@@ -1,9 +1,11 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.RecalculateFinancialReportIndicators;
 
@@ -44,12 +46,18 @@ public class RecalculateFinancialReportIndicatorsCommandHandler(
                     (int)comparisonPeriod,
                     cancellationToken);
 
-                report.IndicatorData = _indicatorCalculationService.Calculate(
+                var recalculatedIndicatorData = _indicatorCalculationService.Calculate(
                     report.ReportData,
                     report.Period,
                     comparisonReport?.ReportData);
 
-                report.UpdatedAt = DateTimeOffset.UtcNow;
+                if (!HasIndicatorDataChanged(report.IndicatorData, recalculatedIndicatorData))
+                {
+                    continue;
+                }
+
+                report.IndicatorData = recalculatedIndicatorData;
+                report.UpdatedAt = recalculatedIndicatorData.CalculatedAt;
                 _uow.FinancialReports.Update(report);
                 result.UpdatedCount++;
             }
@@ -70,6 +78,35 @@ public class RecalculateFinancialReportIndicatorsCommandHandler(
         return ApiResponse<RecalculateFinancialReportIndicatorsResult>.Success(
             result,
             $"Đã tính lại chỉ số: {result.UpdatedCount}/{result.TotalCandidates} bản ghi.");
+    }
+
+    private static bool HasIndicatorDataChanged(
+        FinancialReportIndicatorData? current,
+        FinancialReportIndicatorData? recalculated)
+    {
+        if (current is null || recalculated is null)
+        {
+            return current is not null || recalculated is not null;
+        }
+
+        return SerializeIndicatorDataWithoutCalculatedAt(current)
+            != SerializeIndicatorDataWithoutCalculatedAt(recalculated);
+    }
+
+    private static string SerializeIndicatorDataWithoutCalculatedAt(FinancialReportIndicatorData data)
+    {
+        var comparable = new FinancialReportIndicatorData
+        {
+            Profitability = data.Profitability,
+            LiquidityAndSolvency = data.LiquidityAndSolvency,
+            Efficiency = data.Efficiency,
+            Growth = data.Growth,
+            BankSpecific = data.BankSpecific,
+            CashFlow = data.CashFlow,
+            CalculatedAt = default
+        };
+
+        return JsonSerializer.Serialize(comparable);
     }
 
     private static (int comparisonYear, ReportPeriod comparisonPeriod) GetComparisonPeriod(int year, ReportPeriod period)

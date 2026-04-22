@@ -8,6 +8,22 @@ namespace GreenDragonTrading.Application.Interfaces
     public interface IAiChatService
     {
         /// <summary>
+        /// Submit a message to the AI engine and receive either immediate result or async job details.
+        /// </summary>
+        Task<AiChatSubmissionResult> SubmitMessageAsync(
+            string conversationId,
+            string message,
+            AiChatContext? context = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Poll async job status from the AI engine.
+        /// </summary>
+        Task<AiChatJobStatusResponse?> GetJobStatusAsync(
+            string pollUrl,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Send a message to the AI engine and receive a response
         /// </summary>
         Task<AiChatResponse> SendMessageAsync(
@@ -60,6 +76,18 @@ namespace GreenDragonTrading.Application.Interfaces
         public string? IntentHint { get; set; }
         public string PollUrl { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Result of submitting a chat request to AI engine.
+    /// </summary>
+    public class AiChatSubmissionResult
+    {
+        public bool Success { get; set; }
+        public bool Accepted { get; set; }
+        public AiChatAcceptedResponse? AcceptedResponse { get; set; }
+        public AiChatResponse? Response { get; set; }
+        public string? Error { get; set; }
     }
 
     /// <summary>

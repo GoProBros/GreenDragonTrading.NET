@@ -7,6 +7,7 @@ using GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendDirectMessage;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotification;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SummarizeSession;
+using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatJobStatus;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatMessages;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSessions;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetDirectChatSessions;
@@ -86,17 +87,47 @@ namespace GreenDragonTrading.Api.Controllers
         /// <param name="sessionId">The chat session ID</param>
         /// <param name="request">Message content</param>
         /// <param name="cancellationToken"></param>
-        /// <returns>User message and AI response with intent classification</returns>
+        /// <returns>Completed result (200) or accepted async job metadata (202)</returns>
         [HttpPost("sessions/{sessionId:int}/messages")]
         [Authorize]
-        public async Task<ActionResult<ApiResponse<SendChatMessageResponseDto>>> SendChatMessage(
+        public async Task<ActionResult<ApiResponse<SendChatMessageResultDto>>> SendChatMessage(
             [FromRoute] int sessionId,
             [FromBody] SendChatMessageRequestDto request,
             CancellationToken cancellationToken)
         {
             var command = new SendChatMessageCommand(sessionId, request.Message);
             var result = await _mediator.Send(command, cancellationToken);
-            return result;
+
+            if (result.Data?.Accepted == true)
+            {
+                return StatusCode(StatusCodes.Status202Accepted, result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Poll async AI chat job status.
+        /// </summary>
+        /// <param name="jobId">The async chat job identifier</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>Job status (202 when queued/running, 200 when completed/failed)</returns>
+        [HttpGet("jobs/{jobId}")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<ChatAsyncJobStatusDto>>> GetChatJobStatus(
+            [FromRoute] string jobId,
+            CancellationToken cancellationToken)
+        {
+            var query = new GetChatJobStatusQuery(jobId);
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (string.Equals(result.Data?.Status, "queued", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(result.Data?.Status, "running", StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status202Accepted, result);
+            }
+
+            return Ok(result);
         }
 
         /// <summary>

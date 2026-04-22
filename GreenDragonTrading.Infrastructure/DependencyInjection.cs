@@ -50,6 +50,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddScoped<IRedisService, RedisService>();
             services.AddSingleton<IMarketDataBroadcaster, MarketDataBroadcaster>();
             services.AddSingleton<INotificationBroadcaster, NotificationBroadcaster>();
+            services.AddSingleton<IChatAsyncJobService, ChatAsyncJobService>();
             services.AddSingleton<IUserIdProvider, MarketDataUserIdProvider>();
             services.AddScoped<IHeatmapService, HeatmapService>();
             services.AddSingleton<ITelegramBotService, TelegramBotService>();
@@ -232,6 +233,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHostedService<PriceAdjustmentCheckService>();
             services.AddHostedService<IndicatorCalculationBackgroundService>();
             services.AddHostedService<ProactiveAiEvaluationBackgroundService>();
+            services.AddHostedService<ChatAsyncJobBackgroundService>();
             services.AddHostedService<PendingPaymentSyncBackgroundService>();
             services.AddHostedService<NewsRssImportBackgroundService>();
 
