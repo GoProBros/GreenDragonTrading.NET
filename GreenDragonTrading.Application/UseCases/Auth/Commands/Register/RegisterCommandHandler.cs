@@ -41,9 +41,16 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
         {
             try
             {
+                var normalizedPhoneNumber = request.PhoneNumber.Trim();
+
                 if (await _uow.Users.EmailExistsAsync(request.Email, cancellationToken))
                 {
                     throw new ConflictException("Email này đã được đăng kí.");
+                }
+
+                if (await _uow.Users.PhoneNumberExistsAsync(normalizedPhoneNumber, cancellationToken))
+                {
+                    throw new ConflictException("Số điện thoại này đã được đăng kí.");
                 }
 
                 var user = new User
@@ -52,7 +59,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
                     Email = request.Email,
                     HashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password),
                     Username = request.FullName,
-                    PhoneNumber = request.PhoneNumber,
+                    PhoneNumber = normalizedPhoneNumber,
                     Role = UserRole.User,
                     IsEmailVerified = false,
                     Status = CommonStatus.Active,
