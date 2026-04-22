@@ -60,7 +60,8 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ApiResponse<P
             users = users.Where(x =>
                     x.Username.Contains(keyword, StringComparison.OrdinalIgnoreCase)
                     || x.Email.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-                    || x.PhoneNumber.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(x.PhoneNumber)
+                        && x.PhoneNumber.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
         }
 
@@ -71,7 +72,7 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ApiResponse<P
                 Id = x.Id,
                 Name = x.Username,
                 Role = x.Role.GetDisplayName(),
-                Phone = x.PhoneNumber,
+                Phone = x.PhoneNumber ?? string.Empty,
                 Email = x.Email,
                 Avatar = x.AvatarUrl,
                 Status = x.Status == CommonStatus.Active ? "Active" : "Inactive"

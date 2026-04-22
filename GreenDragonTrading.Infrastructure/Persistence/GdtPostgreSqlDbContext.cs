@@ -50,8 +50,9 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.HasIndex(u => u.Email)
                         .IsUnique();
 
-                builder.HasIndex(u => u.PhoneNumber)
-                        .IsUnique();
+              builder.HasIndex(u => u.PhoneNumber)
+                     .HasFilter("\"phone_number\" IS NOT NULL AND \"phone_number\" <> ''")
+                     .IsUnique();
 
                 builder.HasMany(u => u.UserSubscriptions)
                        .WithOne(us => us.User)

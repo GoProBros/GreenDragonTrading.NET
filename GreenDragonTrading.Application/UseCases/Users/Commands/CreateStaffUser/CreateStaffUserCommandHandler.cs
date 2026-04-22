@@ -41,6 +41,8 @@ public class CreateStaffUserCommandHandler : IRequestHandler<CreateStaffUserComm
 
     public async Task<ApiResponse> Handle(CreateStaffUserCommand request, CancellationToken cancellationToken)
     {
+        var normalizedPhoneNumber = request.PhoneNumber.Trim();
+
         if (_currentUserService.Role != nameof(UserRole.Admin))
         {
             throw new AccessDeniedException("Chỉ Admin mới có quyền tạo tài khoản Staff.");
@@ -51,13 +53,18 @@ public class CreateStaffUserCommandHandler : IRequestHandler<CreateStaffUserComm
             throw new ConflictException("Email này đã được đăng ký.");
         }
 
+        if (await _uow.Users.PhoneNumberExistsAsync(normalizedPhoneNumber, cancellationToken))
+        {
+            throw new ConflictException("Số điện thoại này đã được đăng ký.");
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid(),
             Email = request.Email,
             HashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Username = request.FullName,
-            PhoneNumber = request.PhoneNumber,
+            PhoneNumber = normalizedPhoneNumber,
             AvatarUrl = request.AvatarUrl,
             Role = UserRole.Staff,
             IsEmailVerified = !request.RequireEmailVerification,

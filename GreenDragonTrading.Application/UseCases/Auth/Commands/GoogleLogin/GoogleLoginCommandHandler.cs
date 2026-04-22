@@ -71,7 +71,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                     Username = username,
                     // Google users have no password — store a random unguessable hash
                     HashedPassword = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
-                    PhoneNumber = string.Empty,
+                    PhoneNumber = null,
                     AvatarUrl = googleUser.PictureUrl,
                     Role = UserRole.User,
                     IsEmailVerified = true, // Google already verified the email
