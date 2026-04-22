@@ -5,9 +5,10 @@ namespace GreenDragonTrading.Application.UseCases.Users.Commands.UpdateMyProfile
 
 /// <summary>
 /// Command to update current user profile information.
-/// Only full name and avatar are allowed.
+/// Allows updating full name, phone number, and avatar.
 /// </summary>
 public record UpdateMyProfileCommand(
-    string FullName,
+    string? FullName,
+    string? PhoneNumber,
     string? AvatarUrl
 ) : IRequest<ApiResponse>;
