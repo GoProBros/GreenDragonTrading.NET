@@ -47,10 +47,34 @@ public class UpdateMyProfileCommandHandler : IRequestHandler<UpdateMyProfileComm
             throw new AccessDeniedException("Chỉ người dùng có role User mới được cập nhật hồ sơ cá nhân.");
         }
 
-        user.Username = request.FullName.Trim();
-        user.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl)
-            ? null
-            : request.AvatarUrl.Trim();
+        if (request.FullName != null)
+        {
+            user.Username = request.FullName.Trim();
+        }
+
+        if (request.PhoneNumber != null)
+        {
+            var normalizedPhoneNumber = request.PhoneNumber.Trim();
+
+            if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+            {
+                throw new BusinessRuleException("Số điện thoại đã được thiết lập và không thể thay đổi.");
+            }
+
+            if (await _uow.Users.PhoneNumberExistsAsync(normalizedPhoneNumber, cancellationToken))
+            {
+                throw new ConflictException("Số điện thoại này đã được đăng ký.");
+            }
+
+            user.PhoneNumber = normalizedPhoneNumber;
+        }
+
+        if (request.AvatarUrl != null)
+        {
+            user.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl)
+                ? null
+                : request.AvatarUrl.Trim();
+        }
 
         await _uow.SaveChangesAsync(cancellationToken);
 

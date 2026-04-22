@@ -42,7 +42,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// <summary>
         /// Verify email with verification token
         /// </summary>
-        [HttpGet("verify-email")]
+        [HttpPost("verify-email")]
         public async Task<ActionResult<ApiResponse>> VerifyEmail([FromQuery] VerifyEmailCommand command, CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
@@ -102,7 +102,7 @@ namespace GreenDragonTrading.Api.Controllers
 
         /// <summary>
         /// Update current user's profile.
-        /// Only User role can update own full name and avatar.
+        /// Only User role can update own full name, phone number, and avatar.
         /// </summary>
         [HttpPut("me/profile")]
         [Authorize(Roles = nameof(UserRole.User))]
