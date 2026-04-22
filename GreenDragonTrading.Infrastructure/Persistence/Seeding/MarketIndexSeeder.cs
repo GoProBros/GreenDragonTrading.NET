@@ -13,7 +13,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
         {
             modelBuilder.Entity<MarketIndex>().HasData(
 
-                // ── HOSE broad market indices ─────────────────────────────────────
                 new MarketIndex
                 {
                     Code = MarketIndexConstant.VNINDEX,
@@ -65,8 +64,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
                     Status = CommonStatus.Active,
                     CreatedAt = SeedDate
                 },
-
-                // ── HNX indices ──────────────────────────────────────────────────
                 new MarketIndex
                 {
                     Code = MarketIndexConstant.HNXINDEX,
