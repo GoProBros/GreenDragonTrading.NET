@@ -31,6 +31,11 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.ToggleAlertSta
                 throw new NotFoundException("Không tìm thấy cảnh báo");
             }
 
+            if (alert.IsTriggered)
+            {
+                throw new BusinessRuleException("Cảnh báo đã được kích hoạt, không thể thay đổi trạng thái.");
+            }
+
             alert.IsActive = !alert.IsActive;
             alert.UpdatedAt = DateTimeOffset.UtcNow;
             _uow.Alerts.Update(alert);
