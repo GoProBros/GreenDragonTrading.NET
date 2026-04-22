@@ -42,6 +42,36 @@ namespace GreenDragonTrading.Application.Interfaces
         public string ConversationId { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public AiChatContext? Context { get; set; }
+        
+        [JsonPropertyName("executionMode")]
+        public string ExecutionMode { get; set; } = "auto";
+    }
+
+    /// <summary>
+    /// Response when chat job is accepted asynchronously
+    /// </summary>
+    public class AiChatAcceptedResponse
+    {
+        public bool Success { get; set; }
+        public bool Accepted { get; set; }
+        public string JobId { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string ConversationId { get; set; } = string.Empty;
+        public string? IntentHint { get; set; }
+        public string PollUrl { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Status response when polling an async chat job
+    /// </summary>
+    public class AiChatJobStatusResponse
+    {
+        public bool Success { get; set; }
+        public bool Accepted { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public AiChatResponse? Result { get; set; }
+        public string? Error { get; set; }
     }
 
     /// <summary>
