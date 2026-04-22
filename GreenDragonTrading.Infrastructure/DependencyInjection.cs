@@ -168,6 +168,15 @@ namespace GreenDragonTrading.Infrastructure
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
             });
 
+            services.AddHttpClient<IProactiveAlertEvaluationService, ProactiveAlertEvaluationService>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<AiEngineOptions>>().Value;
+                client.BaseAddress = new Uri(options.BaseUrl);
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+            });
+
             services.AddHttpClient<INewsRssService, NewsRssService>((_, client) =>
             {
                 client.Timeout = TimeSpan.FromSeconds(30);
@@ -222,6 +231,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHostedService<SsiStreamingBackgroundService>();
             services.AddHostedService<PriceAdjustmentCheckService>();
             services.AddHostedService<IndicatorCalculationBackgroundService>();
+            services.AddHostedService<ProactiveAiEvaluationBackgroundService>();
             services.AddHostedService<PendingPaymentSyncBackgroundService>();
             services.AddHostedService<NewsRssImportBackgroundService>();
 
