@@ -14,11 +14,12 @@ using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
 {
-    public class SendChatMessageCommandHandler : IRequestHandler<SendChatMessageCommand, ApiResponse<SendChatMessageResponseDto>>
+    public class SendChatMessageCommandHandler : IRequestHandler<SendChatMessageCommand, ApiResponse<SendChatMessageResultDto>>
     {
         private readonly IUnitOfWork _uow;
         private readonly ICurrentUserService _currentUserService;
         private readonly IAiChatService _aiChatService;
+        private readonly IChatAsyncJobService _chatAsyncJobService;
         private readonly INotificationBroadcaster _notificationBroadcaster;
         private readonly ILogger<SendChatMessageCommandHandler> _logger;
         private readonly AiEngineOptions _aiOptions;
@@ -27,6 +28,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             IUnitOfWork uow,
             ICurrentUserService currentUserService,
             IAiChatService aiChatService,
+            IChatAsyncJobService chatAsyncJobService,
             INotificationBroadcaster notificationBroadcaster,
             IOptions<AiEngineOptions> aiOptions,
             ILogger<SendChatMessageCommandHandler> logger)
@@ -34,12 +36,13 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             _uow = uow;
             _currentUserService = currentUserService;
             _aiChatService = aiChatService;
+            _chatAsyncJobService = chatAsyncJobService;
             _notificationBroadcaster = notificationBroadcaster;
             _aiOptions = aiOptions.Value;
             _logger = logger;
         }
 
-        public async Task<ApiResponse<SendChatMessageResponseDto>> Handle(
+        public async Task<ApiResponse<SendChatMessageResultDto>> Handle(
             SendChatMessageCommand request,
             CancellationToken cancellationToken)
         {
@@ -103,16 +106,111 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             };
 
             var conversationId = $"session-{request.SessionId}";
-            var aiResponse = await _aiChatService.SendMessageAsync(
+            var submitResult = await _aiChatService.SubmitMessageAsync(
                 conversationId, request.Message, context, cancellationToken);
 
+            if (submitResult.Accepted && submitResult.AcceptedResponse != null)
+            {
+                var accepted = submitResult.AcceptedResponse;
+
+                if (string.IsNullOrWhiteSpace(accepted.JobId))
+                {
+                    var fallbackResult = await PersistAiResponseAsync(
+                        request.SessionId,
+                        userId.Value,
+                        userMessage,
+                        new AiChatResponse
+                        {
+                            Success = false,
+                            ConversationId = conversationId,
+                            Error = "AI Engine accepted request without a valid job identifier."
+                        },
+                        cancellationToken);
+
+                    return ApiResponse<SendChatMessageResultDto>.Success(
+                        new SendChatMessageResultDto
+                        {
+                            Accepted = false,
+                            Status = ChatAsyncJobStatuses.Completed,
+                            UserMessage = fallbackResult.UserMessage,
+                            Result = fallbackResult
+                        },
+                        "Gửi tin nhắn thành công.");
+                }
+
+                var aiPollUrl = string.IsNullOrWhiteSpace(accepted.PollUrl)
+                    ? $"/api/chat/jobs/{accepted.JobId}"
+                    : accepted.PollUrl;
+
+                await _chatAsyncJobService.EnqueueAsync(
+                    new ChatAsyncProcessingJob
+                    {
+                        JobId = accepted.JobId,
+                        PollUrl = aiPollUrl,
+                        ConversationId = conversationId,
+                        SessionId = request.SessionId,
+                        UserId = userId.Value,
+                        UserMessageId = userMessage.Id,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    },
+                    cancellationToken);
+
+                var acceptedResult = new SendChatMessageResultDto
+                {
+                    Accepted = true,
+                    Status = string.IsNullOrWhiteSpace(accepted.Status)
+                        ? ChatAsyncJobStatuses.Queued
+                        : accepted.Status,
+                    JobId = accepted.JobId,
+                    PollUrl = $"/api/v1/chat/jobs/{accepted.JobId}",
+                    IntentHint = accepted.IntentHint,
+                    UserMessage = MapToDto(userMessage)
+                };
+
+                return ApiResponse<SendChatMessageResultDto>.Success(
+                    acceptedResult,
+                    "Tin nhắn đã được tiếp nhận và đang xử lý.");
+            }
+
+            var aiResponse = submitResult.Response ?? new AiChatResponse
+            {
+                Success = false,
+                ConversationId = conversationId,
+                Error = submitResult.Error ?? "AI Engine returned empty response"
+            };
+
+            var completedResult = await PersistAiResponseAsync(
+                request.SessionId,
+                userId.Value,
+                userMessage,
+                aiResponse,
+                cancellationToken);
+
+            return ApiResponse<SendChatMessageResultDto>.Success(
+                new SendChatMessageResultDto
+                {
+                    Accepted = false,
+                    Status = ChatAsyncJobStatuses.Completed,
+                    UserMessage = completedResult.UserMessage,
+                    Result = completedResult
+                },
+                "Gửi tin nhắn thành công.");
+        }
+
+        private async Task<SendChatMessageResponseDto> PersistAiResponseAsync(
+            int sessionId,
+            Guid userId,
+            ChatMessage userMessage,
+            AiChatResponse aiResponse,
+            CancellationToken cancellationToken)
+        {
             var aiContent = !string.IsNullOrWhiteSpace(aiResponse.Response)
                 ? aiResponse.Response
                 : "Toi chua co du thong tin de tra loi cau hoi nay.";
 
             var aiMessage = new ChatMessage
             {
-                SessionId = request.SessionId,
+                SessionId = sessionId,
                 SenderId = null,
                 Content = aiContent,
                 ResponseData = aiResponse.ResponseData != null
@@ -125,16 +223,19 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
 
             await _uow.ChatMessages.AddAsync(aiMessage, cancellationToken);
 
+            var session = await _uow.ChatSessions.GetByIdAsync(sessionId, cancellationToken)
+                ?? throw new NotFoundException("Không tìm thấy phiên chat.");
+
             session.UpdatedAt = DateTimeOffset.UtcNow;
             _uow.ChatSessions.Update(session);
 
             await _uow.SaveChangesAsync(cancellationToken);
 
             await _notificationBroadcaster.BroadcastAiChatResponseAsync(
-                userId.Value,
+                userId,
                 new AiChatResponseSignalREventDto
                 {
-                    SessionId = request.SessionId,
+                    SessionId = sessionId,
                     UserMessageId = userMessage.Id,
                     AiMessageId = aiMessage.Id,
                     Content = aiMessage.Content,
@@ -145,11 +246,11 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             _logger.LogInformation(
                 "Saved AI response {MessageId} in session {SessionId}",
                 aiMessage.Id,
-                request.SessionId);
+                sessionId);
 
-            await TryUpdateSummaryAsync(request.SessionId, cancellationToken);
+            await TryUpdateSummaryAsync(sessionId, cancellationToken);
 
-            var responseDto = new SendChatMessageResponseDto
+            return new SendChatMessageResponseDto
             {
                 UserMessage = MapToDto(userMessage),
                 AiMessage = MapToDto(aiMessage),
@@ -159,8 +260,6 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                     Confidence = i.Confidence
                 }).ToList()
             };
-
-            return ApiResponse<SendChatMessageResponseDto>.Success(responseDto, "Gửi tin nhắn thành công.");
         }
 
         private async Task TryUpdateSummaryAsync(int sessionId, CancellationToken cancellationToken)
