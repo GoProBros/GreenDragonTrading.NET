@@ -101,7 +101,7 @@ public class GetUserDetailQueryHandler : IRequestHandler<GetUserDetailQuery, Api
             Id = user.Id,
             Name = user.Username,
             Role = user.Role.GetDisplayName(),
-            Phone = user.PhoneNumber,
+            Phone = user.PhoneNumber ?? string.Empty,
             Email = user.Email,
             Avatar = user.AvatarUrl,
             Status = user.Status == CommonStatus.Active ? "Active" : "Inactive",

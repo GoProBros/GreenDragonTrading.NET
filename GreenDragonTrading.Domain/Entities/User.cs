@@ -22,10 +22,9 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("email", TypeName = "varchar(255)")]
         public string Email { get; set; } = string.Empty;
 
-        [Required]
         [MaxLength(20)]
         [Column("phone_number", TypeName = "varchar(20)")]
-        public string PhoneNumber { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
 
         [Required]
         [MaxLength(255)]
