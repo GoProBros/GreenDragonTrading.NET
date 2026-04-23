@@ -47,7 +47,20 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
 
             if (!string.IsNullOrEmpty(request.WorkspaceName))
             {
-                workspace.WorkspaceName = request.WorkspaceName;
+                var newWorkspaceName = request.WorkspaceName.Trim();
+
+                var isDuplicatedName = await _uow.Workspaces.AnyAsync(
+                    w => w.Id != workspace.Id
+                         && w.UserId == workspace.UserId
+                         && w.WorkspaceName == newWorkspaceName,
+                    cancellationToken);
+
+                if (isDuplicatedName)
+                {
+                    throw new ConflictException("Tên workspace đã tồn tại.");
+                }
+
+                workspace.WorkspaceName = newWorkspaceName;
             }
 
             if (request.LayoutJson.HasValue)
