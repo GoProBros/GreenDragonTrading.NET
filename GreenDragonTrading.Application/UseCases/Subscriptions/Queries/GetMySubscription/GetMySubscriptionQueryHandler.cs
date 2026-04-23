@@ -32,6 +32,44 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySub
         {
             var userId = _currentUserService.GetRequiredUserId();
 
+            if (_currentUserService.IsAdminOrStaff)
+            {
+                var highestActiveSubscription = await _uow.Subscriptions.GetHighestActiveAsync(cancellationToken);
+
+                var adminDto = highestActiveSubscription == null
+                    ? new UserSubscriptionDto
+                    {
+                        SubscriptionId = null,
+                        SubscriptionName = SubscriptionLevel.Free.GetDisplayName(),
+                        LevelOrder = SubscriptionLevel.Free,
+                        MaxWorkspaces = 1,
+                        Price = 0,
+                        DurationInDays = 0,
+                        AllowedModules = JsonDocument.Parse("[]").RootElement,
+                        StartDate = null,
+                        EndDate = null,
+                        Status = null,
+                        IsActive = false
+                    }
+                    : new UserSubscriptionDto
+                    {
+                        SubscriptionId = highestActiveSubscription.Id,
+                        SubscriptionName = highestActiveSubscription.Name,
+                        LevelOrder = highestActiveSubscription.LevelOrder,
+                        MaxWorkspaces = highestActiveSubscription.MaxWorkspaces,
+                        Price = highestActiveSubscription.Price,
+                        DurationInDays = highestActiveSubscription.DurationInDays,
+                        AllowedModules = JsonDocument.Parse(highestActiveSubscription.AllowedModules).RootElement,
+                        StartDate = null,
+                        EndDate = null,
+                        Status = null,
+                        IsActive = true
+                    };
+
+                _logger.LogInformation("Successfully retrieved highest subscription information for admin/staff user: {UserId}", userId);
+                return ApiResponse<UserSubscriptionDto>.Success(adminDto, "Lấy thông tin gói đăng ký thành công.");
+            }
+
             var userSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
 
             UserSubscriptionDto dto;
