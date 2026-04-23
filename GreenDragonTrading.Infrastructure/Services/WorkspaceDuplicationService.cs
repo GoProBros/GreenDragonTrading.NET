@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
@@ -36,11 +37,17 @@ public class WorkspaceDuplicationService : IWorkspaceDuplicationService
             cancellationToken);
 
         var newShareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
+        var newWorkspaceName = await GenerateUniqueWorkspaceNameAsync(
+            sourceWorkspace.WorkspaceName,
+            workspaceNameSuffix,
+            targetUserId,
+            sourceWorkspace.Type,
+            cancellationToken);
 
         var newWorkspace = new Workspace
         {
             UserId = targetUserId,
-            WorkspaceName = $"{sourceWorkspace.WorkspaceName} {workspaceNameSuffix}".Trim(),
+            WorkspaceName = newWorkspaceName,
             LayoutJson = newLayoutJson,
             Type = sourceWorkspace.Type,
             IsDefault = false,
@@ -237,6 +244,40 @@ public class WorkspaceDuplicationService : IWorkspaceDuplicationService
         }
 
         throw new InvalidOperationException("Hệ thống hiện không thể tạo mã chia sẻ duy nhất. Vui lòng thử lại.");
+    }
+
+    private async Task<string> GenerateUniqueWorkspaceNameAsync(
+        string sourceWorkspaceName,
+        string workspaceNameSuffix,
+        Guid userId,
+        WorkspaceType workspaceType,
+        CancellationToken cancellationToken)
+    {
+        var baseName = $"{sourceWorkspaceName} {workspaceNameSuffix}".Trim();
+
+        var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(
+            userId,
+            workspaceType,
+            cancellationToken);
+
+        var existingNames = existingWorkspaces
+            .Select(w => w.WorkspaceName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!existingNames.Contains(baseName))
+        {
+            return baseName;
+        }
+
+        for (int i = 2; ; i++)
+        {
+            var candidate = $"{baseName} {i}";
+            if (!existingNames.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
     }
 
     private static string GenerateRandomCode(string chars, int length)
