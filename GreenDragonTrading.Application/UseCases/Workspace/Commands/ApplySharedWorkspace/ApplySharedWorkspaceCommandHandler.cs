@@ -40,6 +40,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplyShared
             {
                 // Enforce MaxWorkspaces limit before duplicating
                 var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+
                 if (activeSubscription != null)
                 {
                     var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(
