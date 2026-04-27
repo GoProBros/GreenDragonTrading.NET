@@ -1,5 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
@@ -11,13 +13,16 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspace
     public class GetWorkspaceByShareCodeQueryHandler : IRequestHandler<GetWorkspaceByShareCodeQuery, ApiResponse<WorkspaceDto>>
     {
         private readonly IUnitOfWork _uow;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<GetWorkspaceByShareCodeQueryHandler> _logger;
 
         public GetWorkspaceByShareCodeQueryHandler(
             IUnitOfWork uow,
+            ICurrentUserService currentUserService,
             ILogger<GetWorkspaceByShareCodeQueryHandler> logger)
         {
             _uow = uow;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
@@ -32,12 +37,27 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspace
                     throw new NotFoundException($"Không tìm thấy workspace với share code: {request.ShareCode}");
                 }
 
+                var allowAllModules = _currentUserService.IsAdminOrStaff || !_currentUserService.IsAuthenticated;
+                var allowedModules = new List<string>();
+                if (!allowAllModules)
+                {
+                    var userId = _currentUserService.GetRequiredUserId();
+                    var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+                    allowedModules = WorkspaceLayoutLockingHelper.ParseAllowedModuleKeys(
+                        activeSubscription?.Subscription?.AllowedModules);
+                }
+
                 JsonElement? layoutJson = null;
                 if (!string.IsNullOrEmpty(workspace.LayoutJson))
                 {
                     using var doc = JsonDocument.Parse(workspace.LayoutJson);
                     layoutJson = doc.RootElement.Clone();
                 }
+
+                layoutJson = WorkspaceLayoutLockingHelper.ApplyModuleLocks(
+                    layoutJson,
+                    allowedModules,
+                    allowAllModules);
 
                 var workspaceDto = new WorkspaceDto
                 {

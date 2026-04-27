@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Enums;
@@ -32,10 +33,29 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
         {
             var userId = _currentUserService.GetRequiredUserId();
 
+            var allowAllModules = _currentUserService.IsAdminOrStaff;
+            var allowedModules = new List<string>();
+            if (!allowAllModules)
+            {
+                var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+                allowedModules = WorkspaceLayoutLockingHelper.ParseAllowedModuleKeys(activeSubscription?.Subscription?.AllowedModules);
+            }
+
             _logger.LogInformation("Workspaces retrieved successfully for user: {UserId}", userId);
 
-            var webWorkspaces = await GetWorkspacesByTypeAsync(userId, WorkspaceType.Web, cancellationToken);
-            var mobileWorkspaces = await GetWorkspacesByTypeAsync(userId, WorkspaceType.Mobile, cancellationToken);
+            var webWorkspaces = await GetWorkspacesByTypeAsync(
+                userId,
+                WorkspaceType.Web,
+                allowedModules,
+                allowAllModules,
+                cancellationToken);
+
+            var mobileWorkspaces = await GetWorkspacesByTypeAsync(
+                userId,
+                WorkspaceType.Mobile,
+                allowedModules,
+                allowAllModules,
+                cancellationToken);
 
             var result = new MyWorkspacesDto
             {
@@ -46,7 +66,12 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
             return ApiResponse<MyWorkspacesDto>.Success(result, "Lấy thành công danh sách workspace của người dùng.");
         }
 
-        private async Task<List<WorkspaceDto>> GetWorkspacesByTypeAsync(Guid userId, WorkspaceType type, CancellationToken cancellationToken)
+        private async Task<List<WorkspaceDto>> GetWorkspacesByTypeAsync(
+            Guid userId,
+            WorkspaceType type,
+            IReadOnlyCollection<string> allowedModules,
+            bool allowAllModules,
+            CancellationToken cancellationToken)
         {
             List<Domain.Entities.Workspace> workspaces;
 
@@ -61,10 +86,13 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                 workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, type, cancellationToken);
             }
 
-            return workspaces.Select(MapToDto).ToList();
+            return workspaces.Select(w => MapToDto(w, allowedModules, allowAllModules)).ToList();
         }
 
-        private static WorkspaceDto MapToDto(Domain.Entities.Workspace workspace)
+        private static WorkspaceDto MapToDto(
+            Domain.Entities.Workspace workspace,
+            IReadOnlyCollection<string> allowedModules,
+            bool allowAllModules)
         {
             JsonElement? layoutJson = null;
             if (!string.IsNullOrEmpty(workspace.LayoutJson))
@@ -72,6 +100,11 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                 using var doc = JsonDocument.Parse(workspace.LayoutJson);
                 layoutJson = doc.RootElement.Clone();
             }
+
+            layoutJson = WorkspaceLayoutLockingHelper.ApplyModuleLocks(
+                layoutJson,
+                allowedModules,
+                allowAllModules);
 
             return new WorkspaceDto
             {
