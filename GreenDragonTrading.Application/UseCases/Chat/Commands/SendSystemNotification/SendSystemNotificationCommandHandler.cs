@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Application.Interfaces;
@@ -184,9 +185,10 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendSystemNotifi
 
             if (!string.IsNullOrWhiteSpace(user.TelegramId))
             {
+                var telegramMessage = TelegramHtmlSanitizer.PrepareHtml(message);
                 var sentToTelegram = await _telegramBotService.SendTextMessageAsync(
                     user.TelegramId,
-                    message,
+                    telegramMessage,
                     cancellationToken);
 
                 if (!sentToTelegram)
