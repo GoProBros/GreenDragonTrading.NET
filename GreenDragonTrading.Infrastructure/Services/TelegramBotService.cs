@@ -3,6 +3,7 @@ using GreenDragonTrading.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
 
 namespace GreenDragonTrading.Infrastructure.Services;
 
@@ -50,6 +51,7 @@ public class TelegramBotService : ITelegramBotService
             await _botClient.SendTextMessageAsync(
                 chatId: chatId.Trim(),
                 text: message,
+                parseMode: ParseMode.Html,
                 cancellationToken: cancellationToken);
 
             return true;
