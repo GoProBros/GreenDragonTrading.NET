@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Application.DTOs.Realtime;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
@@ -35,6 +36,10 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
             try
             {
+                var templateCache = new Dictionary<(AlertType, ConditionType), AlertTemplate?>();
+                AlertTemplate? defaultTemplate = null;
+                var defaultTemplateResolved = false;
+
                 var currentPrice = notification.CurrentPrice;
                 var currentVolume = notification.CurrentVolume ?? 0m;
                 var referencePrice = notification.ReferencePrice;
@@ -119,14 +124,16 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         RedisConstants.AlertsByTypeAndCondition(alert.Ticker, alert.Type, alert.Condition),
                         alert.Id.ToString());
 
-                    var message = BuildAlertMessage(
+                    var template = await ResolveTemplateAsync(alert.Type, alert.Condition);
+                    var message = AlertTemplateRenderingHelper.BuildAlertMessage(
                         alert,
                         currentPrice,
                         currentVolume,
                         pricePercentUp,
                         pricePercentDown,
                         volumePercentUp,
-                        volumePercentDown);
+                        volumePercentDown,
+                        template);
 
                     if (!systemSessionIdsByUser.TryGetValue(alert.UserId, out var systemSessionId))
                     {
@@ -161,6 +168,31 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 if (hasChanges)
                 {
                     await _uow.SaveChangesAsync(cancellationToken);
+                }
+
+                async Task<AlertTemplate?> ResolveTemplateAsync(AlertType type, ConditionType condition)
+                {
+                    if (!templateCache.TryGetValue((type, condition), out var cachedTemplate))
+                    {
+                        cachedTemplate = await _uow.AlertTemplates.GetActiveByTypeAndConditionAsync(
+                            type,
+                            condition,
+                            cancellationToken);
+                        templateCache[(type, condition)] = cachedTemplate;
+                    }
+
+                    if (cachedTemplate != null)
+                    {
+                        return cachedTemplate;
+                    }
+
+                    if (!defaultTemplateResolved)
+                    {
+                        defaultTemplate = await _uow.AlertTemplates.GetDefaultAsync(cancellationToken);
+                        defaultTemplateResolved = true;
+                    }
+
+                    return defaultTemplate;
                 }
             }
             finally
@@ -337,61 +369,5 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             return int.TryParse(value, out var id) ? id : null;
         }
 
-        private static string BuildAlertMessage(
-            Alert alert,
-            decimal currentPrice,
-            decimal currentVolume,
-            decimal pricePercentUp,
-            decimal pricePercentDown,
-            decimal volumePercentUp,
-            decimal volumePercentDown)
-        {
-            var price = currentPrice.ToString("0.####");
-            var volume = currentVolume.ToString("0.####");
-            var threshold = alert.ThresholdValue.ToString("0.####");
-            decimal displayedPricePercentUp = pricePercentUp;
-            decimal displayedPricePercentDown = pricePercentDown;
-            decimal displayedVolumePercentUp = volumePercentUp;
-            decimal displayedVolumePercentDown = volumePercentDown;
-
-            if (alert.Type == AlertType.Price && alert.CurrentPrice > 0)
-            {
-                var changePercent = ((currentPrice - alert.CurrentPrice) / alert.CurrentPrice) * 100m;
-                displayedPricePercentUp = Math.Max(changePercent, 0m);
-                displayedPricePercentDown = Math.Max(-changePercent, 0m);
-            }
-
-            if (alert.Type == AlertType.Volume && alert.CurrentPrice > 0)
-            {
-                var changePercent = ((currentVolume - alert.CurrentPrice) / alert.CurrentPrice) * 100m;
-                displayedVolumePercentUp = Math.Max(changePercent, 0m);
-                displayedVolumePercentDown = Math.Max(-changePercent, 0m);
-            }
-
-            var percentUp = (alert.Type == AlertType.Price ? displayedPricePercentUp : displayedVolumePercentUp).ToString("0.##");
-            var percentDown = (alert.Type == AlertType.Price ? displayedPricePercentDown : displayedVolumePercentDown).ToString("0.##");
-            var configuredPercent = (alert.ChangePercentage ?? 0m).ToString("0.##");
-
-            if (alert.Type == AlertType.Volume)
-            {
-                return alert.Condition switch
-                {
-                    ConditionType.Above => $"Cảnh báo khối lượng: {alert.Ticker} đạt {volume} và vượt ngưỡng {threshold}.",
-                    ConditionType.Below => $"Cảnh báo khối lượng: {alert.Ticker} đạt {volume} và giảm dưới ngưỡng {threshold}.",
-                    ConditionType.PercentChangeUp => $"Cảnh báo khối lượng: {alert.Ticker} tăng {percentUp}% và vượt mức {threshold}.",
-                    ConditionType.PercentChangeDown => $"Cảnh báo khối lượng: {alert.Ticker} giảm {percentDown}% và vượt mức {threshold}.",
-                    _ => $"Cảnh báo khối lượng: {alert.Ticker} đã đạt điều kiện.",
-                };
-            }
-
-            return alert.Condition switch
-            {
-                ConditionType.Above => $"Cảnh báo: {alert.Ticker} đã tăng lên {price} và đạt ngưỡng {threshold}.",
-                ConditionType.Below => $"Cảnh báo: {alert.Ticker} đã giảm xuống {price} và chạm ngưỡng {threshold}.",
-                ConditionType.PercentChangeUp => $"Cảnh báo: {alert.Ticker} đã tăng {percentUp}% (mức đặt cảnh báo {configuredPercent}%), giá hiện tại {price}, giá mục tiêu {threshold}.",
-                ConditionType.PercentChangeDown => $"Cảnh báo: {alert.Ticker} da giam {percentDown}% (mức đặt cảnh báo {configuredPercent}%), giá hiện tại {price}, giá mục tiêu {threshold}.",
-                _ => $"Cảnh báo: {alert.Ticker} đặt điều kiện tại mức giá  {price}.",
-            };
-        }
     }
 }
