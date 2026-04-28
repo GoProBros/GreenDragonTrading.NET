@@ -35,6 +35,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<Portfolio> Portfolios => Set<Portfolio>();
         public DbSet<TradingTransaction> TradingTransactions => Set<TradingTransaction>();
         public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
+        public DbSet<AlertTemplate> AlertTemplates => Set<AlertTemplate>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -374,6 +375,17 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                        .WithMany()
                        .HasForeignKey(t => t.UserId)
                        .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<AlertTemplate>(entity =>
+            {
+                entity.HasIndex(e => new { e.Type, e.Condition })
+                      .IsUnique()
+                      .HasFilter("is_active = true");
+
+                entity.HasIndex(e => e.IsDefault)
+                      .IsUnique()
+                      .HasFilter("is_default = true");
             });
 
             DatabaseSeeder.SeedAll(modelBuilder);
