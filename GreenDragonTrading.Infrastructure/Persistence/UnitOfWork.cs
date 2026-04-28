@@ -52,6 +52,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private IAlertRepository? alerts;
 
+        private IAlertTemplateRepository? alertTemplates;
+
         private INewsArticleRepository? newsArticles;
 
         private IMacroeconomicDataRepository? macroeconomicData;
@@ -79,6 +81,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IChatMessageRepository ChatMessages => chatMessages ??= new ChatMessageRepository(_context);
         public IChatParticipantRepository ChatParticipants => chatParticipants ??= new ChatParticipantRepository(_context);
         public IAlertRepository Alerts => alerts ??= new AlertRepository(_context);
+        public IAlertTemplateRepository AlertTemplates => alertTemplates ??= new AlertTemplateRepository(_context);
         public INewsArticleRepository NewsArticles => newsArticles ??= new NewsArticleRepository(_context);
         public IMacroeconomicDataRepository MacroeconomicData => macroeconomicData ??= new MacroeconomicDataRepository(_context);
         public IUserPushTokenRepository UserPushTokens => userPushTokens ??= new UserPushTokenRepository(_context);

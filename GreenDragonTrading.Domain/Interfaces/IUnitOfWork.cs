@@ -23,6 +23,7 @@
         IChatMessageRepository ChatMessages { get; }
         IChatParticipantRepository ChatParticipants { get; }
         IAlertRepository Alerts { get; }
+        IAlertTemplateRepository AlertTemplates { get; }
         INewsArticleRepository NewsArticles { get; }
         IMacroeconomicDataRepository MacroeconomicData { get; }
         IUserPushTokenRepository UserPushTokens { get; }
