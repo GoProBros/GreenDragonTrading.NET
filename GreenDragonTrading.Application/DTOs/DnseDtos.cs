@@ -127,3 +127,33 @@ public record DnseImportError
     public string? ReportCode { get; init; }
     public string ErrorMessage { get; init; } = null!;
 }
+
+/// <summary>
+/// DNSE API response for corporate actions
+/// </summary>
+public record DnseCorporateActionsResponse
+{
+    public List<DnseCorporateActionItem> CorporateActions { get; init; } = new();
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+    public int Total { get; init; }
+}
+
+/// <summary>
+/// Corporate action item from DNSE
+/// </summary>
+public record DnseCorporateActionItem
+{
+    public string? Symbol { get; init; }
+    public string? Name { get; init; }
+    public int EventId { get; init; }
+    public string? ExRightsDate { get; init; }
+    public string? RecordDate { get; init; }
+    public string? Title { get; init; }
+    public string? TitleEvent { get; init; }
+    public string? Content { get; init; }
+    public string? Note { get; init; }
+    public string? Url { get; init; }
+    public string? ActionDate { get; init; }
+    public int EventType { get; init; }
+}

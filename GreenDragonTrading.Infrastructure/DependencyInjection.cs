@@ -236,6 +236,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHostedService<ChatAsyncJobBackgroundService>();
             services.AddHostedService<PendingPaymentSyncBackgroundService>();
             services.AddHostedService<NewsRssImportBackgroundService>();
+            services.AddHostedService<CorporateActionImportBackgroundService>();
 
             return services;
         }

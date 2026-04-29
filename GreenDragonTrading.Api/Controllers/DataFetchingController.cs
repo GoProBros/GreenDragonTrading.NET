@@ -5,6 +5,7 @@ using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportIndexC
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportNewsFromRss;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.RecalculateFinancialReportIndicators;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportCorporateActions;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSpecificPeriodFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV2;
@@ -167,6 +168,25 @@ namespace GreenDragonTrading.Api.Controllers
         {
             var result = await _mediator.Send(new ImportNewsFromRssCommand(), cancellationToken);
             return Ok(ApiResponse<ImportNewsFromRssResult>.Success(result, result.Message));
+        }
+
+        /// <summary>
+        /// Imports corporate action history for all symbols from DNSE API.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>Import result with fetched/inserted/updated counts.</returns>
+        [HttpPost("corporate-actions/history")]
+        public async Task<ActionResult<ApiResponse<ImportCorporateActionsResult>>> ImportCorporateActionsHistory(
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new ImportCorporateActionsHistoryCommand(), cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
         }
     }
 }
