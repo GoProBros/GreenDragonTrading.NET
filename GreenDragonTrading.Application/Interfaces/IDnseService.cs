@@ -22,4 +22,26 @@ public interface IDnseService
         string cycleType,
         int cycleNumber,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get corporate actions history for a ticker from DNSE API
+    /// </summary>
+    /// <param name="ticker">Stock ticker symbol</param>
+    /// <param name="page">Page number (1-based)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Corporate actions response</returns>
+    Task<DnseCorporateActionsResponse?> GetCorporateActionsHistoryAsync(
+        string ticker,
+        int page,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get upcoming corporate actions from DNSE API
+    /// </summary>
+    /// <param name="page">Page number (1-based)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Corporate actions response</returns>
+    Task<DnseCorporateActionsResponse?> GetCorporateActionsUpcomingAsync(
+        int page,
+        CancellationToken cancellationToken = default);
 }

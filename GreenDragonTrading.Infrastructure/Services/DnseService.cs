@@ -100,4 +100,90 @@ public class DnseService : IDnseService
             return null;
         }
     }
+
+    /// <inheritdoc/>
+    public async Task<DnseCorporateActionsResponse?> GetCorporateActionsHistoryAsync(
+        string ticker,
+        int page,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ticker))
+        {
+            throw new ArgumentException("Ticker cannot be null or empty", nameof(ticker));
+        }
+
+        if (page <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(page), "Page must be greater than 0");
+        }
+
+        var url = $"{DnseConstants.CORPORATE_ACTIONS_HISTORY_ENDPOINT}?symbol={ticker}&page={page}";
+        return await FetchCorporateActionsAsync(url, $"history:{ticker}", cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<DnseCorporateActionsResponse?> GetCorporateActionsUpcomingAsync(
+        int page,
+        CancellationToken cancellationToken = default)
+    {
+        if (page <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(page), "Page must be greater than 0");
+        }
+
+        var url = $"{DnseConstants.CORPORATE_ACTIONS_UPCOMING_ENDPOINT}?page={page}";
+        return await FetchCorporateActionsAsync(url, "upcoming", cancellationToken);
+    }
+
+    private async Task<DnseCorporateActionsResponse?> FetchCorporateActionsAsync(
+        string url,
+        string logScope,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching DNSE corporate actions ({Scope})", logScope);
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("DNSE corporate actions ({Scope}) returned status {StatusCode}", logScope, response.StatusCode);
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                _logger.LogWarning("DNSE corporate actions ({Scope}) returned empty response", logScope);
+                return null;
+            }
+
+            var result = JsonSerializer.Deserialize<DnseCorporateActionsResponse>(content, _jsonOptions);
+
+            if (result == null)
+            {
+                _logger.LogWarning("Failed to deserialize DNSE corporate actions ({Scope})", logScope);
+                return null;
+            }
+
+            return result;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error when fetching DNSE corporate actions ({Scope})", logScope);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "JSON deserialization error for DNSE corporate actions ({Scope})", logScope);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error when fetching DNSE corporate actions ({Scope})", logScope);
+            return null;
+        }
+    }
 }
