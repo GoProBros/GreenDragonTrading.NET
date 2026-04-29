@@ -36,6 +36,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<TradingTransaction> TradingTransactions => Set<TradingTransaction>();
         public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
         public DbSet<AlertTemplate> AlertTemplates => Set<AlertTemplate>();
+        public DbSet<CorporateAction> CorporateActions => Set<CorporateAction>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -388,6 +389,12 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                       .HasFilter("is_default = true");
             });
 
+            modelBuilder.Entity<CorporateAction>(entity =>
+            {
+                entity.HasIndex(e => e.Ticker);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            });
             DatabaseSeeder.SeedAll(modelBuilder);
         }
     }

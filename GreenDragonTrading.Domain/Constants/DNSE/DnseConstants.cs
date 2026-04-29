@@ -7,6 +7,8 @@ public static class DnseConstants
 {
     public const string API_BASE_URL = "https://api-bo.dnse.com.vn";
     public const string FINANCIAL_REPORT_ENDPOINT = "/senses-api/financial-report/details";
+    public const string CORPORATE_ACTIONS_HISTORY_ENDPOINT = "/senses-api/corporate-actions/history";
+    public const string CORPORATE_ACTIONS_UPCOMING_ENDPOINT = "/senses-api/corporate-actions";
     
     /// <summary>
     /// Cycle Types for financial reports
