@@ -176,6 +176,17 @@ namespace GreenDragonTrading.Infrastructure.Services
                         _logger.LogInformation("Case 3 - Upgrade: UserId={UserId}, OldLevel={OldLevel}, NewLevel={NewLevel}", 
                             transaction.UserId, currentHighestSub.Subscription.LevelOrder, newSubscription.LevelOrder);
                     }
+                    else if (newSubscription.LevelOrder == currentHighestSub.Subscription.LevelOrder
+                        && newSubscription.Id != currentHighestSub.SubscriptionId)
+                    {
+                        _logger.LogWarning(
+                            "Same level purchase blocked: UserId={UserId}, CurrentSubscriptionId={CurrentSubscriptionId}, RequestedSubscriptionId={RequestedSubscriptionId}",
+                            transaction.UserId,
+                            currentHighestSub.SubscriptionId,
+                            newSubscription.Id);
+                        throw new BusinessRuleException(
+                            "Bạn đang sử dụng gói cùng cấp. Vui lòng dùng hết gói hiện tại trước khi đăng ký gói mới hoặc liên hệ CSKH để hủy gói hiện tại.");
+                    }
                     else
                     {
                         _logger.LogError("Downgrade attempt in webhook - this should have been blocked: UserId={UserId}", transaction.UserId);
@@ -704,6 +715,17 @@ namespace GreenDragonTrading.Infrastructure.Services
                         currentHighestSub.Subscription.LevelOrder,
                         newSubscription.LevelOrder);
                 }
+                else if (newSubscription.LevelOrder == currentHighestSub.Subscription.LevelOrder
+                    && newSubscription.Id != currentHighestSub.SubscriptionId)
+                {
+                    _logger.LogWarning(
+                        "PayOS sync same level purchase blocked: UserId={UserId}, CurrentSubscriptionId={CurrentSubscriptionId}, RequestedSubscriptionId={RequestedSubscriptionId}",
+                        transaction.UserId,
+                        currentHighestSub.SubscriptionId,
+                        newSubscription.Id);
+                    throw new BusinessRuleException(
+                        "Bạn đang sử dụng gói cùng cấp. Vui lòng dùng hết gói hiện tại trước khi đăng ký gói mới hoặc liên hệ CSKH để hủy gói hiện tại.");
+                }
                 else
                 {
                     _logger.LogError("PayOS sync downgrade attempt detected: UserId={UserId}", transaction.UserId);
@@ -917,6 +939,17 @@ namespace GreenDragonTrading.Infrastructure.Services
                         _logger.LogInformation(
                             "Momo Case 3 - Upgrade: UserId={UserId}, OldLevel={OldLevel}, NewLevel={NewLevel}",
                             transaction.UserId, currentHighestSub.Subscription.LevelOrder, newSubscription.LevelOrder);
+                    }
+                    else if (newSubscription.LevelOrder == currentHighestSub.Subscription.LevelOrder
+                        && newSubscription.Id != currentHighestSub.SubscriptionId)
+                    {
+                        _logger.LogWarning(
+                            "Momo same level purchase blocked: UserId={UserId}, CurrentSubscriptionId={CurrentSubscriptionId}, RequestedSubscriptionId={RequestedSubscriptionId}",
+                            transaction.UserId,
+                            currentHighestSub.SubscriptionId,
+                            newSubscription.Id);
+                        throw new BusinessRuleException(
+                            "Bạn đang sử dụng gói cùng cấp. Vui lòng dùng hết gói hiện tại trước khi đăng ký gói mới hoặc liên hệ CSKH để hủy gói hiện tại.");
                     }
                     else
                     {
