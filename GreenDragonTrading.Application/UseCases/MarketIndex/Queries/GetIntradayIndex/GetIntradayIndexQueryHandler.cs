@@ -30,6 +30,26 @@ namespace GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetIntrada
             // Redis list is newest-first; reverse to chronological order for sparkline
             points.Reverse();
 
+            // Collapse consecutive duplicates (same Time + Value)
+            if (points.Count > 1)
+            {
+                var deduped = new List<IndexHistoryPointDto>(points.Count);
+                IndexHistoryPointDto? last = null;
+
+                foreach (var point in points)
+                {
+                    if (last != null && point.Time == last.Time && point.Value == last.Value)
+                    {
+                        continue;
+                    }
+
+                    deduped.Add(point);
+                    last = point;
+                }
+
+                points = deduped;
+            }
+
             _logger.LogDebug("Returned {Count} intraday points for index {Code}", points.Count, request.Code);
 
             return ApiResponse<List<IndexHistoryPointDto>>.Success(
