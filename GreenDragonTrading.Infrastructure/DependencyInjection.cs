@@ -237,6 +237,10 @@ namespace GreenDragonTrading.Infrastructure
             services.AddHostedService<PendingPaymentSyncBackgroundService>();
             services.AddHostedService<NewsRssImportBackgroundService>();
             services.AddHostedService<CorporateActionImportBackgroundService>();
+            services.AddHostedService<ImportSymbolsFromSsiWeeklyBackgroundService>();
+            services.AddHostedService<MapSymbolSectorWeeklyBackgroundService>();
+            services.AddHostedService<ImportIndexConstituentsWeeklyBackgroundService>();
+            services.AddHostedService<FinancialReportBulkImportWeeklyBackgroundService>();
 
             return services;
         }
