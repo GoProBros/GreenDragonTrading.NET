@@ -101,6 +101,29 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
+        /// Import bulk financial reports from DNSE API without overwriting existing records.
+        /// Imports data for all tickers in the database and multiple periods (5 or 10 cycles).
+        /// </summary>
+        /// <param name="request">Import request containing cycle type and cycle number.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Import result with success/failure statistics.</returns>
+        [HttpPost("~/api/v2/data-fetching/financial-reports/bulk")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<DnseImportResult>>> ImportBulkFromDnseV2(
+            [FromBody] ImportBulkFromDnseCommandV2 request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Recalculates indicator_data for financial reports (useful for backfilling null indicator records).
         /// Quarterly reports are calculated with QoQ comparison, yearly reports with YoY comparison.
         /// </summary>

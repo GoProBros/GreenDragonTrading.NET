@@ -1,0 +1,278 @@
+using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
+using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
+using GreenDragonTrading.Domain.Constants.DNSE;
+using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
+using GreenDragonTrading.Domain.Interfaces;
+using Microsoft.Extensions.Logging;
+
+namespace GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportFromDnse;
+
+internal static class DnseBulkImportProcessor
+{
+    // All 17 report codes from DNSE API - import all by default
+    private static readonly List<string> DefaultReportCodes =
+    [
+        DnseConstants.ReportCodes.SHORT_TERM_ASSETS,
+        DnseConstants.ReportCodes.TOTAL_ASSETS,
+        DnseConstants.ReportCodes.LONG_TERM_ASSETS,
+        DnseConstants.ReportCodes.ACCOUNTS_PAYABLE,
+        DnseConstants.ReportCodes.OWNERS_EQUITY,
+        DnseConstants.ReportCodes.OPERATING_INCOME,
+        DnseConstants.ReportCodes.INSURANCE_BUSINESS_PROFIT,
+        DnseConstants.ReportCodes.PROFIT_BEFORE_TAX,
+        DnseConstants.ReportCodes.PROFIT_AFTER_TAX_PARENT_COMPANY,
+        DnseConstants.ReportCodes.CASH_FLOW,
+        DnseConstants.ReportCodes.SHORT_TERM_FINANCIAL_ASSETS,
+        DnseConstants.ReportCodes.INVESTMENT_ASSETS,
+        DnseConstants.ReportCodes.BORROWINGS,
+        DnseConstants.ReportCodes.MAIN_BUSINESS_OPERATING_PROFIT,
+        DnseConstants.ReportCodes.OPERATING_EXPENSES,
+        DnseConstants.ReportCodes.PROFIT_AFTER_TAX_AND_AFS,
+        DnseConstants.ReportCodes.GROSS_PROFIT
+    ];
+
+    public static async Task<ApiResponse<DnseImportResult>> RunAsync(
+        string cycleType,
+        int cycleNumber,
+        bool overwriteExisting,
+        IUnitOfWork uow,
+        IDnseService dnseService,
+        IDnseDataMapper mapper,
+        IFinancialReportIndicatorCalculationService indicatorCalculationService,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            logger.LogInformation(
+                "Starting bulk import from DNSE: CycleType={CycleType}, CycleNumber={CycleNumber}, OverwriteExisting={OverwriteExisting}",
+                cycleType,
+                cycleNumber,
+                overwriteExisting);
+
+            var allowedExchanges = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ExchangeConstant.EXCHANGE_HSX,
+                ExchangeConstant.EXCHANGE_HNX
+            };
+
+            var symbols = await uow.Symbols.GetAllAsync(cancellationToken);
+            var tickers = symbols
+                .Where(s => !string.IsNullOrWhiteSpace(s.ExchangeCode) && allowedExchanges.Contains(s.ExchangeCode.Trim()))
+                .Where(s => !string.IsNullOrWhiteSpace(s.Ticker))
+                .Select(s => s.Ticker.Trim().ToUpperInvariant())
+                .Distinct()
+                .ToList();
+
+            if (tickers.Count == 0)
+            {
+                logger.LogWarning("No tickers found in database for HSX/HNX bulk DNSE import.");
+                return ApiResponse<DnseImportResult>.Failure("Không có ticker thuộc sàn HSX/HNX trong hệ thống để import");
+            }
+
+            logger.LogInformation("Importing bulk DNSE data for {Count} tickers on HSX/HNX", tickers.Count);
+
+            var result = new DnseImportResult
+            {
+                TotalTickers = tickers.Count,
+                SuccessCount = 0,
+                FailedCount = 0,
+                SuccessTickers = [],
+                Errors = []
+            };
+
+            foreach (var ticker in tickers)
+            {
+                try
+                {
+                    await ProcessTickerAsync(
+                        uow,
+                        dnseService,
+                        mapper,
+                        indicatorCalculationService,
+                        logger,
+                        ticker,
+                        DefaultReportCodes,
+                        cycleType,
+                        cycleNumber,
+                        overwriteExisting,
+                        result,
+                        cancellationToken);
+
+                    result.SuccessCount++;
+                    result.SuccessTickers.Add(ticker);
+                    logger.LogInformation("Successfully imported data for {Ticker}", ticker);
+                }
+                catch (Exception ex)
+                {
+                    result.FailedCount++;
+                    result.Errors.Add(new DnseImportError
+                    {
+                        Ticker = ticker,
+                        ErrorMessage = ex.Message
+                    });
+                    logger.LogWarning(ex, "Failed to import data for {Ticker}", ticker);
+                }
+            }
+
+            logger.LogInformation(
+                "Bulk import completed: Success={Success}, Failed={Failed}",
+                result.SuccessCount,
+                result.FailedCount);
+
+            return ApiResponse<DnseImportResult>.Success(
+                result,
+                $"Import hoàn tất: {result.SuccessCount}/{result.TotalTickers} mã thành công");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error during bulk import from DNSE");
+            return ApiResponse<DnseImportResult>.Failure("Lỗi khi import dữ liệu từ DNSE");
+        }
+    }
+
+    private static async Task ProcessTickerAsync(
+        IUnitOfWork uow,
+        IDnseService dnseService,
+        IDnseDataMapper mapper,
+        IFinancialReportIndicatorCalculationService indicatorCalculationService,
+        ILogger logger,
+        string ticker,
+        List<string> reportCodes,
+        string cycleType,
+        int cycleNumber,
+        bool overwriteExisting,
+        DnseImportResult result,
+        CancellationToken cancellationToken)
+    {
+        _ = await uow.Symbols.GetByIdAsync(ticker, cancellationToken)
+            ?? throw new InvalidOperationException($"Symbol {ticker} not found in database");
+
+        var reportDataByPeriod = new Dictionary<string, Dictionary<string, DnseFinancialReportResponse>>();
+
+        foreach (var reportCode in reportCodes)
+        {
+            try
+            {
+                var dnseResponse = await dnseService.GetFinancialReportDetailsAsync(
+                    ticker,
+                    reportCode,
+                    cycleType,
+                    cycleNumber,
+                    cancellationToken);
+
+                if (dnseResponse == null || dnseResponse.X.Count == 0)
+                {
+                    logger.LogWarning("No data returned from DNSE for {Ticker} - {ReportCode}", ticker, reportCode);
+                    continue;
+                }
+
+                foreach (var period in dnseResponse.X)
+                {
+                    if (!reportDataByPeriod.ContainsKey(period))
+                    {
+                        reportDataByPeriod[period] = new Dictionary<string, DnseFinancialReportResponse>();
+                    }
+
+                    reportDataByPeriod[period][reportCode] = dnseResponse;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add(new DnseImportError
+                {
+                    Ticker = ticker,
+                    ReportCode = reportCode,
+                    ErrorMessage = ex.Message
+                });
+                logger.LogWarning(ex, "Failed to fetch {ReportCode} for {Ticker}", reportCode, ticker);
+            }
+        }
+
+        foreach (var (periodString, reportsData) in reportDataByPeriod)
+        {
+            try
+            {
+                var (year, quarter) = DnsePeriodParser.ParsePeriodString(periodString);
+                var period = quarter.HasValue ? (ReportPeriod)quarter.Value : ReportPeriod.Yearly;
+
+                var existingReport = await uow.FinancialReports.GetByTickerYearPeriodAsync(
+                    ticker,
+                    year,
+                    (int)period,
+                    cancellationToken);
+
+                if (existingReport != null && !overwriteExisting)
+                {
+                    logger.LogDebug(
+                        "Skipping financial report for {Ticker} - {Period} because it already exists.",
+                        ticker,
+                        periodString);
+                    continue;
+                }
+
+                var (comparisonYear, comparisonPeriod) = GetComparisonPeriod(year, period);
+                var comparisonReport = await uow.FinancialReports.GetByTickerYearPeriodAsync(
+                    ticker,
+                    comparisonYear,
+                    (int)comparisonPeriod,
+                    cancellationToken);
+
+                var reportData = mapper.MapToFinancialReportDataForPeriod(reportsData, periodString);
+                var indicatorData = indicatorCalculationService.Calculate(
+                    reportData,
+                    period,
+                    comparisonReport?.ReportData);
+
+                if (existingReport != null)
+                {
+                    existingReport.ReportData = reportData;
+                    existingReport.IndicatorData = indicatorData;
+                    existingReport.UpdatedAt = DateTimeOffset.UtcNow;
+                    uow.FinancialReports.Update(existingReport);
+                }
+                else
+                {
+                    var newReport = new FinancialReport
+                    {
+                        Id = Guid.NewGuid(),
+                        Ticker = ticker,
+                        Year = year,
+                        Period = period,
+                        ReportData = reportData,
+                        IndicatorData = indicatorData,
+                        Status = FinancialReportStatus.Completed,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    };
+                    await uow.FinancialReports.AddAsync(newReport, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to save financial report for {Ticker} - {Period}", ticker, periodString);
+            }
+        }
+
+        await uow.SaveChangesAsync(cancellationToken);
+    }
+
+    private static (int comparisonYear, ReportPeriod comparisonPeriod) GetComparisonPeriod(int year, ReportPeriod period)
+    {
+        if (period == ReportPeriod.Yearly)
+        {
+            return (year - 1, ReportPeriod.Yearly);
+        }
+
+        if (period == ReportPeriod.Q1)
+        {
+            return (year - 1, ReportPeriod.Q4);
+        }
+
+        return (year, (ReportPeriod)((int)period - 1));
+    }
+}
