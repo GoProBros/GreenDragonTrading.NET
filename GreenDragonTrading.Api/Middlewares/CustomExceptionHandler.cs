@@ -1,5 +1,4 @@
-﻿using FluentValidation;
-using GreenDragonTrading.Application.Common.Models;
+﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Domain.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 

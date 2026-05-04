@@ -22,7 +22,6 @@ namespace GreenDragonTrading.Application.UseCases.Notifications.Commands.Registe
 
             if (existing != null)
             {
-                // Refresh updated_at to track active devices.
                 existing.UpdatedAt = DateTimeOffset.UtcNow;
                 uow.UserPushTokens.Update(existing);
             }

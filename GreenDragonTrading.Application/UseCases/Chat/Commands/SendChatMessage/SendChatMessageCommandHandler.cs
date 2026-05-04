@@ -297,7 +297,16 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                     return;
                 }
 
+                var keepRecentCount = Math.Max(0, _aiOptions.SummaryKeepRecentCount);
+                var availableCount = Math.Max(0, messagesToSummarize.Count - keepRecentCount);
+                var summarizeCount = availableCount;
+                if (summarizeCount <= 0)
+                {
+                    return;
+                }
+
                 var messagesForSummary = messagesToSummarize
+                    .Take(summarizeCount)
                     .Select(m => new AiMessageInput
                     {
                         Role = m.SenderId == null ? "assistant" : "user",
@@ -316,14 +325,14 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
                 if (result.Success && !string.IsNullOrEmpty(result.UpdatedSummary))
                 {
                     session.ConversationSummary = result.UpdatedSummary;
-                    session.LastSummaryMessageId = messagesToSummarize[^1].Id;
+                    session.LastSummaryMessageId = messagesToSummarize[summarizeCount - 1].Id;
                     session.UpdatedAt = DateTimeOffset.UtcNow;
                     _uow.ChatSessions.Update(session);
                     await _uow.SaveChangesAsync(cancellationToken);
                     _logger.LogDebug(
                         "Updated summary for session {SessionId}, lastMessageId={MessageId}",
                         sessionId,
-                        messagesToSummarize[^1].Id);
+                        messagesToSummarize[summarizeCount - 1].Id);
                 }
             }
             catch (Exception ex)

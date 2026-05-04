@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;

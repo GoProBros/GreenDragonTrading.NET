@@ -13,6 +13,14 @@ namespace GreenDragonTrading.Application.Common.Options
         /// Number of recent messages (user + AI combined) to include as context in each request.
         /// </summary>
         public int RecentMessagesLimit { get; set; } = 20;
+        /// <summary>
+        /// Number of messages to summarize per batch when threshold is reached.
+        /// </summary>
+        public int SummaryBatchSize { get; set; } = 15;
+        /// <summary>
+        /// Number of newest messages to keep unsummarized when creating a summary batch.
+        /// </summary>
+        public int SummaryKeepRecentCount { get; set; } = 5;
         public int ChatAsyncPollingIntervalSeconds { get; set; } = 2;
         public int ChatAsyncJobTtlMinutes { get; set; } = 30;
     }

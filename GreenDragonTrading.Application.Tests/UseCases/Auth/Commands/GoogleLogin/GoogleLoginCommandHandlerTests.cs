@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin;
 using GreenDragonTrading.Domain.Entities;

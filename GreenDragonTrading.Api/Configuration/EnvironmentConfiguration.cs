@@ -91,6 +91,8 @@ public static class EnvironmentConfiguration
             ["AiEngine:BaseUrl"] = Environment.GetEnvironmentVariable("AI_ENGINE_BASE_URL"),
             ["AiEngine:TimeoutSeconds"] = Environment.GetEnvironmentVariable("AI_ENGINE_TIMEOUT_SECONDS"),
             ["AiEngine:RecentMessagesLimit"] = Environment.GetEnvironmentVariable("AI_ENGINE_RECENT_MESSAGES_LIMIT"),
+            ["AiEngine:SummaryBatchSize"] = Environment.GetEnvironmentVariable("AI_ENGINE_SUMMARY_BATCH_SIZE"),
+            ["AiEngine:SummaryKeepRecentCount"] = Environment.GetEnvironmentVariable("AI_ENGINE_SUMMARY_KEEP_RECENT_COUNT"),
             ["AiEngine:ChatEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_CHAT_ENDPOINT"),
             ["AiEngine:ConversationSummaryEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_CONV_SUMMARY_ENDPOINT"),
             ["AiEngine:NewsSummarizationEndpoint"] = Environment.GetEnvironmentVariable("AI_ENGINE_SUMMARIZATION_ENDPOINT"),

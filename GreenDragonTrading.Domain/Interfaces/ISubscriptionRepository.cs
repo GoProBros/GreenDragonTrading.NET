@@ -6,5 +6,7 @@ namespace GreenDragonTrading.Domain.Interfaces
     {
         Task<Subscription?> GetByLevelAsync(int levelOrder, CancellationToken cancellationToken = default);
         Task<Subscription?> GetHighestActiveAsync(CancellationToken cancellationToken = default);
+        Task<Subscription?> GetActiveFreeSubscriptionAsync(CancellationToken cancellationToken = default);
+        Task<Subscription?> GetActiveAdminSubscriptionAsync(CancellationToken cancellationToken = default);
     }
 }

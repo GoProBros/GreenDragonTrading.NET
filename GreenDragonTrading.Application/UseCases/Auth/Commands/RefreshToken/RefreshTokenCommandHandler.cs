@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Enums;
@@ -49,7 +50,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
 
                 if (user == null)
                 {
-                    throw new NotFoundException("User id", userId);
+                    throw new NotFoundException("Người dùng không tồn tại.");
                 }
 
                 if(userId != request.UserId)
@@ -57,8 +58,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                     throw new UnauthenticatedException("Refresh token không hợp lệ cho người dùng này.");
                 }
 
-                // Get current subscription level
-                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+                var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                    _uow,
+                    user.Role is UserRole.Admin or UserRole.Staff,
+                    user.Id,
+                    cancellationToken);
 
                 var accessToken = _jwtService.GenerateAccessToken(
                     user.Id,
@@ -66,11 +70,10 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                     user.Username,
                     user.PhoneNumber,
                     user.Role.ToString(),
-                    subscriptionLevel?.Subscription.LevelOrder.ToString() ?? SubscriptionLevel.Free.ToString()
+                    effectiveSubscription?.LevelOrder?.ToString() ?? SubscriptionLevel.Free.ToString()
                 );
                 var newRefreshToken = _jwtService.GenerateRefreshToken();
           
-                // Update redis key
                 await _redisService.RemoveAsync(tokenKey);
                 var newTokenKey = $"refresh:token:{newRefreshToken}";
                 await _redisService.SetAsync(newTokenKey, userId, TimeSpan.FromDays(_jwtOptions.RefreshTokenExpirationDays));
@@ -88,7 +91,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                         PhoneNumber = user.PhoneNumber,
                         Role = user.Role.GetDisplayName(),
                         IsEmailVerified = user.IsEmailVerified,
-                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                        SubscriptionLevel = effectiveSubscription?.LevelOrder is { } level
+                            ? level.GetDisplayName()
+                            : SubscriptionLevel.Free.GetDisplayName(),
                         TelegramChatId = user.TelegramId,
                         IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)
                     }

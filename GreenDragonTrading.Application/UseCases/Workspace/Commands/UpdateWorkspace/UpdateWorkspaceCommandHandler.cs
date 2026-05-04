@@ -78,7 +78,6 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.UpdateWorks
             _uow.Workspaces.Update(workspace);
             await _uow.SaveChangesAsync(cancellationToken);
 
-            // Parse LayoutJson string back to JsonElement for response
             JsonElement? layoutJsonElement = null;
             if (!string.IsNullOrEmpty(workspace.LayoutJson))
             {

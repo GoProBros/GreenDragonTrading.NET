@@ -1,4 +1,5 @@
 using Google.Apis.Auth;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;

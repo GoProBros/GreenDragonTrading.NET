@@ -21,18 +21,18 @@ public class ToggleAlertTemplateStatusCommandHandler(
     {
         if (!_currentUserService.IsAdminOrStaff)
         {
-            throw new AccessDeniedException("Chi admin/staff moi co quyen doi trang thai alert template.");
+            throw new AccessDeniedException("Chỉ admin/staff mới có quyền đổi trạng thái alert template.");
         }
 
         if (request.Id <= 0)
         {
-            throw new BusinessRuleException("Id template khong hop le.");
+            throw new BusinessRuleException("Id template không hợp lệ.");
         }
 
         var template = await _uow.AlertTemplates.GetByIdAsync(request.Id, cancellationToken);
         if (template == null)
         {
-            throw new NotFoundException("Khong tim thay alert template.");
+            throw new NotFoundException("Không tìm thấy alert template.");
         }
 
         var nextStatus = !template.IsActive;
@@ -46,7 +46,7 @@ public class ToggleAlertTemplateStatusCommandHandler(
                 cancellationToken);
             if (conflict != null)
             {
-                throw new ConflictException("Da ton tai alert template dang hoat dong cho cap type/condition nay.");
+                throw new ConflictException("Đã tồn tại alert template đang hoạt động cho cặp type/condition này.");
             }
         }
 
@@ -55,8 +55,8 @@ public class ToggleAlertTemplateStatusCommandHandler(
         _uow.AlertTemplates.Update(template);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        var statusText = template.IsActive ? "bat" : "tat";
-        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), $"Doi trang thai alert template thanh cong ({statusText}).");
+        var statusText = template.IsActive ? "bật" : "tắt";
+        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), $"Đổi trạng thái alert template thành công ({statusText}).");
     }
 
     private static AlertTemplateDto MapToDto(Domain.Entities.AlertTemplate template)

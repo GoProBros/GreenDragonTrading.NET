@@ -48,7 +48,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.ToggleAlertSta
             else
             {
                 await _redisService.SortedSetRemoveAsync(redisKey, alert.Id.ToString());
-                // Backward-compatible cleanup for old redis key layout.
                 await _redisService.SortedSetRemoveAsync(RedisConstants.AlertsAbove(alert.Ticker), alert.Id.ToString());
                 await _redisService.SortedSetRemoveAsync(RedisConstants.AlertsBelow(alert.Ticker), alert.Id.ToString());
             }

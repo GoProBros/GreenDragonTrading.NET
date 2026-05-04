@@ -3,6 +3,7 @@ using System;
 using GreenDragonTrading.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GdtPostgreSqlDbContext))]
-    partial class GdtPostgreSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260504162600_RemovePortfolioAndCleanupUser")]
+    partial class RemovePortfolioAndCleanupUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -310,7 +313,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "1000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 18, 4, 36, 880, DateTimeKind.Unspecified).AddTicks(8131), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 16, 25, 59, 710, DateTimeKind.Unspecified).AddTicks(8899), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phân tích kinh tế vĩ mô, chính sách, triển vọng thị trường",
                             Level = 1,
                             Name = "Báo cáo Vĩ mô",
@@ -319,7 +322,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "2000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 18, 4, 36, 880, DateTimeKind.Unspecified).AddTicks(8137), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 16, 25, 59, 710, DateTimeKind.Unspecified).AddTicks(8912), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phân tích các ngành công nghiệp, xu hướng và triển vọng",
                             Level = 1,
                             Name = "Báo cáo Ngành",
@@ -328,7 +331,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "3000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 18, 4, 36, 880, DateTimeKind.Unspecified).AddTicks(8141), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 16, 25, 59, 710, DateTimeKind.Unspecified).AddTicks(8915), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phân tích chuyên sâu về doanh nghiệp niêm yết",
                             Level = 1,
                             Name = "Báo cáo Doanh nghiệp",
@@ -337,7 +340,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "4000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 18, 4, 36, 880, DateTimeKind.Unspecified).AddTicks(8143), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 16, 25, 59, 710, DateTimeKind.Unspecified).AddTicks(8918), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Chiến lược và khuyến nghị đầu tư",
                             Level = 1,
                             Name = "Chiến lược Đầu tư",
@@ -346,7 +349,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "5000",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 18, 4, 36, 880, DateTimeKind.Unspecified).AddTicks(8146), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 16, 25, 59, 710, DateTimeKind.Unspecified).AddTicks(8920), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Nhận định và phân tích thị trường chứng khoán",
                             Level = 1,
                             Name = "Báo cáo Thị trường",
@@ -1077,11 +1080,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         {
                             Id = 1L,
                             ConfigJson = "\r\n        {\r\n          \"state\": {\r\n            \"columns\": {\r\n              \"ticker\": { \"field\": \"ticker\", \"visible\": true, \"width\": 80, \"order\": 0 },\r\n              \"lastPrice\": { \"field\": \"lastPrice\", \"visible\": true, \"width\": 95, \"order\": 10 },\r\n              \"change\": { \"field\": \"change\", \"visible\": true, \"width\": 80, \"order\": 12 },\r\n              \"ratioChange\": { \"field\": \"ratioChange\", \"visible\": true, \"width\": 90, \"order\": 13 },\r\n              \"totalVol\": { \"field\": \"totalVol\", \"visible\": true, \"width\": 120, \"order\": 20 },\r\n              \"PE\": { \"field\": \"PE\", \"visible\": false, \"width\": 80, \"order\": 48 },\r\n              \"ROE\": { \"field\": \"ROE\", \"visible\": false, \"width\": 80, \"order\": 49 }\r\n            }\r\n          }\r\n        }",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 18, 4, 36, 880, DateTimeKind.Unspecified).AddTicks(7776), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 16, 25, 59, 710, DateTimeKind.Unspecified).AddTicks(8749), new TimeSpan(0, 0, 0, 0, 0)),
                             IsSystemDefault = true,
                             LayoutName = "Giao diện bộ lọc mặc định",
                             ModuleType = (short)1,
-                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 18, 4, 36, 880, DateTimeKind.Unspecified).AddTicks(7777), new TimeSpan(0, 0, 0, 0, 0))
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 5, 4, 16, 25, 59, 710, DateTimeKind.Unspecified).AddTicks(8751), new TimeSpan(0, 0, 0, 0, 0))
                         });
                 });
 
@@ -1182,7 +1185,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("allowed_modules");
 
-                    b.Property<int?>("DurationInDays")
+                    b.Property<int>("DurationInDays")
                         .HasColumnType("integer")
                         .HasColumnName("duration_in_days");
 
@@ -1198,11 +1201,11 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_free");
 
-                    b.Property<int?>("LevelOrder")
+                    b.Property<int>("LevelOrder")
                         .HasColumnType("integer")
                         .HasColumnName("level_order");
 
-                    b.Property<int?>("MaxWorkspaces")
+                    b.Property<int>("MaxWorkspaces")
                         .HasColumnType("integer")
                         .HasColumnName("max_workspaces");
 
@@ -1212,7 +1215,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("name");
 
-                    b.Property<decimal?>("Price")
+                    b.Property<decimal>("Price")
                         .HasColumnType("numeric(18, 2)")
                         .HasColumnName("price");
 
@@ -1435,7 +1438,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Migrations
                             Id = new Guid("4c0aa1c2-bece-4999-a020-7cb8dc638cef"),
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Email = "greendragon.trading.team@gmail.com",
-                            HashedPassword = "$2a$11$K.NxmnGS90PI9uJvigRP8.pfEPUr2PccWoLU3wCYs7mAK0b9rbUbS",
+                            HashedPassword = "$2a$11$I6BZR7WqSPJbV1hheYqubOOunFHu5rvJs9Zcx4.nfexeMdJo4KD/a",
                             IsEmailVerified = true,
                             PhoneNumber = "0988671875",
                             Role = (short)3,
