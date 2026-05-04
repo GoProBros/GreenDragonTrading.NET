@@ -6,8 +6,28 @@
         ISectorRepository Sectors { get; }
         IUserRepository Users { get; }
         IUserSubscriptionRepository UserSubscriptions { get; }
+        ISubscriptionRepository Subscriptions { get; }
+        ITransactionRepository Transactions { get; }
         IWorkspaceRepository Workspaces { get; }
         IModuleLayoutRepository ModuleLayouts { get; }
+        IWatchListRepository WatchLists { get; }
+        IPortfolioRepository Portfolios { get; }
+        ITradingTransactionRepository TradingTransactions { get; }
+        IFinancialReportRepository FinancialReports { get; }
+        IAnalysisReportRepository AnalysisReports { get; }
+        IAnalysisReportSourceRepository AnalysisReportSources { get; }
+        IAnalysisReportCategoryRepository AnalysisReportCategories { get; }
+        IMarketIndexRepository MarketIndices { get; }
+        IMarketIndexSymbolRepository MarketIndexSymbols { get; }
+        IChatSessionRepository ChatSessions { get; }
+        IChatMessageRepository ChatMessages { get; }
+        IChatParticipantRepository ChatParticipants { get; }
+        IAlertRepository Alerts { get; }
+        IAlertTemplateRepository AlertTemplates { get; }
+        INewsArticleRepository NewsArticles { get; }
+        IMacroeconomicDataRepository MacroeconomicData { get; }
+        IUserPushTokenRepository UserPushTokens { get; }
+        ICorporateActionRepository CorporateActions { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);

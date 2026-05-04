@@ -22,6 +22,15 @@
         public int PageIndex { get; set; }
         public int PageSize { get; set; }
         public bool? Ascending { get; set; }
-        public int? Resollution { get; set; }
+        public int? Resolution { get; set; }
+    }
+
+    public class DailyOhlcRequest
+    {
+        public string Symbol { get; set; } = null!;
+        public string Fromdate { get; set; } = null!;
+        public string Todate { get; set; } = null!;
+        public int PageIndex { get; set; } = 1;
+        public int PageSize { get; set; } = 1000;
     }
 }

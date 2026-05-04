@@ -1,84 +1,120 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
-using GreenDragonTrading.Domain.Exceptions;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspace
 {
-    public class GetMyWorkspaceQueryHandler : IRequestHandler<GetMyWorkspaceQuery, ApiResponse<List<WorkspaceDto>>>
+    /// <summary>
+    /// Handler for GetMyWorkspaceQuery
+    /// </summary>
+    public class GetMyWorkspaceQueryHandler : IRequestHandler<GetMyWorkspaceQuery, ApiResponse<MyWorkspacesDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<GetMyWorkspaceQueryHandler> _logger;
-        private readonly IJwtService _jwtService;
 
         public GetMyWorkspaceQueryHandler(
             IUnitOfWork uow,
-            IHttpContextAccessor httpContextAccessor,
-            IJwtService jwtService,
+            ICurrentUserService currentUserService,
             ILogger<GetMyWorkspaceQueryHandler> logger)
         {
             _uow = uow;
-            _httpContextAccessor = httpContextAccessor;
-            _jwtService = jwtService;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
-        public async Task<ApiResponse<List<WorkspaceDto>>> Handle(GetMyWorkspaceQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<MyWorkspacesDto>> Handle(GetMyWorkspaceQuery request, CancellationToken cancellationToken)
         {
-            try
+            var userId = _currentUserService.GetRequiredUserId();
+
+            var allowAllModules = _currentUserService.IsAdminOrStaff;
+            var allowedModules = new List<string>();
+            if (!allowAllModules)
             {
-                // Lấy access token từ Authorization header
-                var httpContext = _httpContextAccessor.HttpContext;
-                if (httpContext == null)
-                {
-                    throw new UnauthenticatedException("Không tìm thấy HTTP context.");
-                }
-
-                var authHeaderValue = httpContext.Request.Headers["Authorization"].ToString();
-                if (string.IsNullOrEmpty(authHeaderValue) || !authHeaderValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new UnauthenticatedException("Không tìm thấy Authorization header.");
-                }
-
-                var accessToken = authHeaderValue.Substring("Bearer ".Length).Trim();
-
-                // Sử dụng JwtService để lấy thông tin từ token
-                var tokenInfo = _jwtService.GetTokenInfo(accessToken);
-                if (tokenInfo == null)
-                {
-                    throw new UnauthenticatedException("Access token không hợp lệ.");
-                }
-
-                // Lấy thông tin user từ database
-                var user = await _uow.Users.GetByIdAsync(tokenInfo.UserId, cancellationToken);
-                if (user == null)
-                {
-                    throw new NotFoundException("Người dùng không tồn tại.");
-                }
-                var workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(user.Id, cancellationToken);
-                var result = workspaces.Select(w => new WorkspaceDto
-                {
-                    Id = w.Id,
-                    WorkspaceName = w.WorkspaceName,
-                    LayoutJson = w.LayoutJson,
-                    IsDefault = w.IsDefault,
-                    ShareCode = w.ShareCode
-                }).ToList();
-
-                _logger.LogInformation("User workspaces retrieved successfully: {UserId}", tokenInfo.UserId);
-                return ApiResponse<List<WorkspaceDto>>.Success(result, "Lấy thành công danh sách workspace của người dùng.");
+                var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+                allowedModules = WorkspaceLayoutLockingHelper.ParseAllowedModuleKeys(activeSubscription?.Subscription?.AllowedModules);
             }
 
-            catch (Exception ex)
+            _logger.LogInformation("Workspaces retrieved successfully for user: {UserId}", userId);
+
+            var webWorkspaces = await GetWorkspacesByTypeAsync(
+                userId,
+                WorkspaceType.Web,
+                allowedModules,
+                allowAllModules,
+                cancellationToken);
+
+            var mobileWorkspaces = await GetWorkspacesByTypeAsync(
+                userId,
+                WorkspaceType.Mobile,
+                allowedModules,
+                allowAllModules,
+                cancellationToken);
+
+            var result = new MyWorkspacesDto
             {
-                _logger.LogError(ex, "Error retrieving user workspaces.");
-                throw;
+                WebWorkspaces = webWorkspaces,
+                MobileWorkspaces = mobileWorkspaces
+            };
+
+            return ApiResponse<MyWorkspacesDto>.Success(result, "Lấy thành công danh sách workspace của người dùng.");
+        }
+
+        private async Task<List<WorkspaceDto>> GetWorkspacesByTypeAsync(
+            Guid userId,
+            WorkspaceType type,
+            IReadOnlyCollection<string> allowedModules,
+            bool allowAllModules,
+            CancellationToken cancellationToken)
+        {
+            List<Domain.Entities.Workspace> workspaces;
+
+            if (_currentUserService.IsAdminOrStaff)
+            {
+                var ownWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, type, cancellationToken);
+                var systemWorkspaces = await _uow.Workspaces.GetSystemWorkspacesAsync(type, cancellationToken);
+                workspaces = ownWorkspaces.Concat(systemWorkspaces).ToList();
             }
+            else
+            {
+                workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, type, cancellationToken);
+            }
+
+            return workspaces.Select(w => MapToDto(w, allowedModules, allowAllModules)).ToList();
+        }
+
+        private static WorkspaceDto MapToDto(
+            Domain.Entities.Workspace workspace,
+            IReadOnlyCollection<string> allowedModules,
+            bool allowAllModules)
+        {
+            JsonElement? layoutJson = null;
+            if (!string.IsNullOrEmpty(workspace.LayoutJson))
+            {
+                using var doc = JsonDocument.Parse(workspace.LayoutJson);
+                layoutJson = doc.RootElement.Clone();
+            }
+
+            layoutJson = WorkspaceLayoutLockingHelper.ApplyModuleLocks(
+                layoutJson,
+                allowedModules,
+                allowAllModules);
+
+            return new WorkspaceDto
+            {
+                Id = workspace.Id,
+                WorkspaceName = workspace.WorkspaceName,
+                LayoutJson = layoutJson,
+                Type = workspace.Type,
+                IsDefault = workspace.IsDefault,
+                ShareCode = workspace.ShareCode
+            };
         }
     }
 }

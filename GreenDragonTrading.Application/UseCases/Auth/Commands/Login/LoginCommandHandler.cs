@@ -43,9 +43,14 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                     throw new NotFoundException("Email không tồn tại.");
                 }
 
+                if (user.Status != CommonStatus.Active)
+                {
+                    throw new BusinessRuleException("Tài khoản đã bị khoá.");
+                }
+
                 if (!BCrypt.Net.BCrypt.Verify(request.Password, user.HashedPassword))
                 {
-                    throw new UnauthenticatedException("Mật khẩu không đúng");
+                    throw new UnauthenticatedException("Mật khẩu không chính xác.");
                 }
 
                 if (!user.IsEmailVerified)
@@ -82,7 +87,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                         PhoneNumber = user.PhoneNumber,
                         Role = user.Role.GetDisplayName(),
                         IsEmailVerified = user.IsEmailVerified,
-                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
+                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                        TelegramChatId = user.TelegramId,
+                        IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)
                     }
                 };
 

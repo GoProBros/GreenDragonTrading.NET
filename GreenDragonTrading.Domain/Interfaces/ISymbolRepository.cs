@@ -6,6 +6,7 @@ namespace GreenDragonTrading.Domain.Interfaces
     public interface ISymbolRepository : IPostgreSqlGenericRepository<Symbol>
     {
         Task<IEnumerable<string>> GetAllTickersAsync(CancellationToken cancellationToken = default);
+                
         Task<(IEnumerable<Symbol> Symbols, int TotalCount)> GetSymbolsAsync(
             int pageIndex,
             int pageSize,
@@ -19,6 +20,11 @@ namespace GreenDragonTrading.Domain.Interfaces
             bool isTickerOnly,
             int pageIndex,
             int pageSize,
+            CancellationToken cancellationToken = default);
+
+        Task<List<Symbol>> GetActiveSymbolsForHeatmapAsync(
+            string? exchange = null,
+            IList<string>? sectorIds = null,
             CancellationToken cancellationToken = default);
     }
 }

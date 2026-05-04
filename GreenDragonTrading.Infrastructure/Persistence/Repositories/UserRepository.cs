@@ -1,11 +1,6 @@
 ﻿using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
@@ -25,6 +20,33 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             return await _dbSet
                 .AsNoTracking()
                 .AnyAsync(u => u.Email == email, cancellationToken);
+        }
+
+        public async Task<bool> PhoneNumberExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            var normalizedPhoneNumber = phoneNumber.Trim();
+
+            return await _dbSet
+                .AsNoTracking()
+                .AnyAsync(u => u.PhoneNumber == normalizedPhoneNumber, cancellationToken);
+        }
+
+        public async Task<User?> FindByPhoneOrEmailAsync(string input, CancellationToken cancellationToken = default)
+        {
+            var trimmed = input.Trim();
+            return await _dbSet
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    u => u.Email.ToLower() == trimmed.ToLower() || u.PhoneNumber == trimmed,
+                    cancellationToken);
+        }
+
+        public async Task<List<User>> GetActiveUsersAsync(CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Where(u => u.Status == Domain.Enums.CommonStatus.Active)
+                .ToListAsync(cancellationToken);
         }
     }
 }

@@ -1,9 +1,17 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportFromDnse;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportIndexConstituentsFromSsi;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportNewsFromRss;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.RecalculateFinancialReportIndicators;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSectorsFromSsi;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportCorporateActions;
+using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSpecificPeriodFromDnse;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV1;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.ImportSymbolsFromSsiV2;
 using GreenDragonTrading.Application.UseCases.DataFetching.Commands.MapSymbolSector;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GreenDragonTrading.Api.Controllers
@@ -12,7 +20,7 @@ namespace GreenDragonTrading.Api.Controllers
     /// Fetches data from external APIs and imports into the system.
     /// </summary>
     /// <param name="mediator">Mediator service</param>
-    [Route("api/data-fetching")]
+    [Route("api/v1/data-fetching")]
     [ApiController]
     public class DataFetchingController(IMediator mediator) : ControllerBase
     {
@@ -24,7 +32,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of imported and updated sectors.</returns>
-        [HttpPost("v1/import-sectors-from-ssi")]
+        [HttpPost("import-sectors-from-ssi")]
         public async Task<ActionResult<ApiResponse<ImportSectorsFromSsiResult>>> ImportSectorsFromSsi(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new ImportSectorsFromSsiCommand(), cancellationToken);
@@ -37,7 +45,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of imported and updated symbols.</returns>
-        [HttpPost("v1/import-symbols-from-ssi")]
+        [HttpPost("import-symbols-from-ssi")]
         public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiV1Result>>> ImportSymbolsFromSsi(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new ImportSymbolsFromSsiCommandV1(), cancellationToken);
@@ -50,7 +58,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of imported and updated symbols.</returns>
-        [HttpPost("v2/import-symbols-from-ssi")]
+        [HttpPost("~/api/v2/data-fetching/import-symbols-from-ssi")]
         public async Task<ActionResult<ApiResponse<ImportSymbolsFromSsiV2Result>>> ImportSymbolsFromSsiV2(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new ImportSymbolsFromSsiCommandV2(), cancellationToken);
@@ -62,11 +70,146 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for the request.</param>
         /// <returns>An API response containing the count of mapped symbols.</returns>
-        [HttpPost("v1/map-symbols-sector-from-ssi")]
+        [HttpPost("map-symbols-sector-from-ssi")]
         public async Task<ActionResult<ApiResponse<MapSymbolSectorCommandResult>>> MapSymbolSectorFromSsi(CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new MapSymbolSectorCommand(), cancellationToken);
             return Ok(ApiResponse<MapSymbolSectorCommandResult>.Success(result, result.Message));
+        }
+
+        /// <summary>
+        /// Import bulk financial reports from DNSE API.
+        /// Imports data for all tickers in the database and multiple periods (5 or 10 cycles).
+        /// </summary>
+        /// <param name="request">Import request containing cycle type and cycle number.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Import result with success/failure statistics.</returns>
+        [HttpPost("financial-reports/bulk")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<DnseImportResult>>> ImportBulkFromDnse(
+            [FromBody] ImportBulkFromDnseCommand request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Import bulk financial reports from DNSE API without overwriting existing records.
+        /// Imports data for all tickers in the database and multiple periods (5 or 10 cycles).
+        /// </summary>
+        /// <param name="request">Import request containing cycle type and cycle number.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Import result with success/failure statistics.</returns>
+        [HttpPost("~/api/v2/data-fetching/financial-reports/bulk")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<DnseImportResult>>> ImportBulkFromDnseV2(
+            [FromBody] ImportBulkFromDnseCommandV2 request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Recalculates indicator_data for financial reports (useful for backfilling null indicator records).
+        /// Quarterly reports are calculated with QoQ comparison, yearly reports with YoY comparison.
+        /// </summary>
+        /// <param name="request">Recalculation filter and batch size options.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>Recalculation statistics.</returns>
+        [HttpPost("financial-reports/recalculate-indicators")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<RecalculateFinancialReportIndicatorsResult>>> RecalculateFinancialReportIndicators(
+            [FromBody] RecalculateFinancialReportIndicatorsCommand request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get financial report for a specific period from DNSE API but not import to database.
+        /// </summary>
+        /// <param name="request">Import request containing ticker, year, and optional quarter.</param>
+        /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+        /// <returns>The imported financial report.</returns>
+        [HttpPost("financial-reports/specific")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<FinancialReportDto>>> ImportSpecificPeriodFromDnse(
+            [FromBody] ImportSpecificPeriodFromDnseCommand request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(request, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+        /// <summary>
+        /// Fetches constituent symbols for all active market indices from SSI API
+        /// and syncs them into the <c>market_index_symbols</c> table.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>An API response with the number of indices processed and records upserted.</returns>
+        [HttpPost("import-index-constituents-from-ssi")]
+        public async Task<ActionResult<ApiResponse<ImportIndexConstituentsFromSsiResult>>> ImportIndexConstituentsFromSsi(CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new ImportIndexConstituentsFromSsiCommand(), cancellationToken);
+            return Ok(ApiResponse<ImportIndexConstituentsFromSsiResult>.Success(result, result.Message));
+        }
+
+        /// <summary>
+        /// Fetches stock market news from configured RSS source and saves new articles into news_articles table.
+        /// Duplicate links are ignored.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>Import result with fetched/inserted/duplicated counts.</returns>
+        [HttpPost("import-news-from-rss")]
+        public async Task<ActionResult<ApiResponse<ImportNewsFromRssResult>>> ImportNewsFromRss(CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new ImportNewsFromRssCommand(), cancellationToken);
+            return Ok(ApiResponse<ImportNewsFromRssResult>.Success(result, result.Message));
+        }
+
+        /// <summary>
+        /// Imports corporate action history for all symbols from DNSE API.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token for the request.</param>
+        /// <returns>Import result with fetched/inserted/updated counts.</returns>
+        [HttpPost("corporate-actions/history")]
+        public async Task<ActionResult<ApiResponse<ImportCorporateActionsResult>>> ImportCorporateActionsHistory(
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _mediator.Send(new ImportCorporateActionsHistoryCommand(), cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
         }
     }
 }

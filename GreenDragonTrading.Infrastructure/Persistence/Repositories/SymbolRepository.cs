@@ -2,6 +2,8 @@
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
@@ -38,7 +40,16 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 
             if (!string.IsNullOrWhiteSpace(sector))
             {
-                query = query.Where(s => s.SectorId == sector);
+                var level4SectorIds = await GetLevel4SectorIdsForFilterAsync(sector, cancellationToken);
+
+                if (level4SectorIds.Count == 0)
+                {
+                    query = query.Where(_ => false);
+                }
+                else
+                {
+                    query = query.Where(s => s.SectorId != null && level4SectorIds.Contains(s.SectorId));
+                }
             }
 
             // Get total count before pagination
@@ -54,6 +65,65 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             return (symbols, totalCount);
         }
 
+        /// <summary>
+        /// Resolves a sector filter to level-4 sector IDs because symbols are linked to leaf sectors.
+        /// </summary>
+        private async Task<List<string>> GetLevel4SectorIdsForFilterAsync(
+            string sectorId,
+            CancellationToken cancellationToken)
+        {
+            var currentSector = await _context.Sectors
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    s => s.Id == sectorId && s.Status == CommonStatus.Active,
+                    cancellationToken);
+
+            if (currentSector == null)
+            {
+                return [];
+            }
+
+            if (currentSector.Level == 4)
+            {
+                return [currentSector.Id];
+            }
+
+            var allActiveSectors = await _context.Sectors
+                .AsNoTracking()
+                .Where(s => s.Status == CommonStatus.Active)
+                .ToListAsync(cancellationToken);
+
+            return GetAllLevel4Children(currentSector.Id, allActiveSectors)
+                .Distinct()
+                .ToList();
+        }
+
+        /// <summary>
+        /// Recursively collects level-4 descendants for a parent sector.
+        /// </summary>
+        private static List<string> GetAllLevel4Children(string parentId, List<Sector> allSectors)
+        {
+            var result = new List<string>();
+
+            var children = allSectors
+                .Where(s => s.ParentId == parentId)
+                .ToList();
+
+            foreach (var child in children)
+            {
+                if (child.Level == 4)
+                {
+                    result.Add(child.Id);
+                }
+                else
+                {
+                    result.AddRange(GetAllLevel4Children(child.Id, allSectors));
+                }
+            }
+
+            return result;
+        }
+
         public async Task<(IEnumerable<Symbol> Symbols, int TotalCount)> SearchSymbolsAsync(
             string query,
             bool isTickerOnly,
@@ -61,23 +131,132 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
             int pageSize,
             CancellationToken cancellationToken = default)
         {
-            var queryable = _dbSet
+            var trimmedQuery = query?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(trimmedQuery))
+            {
+                var allQuery = _dbSet.AsNoTracking();
+                var totalAll = await allQuery.CountAsync(cancellationToken);
+                var allSymbols = await allQuery
+                    .OrderBy(s => s.Ticker)
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(cancellationToken);
+
+                return (allSymbols, totalAll);
+            }
+
+            if (isTickerOnly)
+            {
+                var tickerQueryable = _dbSet
+                    .AsNoTracking()
+                    .Where(s => EF.Functions.ILike(s.Ticker, $"%{trimmedQuery}%"));
+
+                var tickerTotalCount = await tickerQueryable.CountAsync(cancellationToken);
+                var tickerSymbols = await tickerQueryable
+                    .OrderBy(s => s.Ticker)
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(cancellationToken);
+
+                return (tickerSymbols, tickerTotalCount);
+            }
+
+            var normalizedQuery = NormalizeSearchText(trimmedQuery);
+
+            // Symbol count is typically small enough for in-memory normalized matching.
+            var allSymbolsForSearch = await _dbSet
                 .AsNoTracking()
-                .Where(s => EF.Functions.ILike(s.Ticker, $"%{query}%") ||
-                            (!isTickerOnly && EF.Functions.ILike(s.ViCompanyName!, $"%{query}%")) ||
-                            (!isTickerOnly && EF.Functions.ILike(s.EnCompanyName!, $"%{query}%")));
+                .ToListAsync(cancellationToken);
 
-            // Get total count before pagination
-            var totalCount = await queryable.CountAsync(cancellationToken);
+            var matchedSymbols = allSymbolsForSearch
+                .Where(s =>
+                    ContainsNormalized(s.Ticker, normalizedQuery) ||
+                    ContainsNormalized(s.ViCompanyName, normalizedQuery) ||
+                    ContainsNormalized(s.EnCompanyName, normalizedQuery));
 
-            // Apply pagination
-            var symbols = await queryable
+            var totalCount = matchedSymbols.Count();
+            var symbols = matchedSymbols
                 .OrderBy(s => s.Ticker)
                 .Skip((pageIndex - 1) * pageSize)
                 .Take(pageSize)
-                .ToListAsync(cancellationToken);
+                .ToList();
 
             return (symbols, totalCount);
+        }
+
+        private static bool ContainsNormalized(string? source, string normalizedQuery)
+        {
+            if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(normalizedQuery))
+            {
+                return false;
+            }
+
+            var normalizedSource = NormalizeSearchText(source);
+            return normalizedSource.Contains(normalizedQuery, StringComparison.Ordinal);
+        }
+
+        private static string NormalizeSearchText(string text)
+        {
+            var normalized = text.Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(normalized.Length);
+            var previousWasSpace = false;
+
+            foreach (var ch in normalized)
+            {
+                var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+                if (category == UnicodeCategory.NonSpacingMark)
+                {
+                    continue;
+                }
+
+                if (char.IsLetterOrDigit(ch))
+                {
+                    var lowered = char.ToLowerInvariant(ch);
+                    builder.Append(lowered == 'đ' ? 'd' : lowered);
+                    previousWasSpace = false;
+                    continue;
+                }
+
+                if (!previousWasSpace)
+                {
+                    builder.Append(' ');
+                    previousWasSpace = true;
+                }
+            }
+
+            return builder.ToString().Trim();
+        }
+
+        public async Task<List<Symbol>> GetActiveSymbolsForHeatmapAsync(
+            string? exchange = null,
+            IList<string>? sectorIds = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _dbSet
+                .AsNoTracking()
+                .Where(s => s.Status == CommonStatus.Active);
+
+            // Apply exchange filter
+            if (!string.IsNullOrWhiteSpace(exchange))
+            {
+                query = query.Where(s => s.ExchangeCode == exchange);
+            }
+
+            // Apply sector filter — sectorIds are always level-4 IDs (already expanded by caller)
+            if (sectorIds != null && sectorIds.Count > 0)
+            {
+                query = query.Where(s => s.SectorId != null && sectorIds.Contains(s.SectorId));
+            }
+
+            // Include navigation properties after filtering
+            query = query
+                .Include(s => s.Exchange)
+                .Include(s => s.Sector);
+
+            // Order by ticker for consistent display
+            return await query
+                .OrderBy(s => s.Ticker)
+                .ToListAsync(cancellationToken);
         }
     }
 }

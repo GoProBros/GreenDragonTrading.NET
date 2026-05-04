@@ -18,6 +18,9 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("isin", TypeName = "varchar(25)")]
         public string? Isin { get; set; }
 
+        [Column("listed_share", TypeName = "bigint")]
+        public long? ListedShare { get; set; }
+
         [Column("en_company_name", TypeName = "varchar(255)")]
         [MaxLength(255)]
         public string? EnCompanyName { get; set; } = null!;
@@ -33,6 +36,13 @@ namespace GreenDragonTrading.Domain.Entities
 
         [Column("sector_id", TypeName = "varchar(10)")]
         public string? SectorId { get; set; } 
+
+        /// <summary>
+        /// Company logo file path
+        /// </summary>
+        [Column("logo_path", TypeName = "varchar(500)")]
+        [MaxLength(500)]
+        public string? LogoPath { get; set; }
 
         /// <summary>
         /// Phân loại: Cổ phiếu / ETF / Trái phiếu,...

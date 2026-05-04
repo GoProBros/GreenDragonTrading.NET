@@ -3,79 +3,93 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorkspace
 {
+    /// <summary>
+    /// Handler for CreateWorkspaceCommand
+    /// </summary>
     public class CreateWorkspaceCommandHandler : IRequestHandler<CreateWorkspaceCommand, ApiResponse<WorkspaceDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IJwtService _jwtService;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<CreateWorkspaceCommandHandler> _logger;
 
         public CreateWorkspaceCommandHandler(
             IUnitOfWork uow,
-            IHttpContextAccessor httpContextAccessor,
-            IJwtService jwtService,
+            ICurrentUserService currentUserService,
             ILogger<CreateWorkspaceCommandHandler> logger)
         {
             _uow = uow;
-            _httpContextAccessor = httpContextAccessor;
-            _jwtService = jwtService;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
         public async Task<ApiResponse<WorkspaceDto>> Handle(CreateWorkspaceCommand request, CancellationToken cancellationToken)
         {
-            try
+            var userId = _currentUserService.GetRequiredUserId();
+
+            if (!_currentUserService.IsAdminOrStaff)
             {
-                var httpContext = _httpContextAccessor.HttpContext;
-                var authHeader = httpContext?.Request.Headers["Authorization"].ToString();
-                
-                Guid? userId = null;
-                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+                var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+                if (activeSubscription != null)
                 {
-                    var token = authHeader.Substring("Bearer ".Length).Trim();
-                    var tokenInfo = _jwtService.GetTokenInfo(token);
-                    userId = tokenInfo?.UserId;
+                    var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(
+                        userId,
+                        request.Type,
+                        cancellationToken);
+
+                    if (existingWorkspaces.Count >= activeSubscription.Subscription.MaxWorkspaces)
+                    {
+                        throw new Domain.Exceptions.BusinessRuleException(
+                            $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace cho loại {request.Type}.");
+                    }
                 }
-
-                var shareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
-
-                var workspace = new Domain.Entities.Workspace
-                {
-                    UserId = userId,
-                    WorkspaceName = request.WorkspaceName,
-                    LayoutJson = request.LayoutJson,
-                    IsDefault = request.IsDefault,
-                    ShareCode = shareCode,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    UpdatedAt = DateTimeOffset.UtcNow
-                };
-
-                await _uow.Workspaces.AddAsync(workspace, cancellationToken);
-                await _uow.SaveChangesAsync(cancellationToken);
-
-                var workspaceDto = new WorkspaceDto
-                {
-                    Id = workspace.Id,
-                    WorkspaceName = workspace.WorkspaceName,
-                    LayoutJson = workspace.LayoutJson,
-                    IsDefault = workspace.IsDefault,
-                    ShareCode = workspace.ShareCode
-                };
-
-                _logger.LogInformation("Workspace created successfully: {WorkspaceId} for user: {UserId}", workspace.Id, userId);
-                return ApiResponse<WorkspaceDto>.Success(workspaceDto, "Tạo workspace thành công.");
             }
-            catch (Exception ex)
+
+            var shareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
+
+            // Use layout from the system default workspace, ignoring request layout
+            var systemDefault = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(request.Type, cancellationToken);
+            var layoutJsonString = systemDefault?.LayoutJson ?? "{}";
+
+            var workspace = new Domain.Entities.Workspace
             {
-                _logger.LogError(ex, "Error creating workspace");
-                throw;
+                UserId = userId,
+                WorkspaceName = request.WorkspaceName,
+                LayoutJson = layoutJsonString,
+                Type = request.Type,
+                IsDefault = request.IsDefault,
+                ShareCode = shareCode,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+
+            await _uow.Workspaces.AddAsync(workspace, cancellationToken);
+            await _uow.SaveChangesAsync(cancellationToken);
+
+            JsonElement? layoutJsonElement = null;
+            if (!string.IsNullOrEmpty(workspace.LayoutJson))
+            {
+                using var doc = JsonDocument.Parse(workspace.LayoutJson);
+                layoutJsonElement = doc.RootElement.Clone();
             }
+
+            var workspaceDto = new WorkspaceDto
+            {
+                Id = workspace.Id,
+                WorkspaceName = workspace.WorkspaceName,
+                LayoutJson = layoutJsonElement,
+                Type = workspace.Type,
+                IsDefault = workspace.IsDefault,
+                ShareCode = workspace.ShareCode
+            };
+
+            _logger.LogInformation("Workspace created successfully: {WorkspaceId} for user: {UserId}", workspace.Id, userId);
+            return ApiResponse<WorkspaceDto>.Success(workspaceDto, "Tạo workspace thành công.");
         }
 
         private async Task<string> GenerateUniqueShareCodeAsync(CancellationToken cancellationToken)

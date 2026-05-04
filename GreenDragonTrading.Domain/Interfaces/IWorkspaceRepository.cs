@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 
 namespace GreenDragonTrading.Domain.Interfaces
 {
@@ -7,7 +8,10 @@ namespace GreenDragonTrading.Domain.Interfaces
         /// <summary>
         /// Get workspaces by user ID
         /// </summary>
-        Task<List<Workspace>> GetWorkspaceByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<List<Workspace>> GetWorkspaceByUserIdAsync(
+            Guid userId,
+            WorkspaceType? type = null,
+            CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Get workspace by share code
@@ -18,5 +22,19 @@ namespace GreenDragonTrading.Domain.Interfaces
         /// Check if share code exists
         /// </summary>
         Task<bool> ShareCodeExistsAsync(string shareCode, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get the system default workspace (UserId is null and IsDefault is true)
+        /// </summary>
+        Task<Workspace?> GetSystemDefaultWorkspaceAsync(
+            WorkspaceType? type = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get all system workspaces (UserId is null)
+        /// </summary>
+        Task<List<Workspace>> GetSystemWorkspacesAsync(
+            WorkspaceType? type = null,
+            CancellationToken cancellationToken = default);
     }
 }

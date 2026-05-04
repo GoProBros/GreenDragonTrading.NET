@@ -1,4 +1,5 @@
 using FluentValidation;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorkspace
 {
@@ -11,21 +12,15 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
                 .MaximumLength(100).WithMessage("Tên workspace không được vượt quá 100 ký tự");
 
             RuleFor(x => x.LayoutJson)
-                .NotEmpty().WithMessage("Layout JSON không được để trống")
-                .Must(BeValidJson).WithMessage("Layout JSON không hợp lệ");
+                .Must(BeValidJson).WithMessage("Layout JSON không được là undefined");
+
+            RuleFor(x => x.Type)
+                .IsInEnum().WithMessage("Loại workspace không hợp lệ.");
         }
 
-        private static bool BeValidJson(string json)
+        private static bool BeValidJson(JsonElement json)
         {
-            try
-            {
-                System.Text.Json.JsonDocument.Parse(json);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            return json.ValueKind != JsonValueKind.Undefined;
         }
     }
 }

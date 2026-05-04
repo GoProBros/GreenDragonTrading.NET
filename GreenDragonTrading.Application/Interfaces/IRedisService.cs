@@ -26,6 +26,14 @@
         Task<T?> GetHashAsync<T>(string key);
 
         /// <summary>
+        /// Fix #2: Gets multiple hash values from Redis using pipeline for better performance.
+        /// Reduces network round-trips from N separate calls to 1 batch call.
+        /// </summary>
+        /// <param name="keys">List of Redis keys to fetch</param>
+        /// <returns>Dictionary mapping keys to values (null if key doesn't exist)</returns>
+        Task<Dictionary<string, T?>> GetHashBatchAsync<T>(IEnumerable<string> keys);
+
+        /// <summary>
         /// Sets a field in a Redis hash.
         /// </summary>
         Task SetHashFieldAsync<T>(string key, string fieldName, T value);
@@ -49,5 +57,52 @@
         /// Check if a key exists in Redis.
         /// </summary>
         Task<bool> ExistsAsync(string key);
+
+        /// <summary>
+        /// Delete all keys matching a pattern (e.g., "OHLCV:FPT:*")
+        /// </summary>
+        Task<long> DeleteByPatternAsync(string pattern);
+
+        /// <summary>
+        /// Get all keys matching a pattern (e.g., "HEATMAP:*")
+        /// </summary>
+        Task<string[]> GetKeysAsync(string pattern);
+
+        /// <summary>
+        /// Prepend a value to a Redis list and trim to maxLength.
+        /// Use for maintaining fixed-size recent-items lists.
+        /// </summary>
+        Task ListPushTrimAsync<T>(string key, T value, int maxLength);
+
+        /// <summary>
+        /// Get the first <paramref name="count"/> items from a Redis list.
+        /// </summary>
+        Task<List<T>> ListRangeAsync<T>(string key, int count);
+
+        /// <summary>
+        /// Append one item to the end of a Redis list.
+        /// </summary>
+        Task<long> ListRightPushAsync<T>(string key, T value);
+
+        /// <summary>
+        /// Pop one item from the head of a Redis list.
+        /// Returns null when the list is empty.
+        /// </summary>
+        Task<T?> ListLeftPopAsync<T>(string key);
+
+        /// <summary>
+        /// Add or update one member in a Redis sorted set.
+        /// </summary>
+        Task<bool> SortedSetAddAsync(string key, string member, double score);
+
+        /// <summary>
+        /// Remove one member from a Redis sorted set.
+        /// </summary>
+        Task<bool> SortedSetRemoveAsync(string key, string member);
+
+        /// <summary>
+        /// Get sorted-set members by score range, equivalent to ZRANGEBYSCORE.
+        /// </summary>
+        Task<List<string>> SortedSetRangeByScoreAsync(string key, double start, double stop);
     }
 }

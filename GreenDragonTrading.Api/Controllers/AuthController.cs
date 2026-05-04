@@ -1,13 +1,17 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.ForgotPassword;
+using GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Login;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Logout;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.Register;
+using GreenDragonTrading.Application.UseCases.Auth.Commands.ResendVerificationEmail;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.ResetPassword;
 using GreenDragonTrading.Application.UseCases.Auth.Commands.VerifyEmail;
 using GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe;
+using GreenDragonTrading.Application.UseCases.Users.Commands.UpdateMyProfile;
+using GreenDragonTrading.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,8 +42,18 @@ namespace GreenDragonTrading.Api.Controllers
         /// <summary>
         /// Verify email with verification token
         /// </summary>
-        [HttpGet("verify-email")]
+        [HttpPost("verify-email")]
         public async Task<ActionResult<ApiResponse>> VerifyEmail([FromQuery] VerifyEmailCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Resend email verification link
+        /// </summary>
+        [HttpPost("resend-verification-email")]
+        public async Task<ActionResult<ApiResponse>> ResendVerificationEmail([FromBody] ResendVerificationEmailCommand command, CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
             return result;
@@ -87,6 +101,18 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
+        /// Update current user's profile.
+        /// Only User role can update own full name, phone number, and avatar.
+        /// </summary>
+        [HttpPut("me/profile")]
+        [Authorize(Roles = nameof(UserRole.User))]
+        public async Task<ActionResult<ApiResponse>> UpdateMyProfile([FromBody] UpdateMyProfileCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
         /// Request password reset (send OTP to email 15p)
         /// </summary>
         [HttpPost("forgot-password")]
@@ -101,6 +127,16 @@ namespace GreenDragonTrading.Api.Controllers
         /// </summary>
         [HttpPost("reset-password")]
         public async Task<ActionResult<ApiResponse>> ResetPassword([FromBody] ResetPasswordCommand command, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Login or register with Google ID token
+        /// </summary>
+        [HttpPost("google")]
+        public async Task<ActionResult<ApiResponse<AuthResponse>>> GoogleLogin([FromBody] GoogleLoginCommand command, CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(command, cancellationToken);
             return result;

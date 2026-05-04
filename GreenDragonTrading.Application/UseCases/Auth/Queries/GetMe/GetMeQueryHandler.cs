@@ -5,81 +5,94 @@ using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
 {
+    /// <summary>
+    /// Handler for GetMeQuery
+    /// </summary>
     public class GetMeQueryHandler : IRequestHandler<GetMeQuery, ApiResponse<UserDto>>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IJwtService _jwtService;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<GetMeQueryHandler> _logger;
 
         public GetMeQueryHandler(
             IUnitOfWork uow,
-            IJwtService jwtService,
-            IHttpContextAccessor httpContextAccessor,
+            ICurrentUserService currentUserService,
             ILogger<GetMeQueryHandler> logger)
         {
             _uow = uow;
-            _jwtService = jwtService;
-            _httpContextAccessor = httpContextAccessor;
+            _currentUserService = currentUserService;
             _logger = logger;
         }
 
         public async Task<ApiResponse<UserDto>> Handle(GetMeQuery request, CancellationToken cancellationToken)
         {
+            var userId = _currentUserService.GetRequiredUserId();
+
+            var user = await _uow.Users.GetByIdAsync(userId, cancellationToken);
+            if (user == null)
+            {
+                throw new NotFoundException("Người dùng không tồn tại.");
+            }
+
+            var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+            var effectiveSubscription = subscriptionLevel?.Subscription;
+
+            if (user.Role is UserRole.Admin or UserRole.Staff)
+            {
+                effectiveSubscription = await _uow.Subscriptions.GetHighestActiveAsync(cancellationToken)
+                    ?? effectiveSubscription;
+            }
+
+            var userDto = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FullName = user.Username,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role.GetDisplayName(),
+                IsEmailVerified = user.IsEmailVerified,
+                SubscriptionLevel = effectiveSubscription?.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                AllowedModules = ParseAllowedModuleNames(effectiveSubscription?.AllowedModules),
+                TelegramChatId = user.TelegramId,
+                IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)
+            };
+
+            _logger.LogInformation("Successfully retrieved user information: {UserId}", userId);
+            return ApiResponse<UserDto>.Success(userDto, "Lấy thông tin người dùng thành công.");
+        }
+
+        private static List<string> ParseAllowedModuleNames(string? allowedModulesJson)
+        {
+            if (string.IsNullOrWhiteSpace(allowedModulesJson))
+            {
+                return [];
+            }
+
             try
             {
-                // Lấy access token từ Authorization header
-                var httpContext = _httpContextAccessor.HttpContext;
-                if (httpContext == null)
+                using var document = JsonDocument.Parse(allowedModulesJson);
+                if (document.RootElement.ValueKind != JsonValueKind.Array)
                 {
-                    throw new UnauthenticatedException("Không tìm thấy HTTP context.");
+                    return [];
                 }
 
-                var authHeaderValue = httpContext.Request.Headers["Authorization"].ToString();
-                if (string.IsNullOrEmpty(authHeaderValue) || !authHeaderValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new UnauthenticatedException("Không tìm thấy Authorization header.");
-                }
-
-                var accessToken = authHeaderValue.Substring("Bearer ".Length).Trim();
-
-                // Sử dụng JwtService để lấy thông tin từ token
-                var tokenInfo = _jwtService.GetTokenInfo(accessToken);
-                if (tokenInfo == null)
-                {
-                    throw new UnauthenticatedException("Access token không hợp lệ.");
-                }
-
-                // Lấy thông tin user từ database
-                var user = await _uow.Users.GetByIdAsync(tokenInfo.UserId, cancellationToken);
-                if (user == null)
-                {
-                    throw new NotFoundException("Người dùng không tồn tại.");
-                }
-                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
-                var userDto = new UserDto
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    FullName = user.Username,
-                    PhoneNumber = user.PhoneNumber,
-                    Role = user.Role.GetDisplayName(),
-                    IsEmailVerified = user.IsEmailVerified,
-                    SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
-                };
-
-                _logger.LogInformation("Successfully retrieved user information: {UserId}", tokenInfo.UserId);
-                return ApiResponse<UserDto>.Success(userDto, "Lấy thông tin người dùng thành công.");
+                return document.RootElement
+                    .EnumerateArray()
+                    .Where(x => x.ValueKind == JsonValueKind.String)
+                    .Select(x => x.GetString())
+                    .OfType<string>()
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.LogError(ex, "Error retrieving user information.");
-                throw;
+                return [];
             }
         }
     }

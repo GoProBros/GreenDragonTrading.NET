@@ -43,8 +43,8 @@ public class ModuleLayoutRepository : PostgreSqlGenericRepository<ModuleLayout>,
 
     /// <inheritdoc/>
     public async Task<ModuleLayout?> GetByIdAndUserIdAsync(
-        long id, 
-        Guid userId, 
+        long id,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet

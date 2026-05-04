@@ -22,10 +22,9 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("email", TypeName = "varchar(255)")]
         public string Email { get; set; } = string.Empty;
 
-        [Required]
         [MaxLength(20)]
         [Column("phone_number", TypeName = "varchar(20)")]
-        public string PhoneNumber { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
 
         [Required]
         [MaxLength(255)]
@@ -52,8 +51,16 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("is_email_verified", TypeName = "boolean")]
         public bool IsEmailVerified { get; set; } = false;
 
+        [Column("telegram_id", TypeName = "varchar(255)")]
+        public string? TelegramId { get; set; }
+
+        [Column("investment_capital", TypeName = "numeric(18, 2)")]
+        public decimal? InvestmentCapital { get; set; }
+
         // Navigation Properties
         public ICollection<Workspace> Workspaces { get; set; } = new List<Workspace>();
         public ICollection<UserSubscription> UserSubscriptions { get; set; } = new List<UserSubscription>();
+        public virtual ICollection<Portfolio> Portfolios { get; set; } = new List<Portfolio>();
+
     }
 }

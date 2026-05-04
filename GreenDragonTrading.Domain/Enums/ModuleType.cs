@@ -10,5 +10,11 @@ namespace GreenDragonTrading.Domain.Enums
         [Display(Name = "Stock Chart")]
         Chart = 2,
 
+        [Display(Name = "BCTC Pro")]
+        BctcPro = 3,
+
+        [Display(Name = "Heatmap")]
+        Heatmap = 4
+
     }
 }

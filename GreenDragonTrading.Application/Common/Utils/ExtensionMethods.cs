@@ -15,6 +15,8 @@ namespace GreenDragonTrading.Application.Common.Utils
                              select p.Name + "=" + Uri.EscapeDataString(
                                  value is DateTime date
                                  ? date.ToString("yyyy-MM-ddTHH:mm:ss")
+                                 : value is bool b
+                                 ? b.ToString().ToLowerInvariant()  // true/false not True/False
                                  : value.ToString()!
                              );
             return $"?{String.Join("&", properties.ToArray())}";

@@ -13,6 +13,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
             UserSeeder.Seed(modelBuilder);
             ModuleLayoutSeeder.Seed(modelBuilder);
             WorkspaceSeeder.Seed(modelBuilder);
+            AnalysisReportCategorySeeder.Seed(modelBuilder);
+            MarketIndexSeeder.Seed(modelBuilder);
         }
     }
 }

@@ -1,8 +1,29 @@
 ﻿using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace GreenDragonTrading.Application.DTOs
 {
+    /// <summary>
+    /// Converts a JSON value that may be either a string or a number into a string.
+    /// SSI API inconsistently returns the 'status' field as an integer in some responses.
+    /// </summary>
+    public class StringOrNumberConverter : JsonConverter<string?>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            return reader.TokenType switch
+            {
+                JsonTokenType.Number => reader.TryGetInt64(out var n) ? n.ToString() : reader.GetDouble().ToString(),
+                JsonTokenType.String => reader.GetString(),
+                JsonTokenType.Null => null,
+                _ => reader.GetString()
+            };
+        }
+
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+            => writer.WriteStringValue(value);
+    }
     public class SingleResponse<T>
     {
         [JsonPropertyName("message")]
@@ -28,6 +49,7 @@ namespace GreenDragonTrading.Application.DTOs
         public string? Message { get; set; } = "Undefine";
 
         [DataMember(Order = 3, Name = "status")]
+        [JsonConverter(typeof(StringOrNumberConverter))]
         public string? Status { get; set; } = "Undefine";
 
         [DataMember(Order = 4, Name = "totalRecord")]
@@ -141,4 +163,34 @@ namespace GreenDragonTrading.Application.DTOs
         public string? Volume { get; set; }
     }
     #endregion IntradayOhlcResponse
+
+    #region DailyOhlcResponse
+    public class DailyOhlcResponse : ResponseBase<DailyOhlcResponseModel>
+    {
+    }
+
+    public class DailyOhlcResponseModel
+    {
+        [JsonPropertyName("Symbol")]
+        public string? Symbol { get; set; }
+        [JsonPropertyName("Market")]
+        public string? Market { get; set; }
+        [JsonPropertyName("TradingDate")]
+        public string? TradingDate { get; set; }
+        [JsonPropertyName("Time")]
+        public string? Time { get; set; }
+        [JsonPropertyName("Open")]
+        public string? Open { get; set; }
+        [JsonPropertyName("High")]
+        public string? High { get; set; }
+        [JsonPropertyName("Low")]
+        public string? Low { get; set; }
+        [JsonPropertyName("Close")]
+        public string? Close { get; set; }
+        [JsonPropertyName("Volume")]
+        public string? Volume { get; set; }
+        [JsonPropertyName("Value")]
+        public string? Value { get; set; }
+    }
+    #endregion DailyOhlcResponse
 }

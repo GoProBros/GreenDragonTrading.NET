@@ -4,14 +4,11 @@ namespace GreenDragonTrading.Domain.Interfaces
 {
     public interface IUserSubscriptionRepository : IPostgreSqlGenericRepository<UserSubscription>
     {
-        /// <summary>
-        /// Get active subscription for a user
-        /// </summary>
         Task<UserSubscription?> GetActiveSubscriptionAsync(Guid userId, CancellationToken cancellationToken = default);
-        
-        /// <summary>
-        /// Check if user has active subscription
-        /// </summary>
         Task<bool> HasActiveSubscriptionAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<UserSubscription?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<List<UserSubscription>> GetAllActiveByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<DateTimeOffset?> GetMaxEndDateBySubscriptionIdAsync(Guid userId, int subscriptionId, CancellationToken cancellationToken = default);
+        Task MarkAllActiveAsUpgradedAsync(Guid userId, CancellationToken cancellationToken = default);
     }
 }

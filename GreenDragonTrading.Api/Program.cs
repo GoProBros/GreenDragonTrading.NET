@@ -1,8 +1,14 @@
+using DotNetEnv;
+using GreenDragonTrading.Api.Configuration;
 using GreenDragonTrading.Api.Middlewares;
 using GreenDragonTrading.Application;
 using GreenDragonTrading.Infrastructure;
 using GreenDragonTrading.Infrastructure.Hubs;
+using Org.BouncyCastle.Asn1.Ocsp;
 using Serilog;
+
+// Load environment variables from .env file
+Env.Load();
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -13,6 +19,9 @@ try
     Log.Information("Starting GreenDragonTrading .Net API");
 
     var builder = WebApplication.CreateBuilder(args);
+
+    // Add environment variables from .env file to configuration
+    EnvironmentConfiguration.AddEnvironmentVariables(builder.Configuration);
 
     // Configure Serilog
     builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -45,10 +54,32 @@ try
     // Add SignalR
     builder.Services.AddSignalR();
 
+    // Configure file upload size limits (50MB)
+    builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+    {
+        options.MultipartBodyLengthLimit = 52428800; // 50MB
+    });
+
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
+        // Build metadata
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var assemblyVersion = assembly.GetName().Version?.ToString() ?? "1.0.0";
+        var buildTime = File.GetLastWriteTimeUtc(assembly.Location);
+        var utcPlus7 = TimeZoneInfo.FindSystemTimeZoneById(
+            OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Ho_Chi_Minh");
+        var buildTimeLocal = TimeZoneInfo.ConvertTimeFromUtc(buildTime, utcPlus7);
+        var buildTimeStr = $"{buildTime:yyyy-MM-dd HH:mm:ss} UTC  /  {buildTimeLocal:yyyy-MM-dd HH:mm:ss} UTC+7";
+
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "GreenDragonTrading API",
+            Version = $"v{assemblyVersion}",
+            Description = $"Last build: **{buildTimeStr}**",
+        });
+
         // Include XML comments from API project
         var apiXmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
         var apiXmlPath = Path.Combine(AppContext.BaseDirectory, apiXmlFile);
@@ -112,7 +143,7 @@ try
 
     // Map SignalR Hub
     app.MapHub<MarketDataHub>("/hubs/marketdata");
-
+    app.MapHub<NotificationHub>("/hubs/notifications");
     await app.RunAsync();
 }
 catch (Exception ex)

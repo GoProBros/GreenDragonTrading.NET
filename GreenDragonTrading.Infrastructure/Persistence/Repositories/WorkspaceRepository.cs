@@ -1,11 +1,7 @@
 ﻿using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
 {
@@ -14,14 +10,21 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         public WorkspaceRepository(GdtPostgreSqlDbContext context) : base(context)
         {
         }
-        public async Task<List<Workspace>> GetWorkspaceByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+        public async Task<List<Workspace>> GetWorkspaceByUserIdAsync(
+            Guid userId,
+            WorkspaceType? type = null,
+            CancellationToken cancellationToken = default)
         {
-            return await _context.Set<Workspace>()
-                .Where(w =>
-                    w.UserId == userId ||         
-                    (w.UserId == null && w.IsDefault)
-                )
-                .OrderByDescending(w => w.UserId.HasValue)
+            var query = _context.Set<Workspace>()
+                .Where(w => w.UserId == userId);
+
+            if (type.HasValue)
+            {
+                query = query.Where(w => w.Type == type.Value);
+            }
+
+            return await query
+                .OrderByDescending(w => w.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
 
@@ -35,6 +38,38 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         {
             return await _context.Set<Workspace>()
                 .AnyAsync(w => w.ShareCode == shareCode, cancellationToken);
+        }
+
+        public async Task<Workspace?> GetSystemDefaultWorkspaceAsync(
+            WorkspaceType? type = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.Set<Workspace>()
+                .Where(w => w.UserId == null && w.IsDefault);
+
+            if (type.HasValue)
+            {
+                query = query.Where(w => w.Type == type.Value);
+            }
+
+            return await query.FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<List<Workspace>> GetSystemWorkspacesAsync(
+            WorkspaceType? type = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.Set<Workspace>()
+                .Where(w => w.UserId == null);
+
+            if (type.HasValue)
+            {
+                query = query.Where(w => w.Type == type.Value);
+            }
+
+            return await query
+                .OrderByDescending(w => w.CreatedAt)
+                .ToListAsync(cancellationToken);
         }
     }
 }

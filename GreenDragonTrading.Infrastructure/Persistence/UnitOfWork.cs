@@ -18,16 +18,76 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         
         private IUserSubscriptionRepository? userSubscriptions;
 
+        private ISubscriptionRepository? subscriptions;
+
+        private ITransactionRepository? transactions;
+
         private IWorkspaceRepository? workspaces;
 
         private IModuleLayoutRepository? moduleLayouts;
+
+        private IWatchListRepository? watchLists;
+
+        private IPortfolioRepository? portfolios;
+
+        private ITradingTransactionRepository? tradingTransactions;
+
+        private IFinancialReportRepository? financialReports;
+
+        private IAnalysisReportRepository? analysisReports;
+
+        private IAnalysisReportSourceRepository? analysisReportSources;
+
+        private IAnalysisReportCategoryRepository? analysisReportCategories;
+
+        private IMarketIndexRepository? marketIndices;
+
+        private IMarketIndexSymbolRepository? marketIndexSymbols;
+
+        private IChatSessionRepository? chatSessions;
+
+        private IChatMessageRepository? chatMessages;
+
+        private IChatParticipantRepository? chatParticipants;
+
+        private IAlertRepository? alerts;
+
+        private IAlertTemplateRepository? alertTemplates;
+
+        private INewsArticleRepository? newsArticles;
+
+        private IMacroeconomicDataRepository? macroeconomicData;
+
+        private IUserPushTokenRepository? userPushTokens;
+
+        private ICorporateActionRepository? corporateActions;
 
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
         public IUserSubscriptionRepository UserSubscriptions => userSubscriptions ??= new UserSubscriptionRepository(_context);
+        public ISubscriptionRepository Subscriptions => subscriptions ??= new SubscriptionRepository(_context);
+        public ITransactionRepository Transactions => transactions ??= new TransactionRepository(_context);
         public IWorkspaceRepository Workspaces => workspaces ??= new WorkspaceRepository(_context);
         public IModuleLayoutRepository ModuleLayouts => moduleLayouts ??= new ModuleLayoutRepository(_context);
+        public IWatchListRepository WatchLists => watchLists ??= new WatchListRepository(_context);
+        public IPortfolioRepository Portfolios => portfolios ??= new PortfolioRepository(_context);
+        public ITradingTransactionRepository TradingTransactions => tradingTransactions ??= new TradingTransactionRepository(_context);
+        public IFinancialReportRepository FinancialReports => financialReports ??= new FinancialReportRepository(_context);
+        public IAnalysisReportRepository AnalysisReports => analysisReports ??= new AnalysisReportRepository(_context);
+        public IAnalysisReportSourceRepository AnalysisReportSources => analysisReportSources ??= new AnalysisReportSourceRepository(_context);
+        public IAnalysisReportCategoryRepository AnalysisReportCategories => analysisReportCategories ??= new AnalysisReportCategoryRepository(_context);
+        public IMarketIndexRepository MarketIndices => marketIndices ??= new MarketIndexRepository(_context);
+        public IMarketIndexSymbolRepository MarketIndexSymbols => marketIndexSymbols ??= new MarketIndexSymbolRepository(_context);
+        public IChatSessionRepository ChatSessions => chatSessions ??= new ChatSessionRepository(_context);
+        public IChatMessageRepository ChatMessages => chatMessages ??= new ChatMessageRepository(_context);
+        public IChatParticipantRepository ChatParticipants => chatParticipants ??= new ChatParticipantRepository(_context);
+        public IAlertRepository Alerts => alerts ??= new AlertRepository(_context);
+        public IAlertTemplateRepository AlertTemplates => alertTemplates ??= new AlertTemplateRepository(_context);
+        public INewsArticleRepository NewsArticles => newsArticles ??= new NewsArticleRepository(_context);
+        public IMacroeconomicDataRepository MacroeconomicData => macroeconomicData ??= new MacroeconomicDataRepository(_context);
+        public IUserPushTokenRepository UserPushTokens => userPushTokens ??= new UserPushTokenRepository(_context);
+        public ICorporateActionRepository CorporateActions => corporateActions ??= new CorporateActionRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

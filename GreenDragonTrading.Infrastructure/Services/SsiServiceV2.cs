@@ -64,7 +64,39 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
             
             int actualCount = result.Data.Count;
-            _logger.LogInformation("Fetch successfully {Count} SSI Intraday OHLC records.", actualCount);
+            if (actualCount == 0)
+                _logger.LogWarning("SSI Intraday OHLC returned 0 records. Status: {Status}, Message: {Message}", result.Status, result.Message);
+            else
+                _logger.LogInformation("Fetch successfully {Count} SSI Intraday OHLC records.", actualCount);
+
+            return (result, actualCount);
+        }
+
+        /// <inheritdoc/>
+        public async Task<(DailyOhlcResponse result, int count)> FetchDailyOhlcAsync(
+            DailyOhlcRequest requestQuery,
+            CancellationToken cancellationToken = default)
+        {
+            string url = $"{_ssiApiOptions.FastConnectUrl}{SsiApiDefineV2.GetDailyOhlc}";
+
+            string urlWithQuery = url + requestQuery.ToQueryString();
+
+            _logger.LogInformation("Fetching SSI Daily OHLC from URL: {Url}", urlWithQuery);
+
+            DailyOhlcResponse result = await HandlerRequest<DailyOhlcResponse>(urlWithQuery, cancellationToken);
+            
+            // Check for null data
+            if (result?.Data == null)
+            {
+                _logger.LogWarning("SSI API returned null or empty data for Daily OHLC");
+                return (result ?? new DailyOhlcResponse(), 0);
+            }
+            
+            int actualCount = result.Data.Count;
+            if (actualCount == 0)
+                _logger.LogWarning("SSI Daily OHLC returned 0 records. Status: {Status}, Message: {Message}", result.Status, result.Message);
+            else
+                _logger.LogInformation("Fetch successfully {Count} SSI Daily OHLC records.", actualCount);
 
             return (result, actualCount);
         }

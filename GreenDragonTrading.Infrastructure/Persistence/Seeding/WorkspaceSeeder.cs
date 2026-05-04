@@ -1,21 +1,36 @@
 ﻿using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
 {
     public static class WorkspaceSeeder
     {
-        public const int SystemDefaultLayoutId = 1;
+        public const int SystemDefaultWebId = 1;
+        public const int SystemDefaultMobileId = 2;
 
-        private const string DefaultLayoutJson = @"
+        private static readonly DateTimeOffset SeedTime = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        private const string DefaultWebLayoutJson = @"
         {
           ""modules"": [
             {
-              ""i"": ""stock-screener-default"",
+              ""i"": ""stock-screener-web"",
               ""type"": ""stock-screener"",
-              ""title"": ""Bộ lọc cổ phiếu"",
-              ""x"": 0, ""y"": 36, ""w"": 96, ""h"": 20,
-              ""activeLayoutId"": 1  
+              ""title"": ""Bộ lọc cổ phiếu (Web)"",
+              ""x"": 0, ""y"": 0, ""w"": 96, ""h"": 20
+            }
+          ]
+        }";
+
+        private const string DefaultMobileLayoutJson = @"
+        {
+          ""modules"": [
+            {
+              ""i"": ""stock-list-mobile"",
+              ""type"": ""stock-list"",
+              ""title"": ""Danh mục theo dõi (Mobile)"",
+              ""x"": 0, ""y"": 0, ""w"": 12, ""h"": 10
             }
           ]
         }";
@@ -25,14 +40,28 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
             modelBuilder.Entity<Workspace>().HasData(
                 new Workspace
                 {
-                    Id = SystemDefaultLayoutId,
-                    UserId = null, 
-                    WorkspaceName = "SYSTEM_DEFAULT_LAYOUT",
-                    LayoutJson = DefaultLayoutJson.Trim(),
-                    IsDefault = true, 
+                    Id = SystemDefaultWebId,
+                    UserId = null,
+                    WorkspaceName = "DEFAULT_WEB_LAYOUT",
+                    LayoutJson = DefaultWebLayoutJson.Trim(),
+                    Type = WorkspaceType.Web, 
+                    IsDefault = true,
                     ShareCode = null,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    UpdatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = SeedTime,
+                    UpdatedAt = SeedTime
+                },
+
+                new Workspace
+                {
+                    Id = SystemDefaultMobileId,
+                    UserId = null,
+                    WorkspaceName = "DEFAULT_MOBILE_LAYOUT",
+                    LayoutJson = DefaultMobileLayoutJson.Trim(),
+                    Type = WorkspaceType.Mobile,
+                    IsDefault = true,
+                    ShareCode = null,
+                    CreatedAt = SeedTime,
+                    UpdatedAt = SeedTime
                 }
             );
         }
