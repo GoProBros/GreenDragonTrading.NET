@@ -28,10 +28,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private IWatchListRepository? watchLists;
 
-        private IPortfolioRepository? portfolios;
-
-        private ITradingTransactionRepository? tradingTransactions;
-
         private IFinancialReportRepository? financialReports;
 
         private IAnalysisReportRepository? analysisReports;
@@ -71,8 +67,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IWorkspaceRepository Workspaces => workspaces ??= new WorkspaceRepository(_context);
         public IModuleLayoutRepository ModuleLayouts => moduleLayouts ??= new ModuleLayoutRepository(_context);
         public IWatchListRepository WatchLists => watchLists ??= new WatchListRepository(_context);
-        public IPortfolioRepository Portfolios => portfolios ??= new PortfolioRepository(_context);
-        public ITradingTransactionRepository TradingTransactions => tradingTransactions ??= new TradingTransactionRepository(_context);
         public IFinancialReportRepository FinancialReports => financialReports ??= new FinancialReportRepository(_context);
         public IAnalysisReportRepository AnalysisReports => analysisReports ??= new AnalysisReportRepository(_context);
         public IAnalysisReportSourceRepository AnalysisReportSources => analysisReportSources ??= new AnalysisReportSourceRepository(_context);

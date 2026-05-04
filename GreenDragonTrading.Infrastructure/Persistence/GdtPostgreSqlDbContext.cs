@@ -32,8 +32,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<NewsArticle> NewsArticles => Set<NewsArticle>();
         public DbSet<ArticleTag> ArticleTags => Set<ArticleTag>();        
         public DbSet<MacroeconomicData> MacroeconomicData => Set<MacroeconomicData>();
-        public DbSet<Portfolio> Portfolios => Set<Portfolio>();
-        public DbSet<TradingTransaction> TradingTransactions => Set<TradingTransaction>();
         public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
         public DbSet<AlertTemplate> AlertTemplates => Set<AlertTemplate>();
         public DbSet<CorporateAction> CorporateActions => Set<CorporateAction>();
@@ -74,7 +72,19 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 builder.ToTable("subscriptions");
 
                 builder.Property(s => s.Price)
-                       .HasColumnType("numeric(18, 2)"); 
+                       .HasColumnType("numeric(18, 2)");
+ 
+                builder.HasIndex(s => s.IsFree)
+                       .IsUnique()
+                       .HasFilter("is_free = true AND is_active = 1")
+                       .HasDatabaseName("ix_subscriptions_unique_free_active");
+
+                builder.HasIndex(s => s.IsAdmin)
+                       .IsUnique()
+                       .HasFilter("is_admin = true AND is_active = 1")
+                       .HasDatabaseName("ix_subscriptions_unique_admin_active");
+
+                builder.HasIndex(s => s.LevelOrder);
             });
 
             modelBuilder.Entity<UserSubscription>(builder =>
@@ -342,27 +352,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
                 builder.HasIndex(at => at.Ticker);
                 builder.HasIndex(at => new { at.NewsArticleId, at.Ticker }).IsUnique();
-            });
-            modelBuilder.Entity<Portfolio>(builder =>
-            {
-                builder.ToTable("portfolios");
-                builder.HasOne(p => p.User)
-                    .WithMany(u => u.Portfolios)
-                    .HasForeignKey(p => p.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                builder.HasIndex(p => p.Ticker);
-            });
-
-            modelBuilder.Entity<TradingTransaction>(builder =>
-            {
-                builder.ToTable("trading_transactions");
-
-                builder.HasOne(t => t.Portfolio)
-                    .WithMany(p => p.Transactions)
-                    .HasForeignKey(t => t.PortfolioId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
             });
 
             // UserPushToken

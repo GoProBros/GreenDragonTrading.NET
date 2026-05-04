@@ -1,5 +1,6 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Enums;
@@ -58,7 +59,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                     throw new BusinessRuleException("Email chưa được xác thực");
                 }
 
-                var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+                var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                    _uow,
+                    user.Role is UserRole.Admin or UserRole.Staff,
+                    user.Id,
+                    cancellationToken);
 
                 var accessToken = _jwtService.GenerateAccessToken(
                     user.Id,
@@ -66,7 +71,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                     user.Username,
                     user.PhoneNumber,
                     user.Role.ToString(),
-                    subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
+                    effectiveSubscription?.LevelOrder is { } level
+                        ? level.GetDisplayName()
+                        : SubscriptionLevel.Free.GetDisplayName()
                 );
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
@@ -86,7 +93,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                         PhoneNumber = user.PhoneNumber,
                         Role = user.Role.GetDisplayName(),
                         IsEmailVerified = user.IsEmailVerified,
-                        SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                        SubscriptionLevel = effectiveSubscription?.LevelOrder is { } lvl
+                            ? lvl.GetDisplayName()
+                            : SubscriptionLevel.Free.GetDisplayName(),
                         TelegramChatId = user.TelegramId,
                         IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)
                     }

@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Enums;
@@ -31,50 +32,51 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySub
         public async Task<ApiResponse<UserSubscriptionDto>> Handle(GetMySubscriptionQuery request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.GetRequiredUserId();
+            var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                _uow,
+                _currentUserService.IsAdminOrStaff,
+                userId,
+                cancellationToken);
 
             if (_currentUserService.IsAdminOrStaff)
             {
-                var highestActiveSubscription = await _uow.Subscriptions.GetHighestActiveAsync(cancellationToken);
-
-                var adminDto = highestActiveSubscription == null
+                var adminDto = effectiveSubscription == null
                     ? new UserSubscriptionDto
                     {
                         SubscriptionId = null,
-                        SubscriptionName = SubscriptionLevel.Free.GetDisplayName(),
+                        SubscriptionName = "Admin",
                         LevelOrder = SubscriptionLevel.Free,
-                        MaxWorkspaces = 1,
+                        MaxWorkspaces = 0,
                         Price = 0,
                         DurationInDays = 0,
-                        AllowedModules = JsonDocument.Parse("[]").RootElement,
+                        AllowedModules = JsonDocument.Parse("[]").RootElement.Clone(),
                         StartDate = null,
                         EndDate = null,
                         Status = null,
-                        IsActive = false
+                        IsActive = true
                     }
                     : new UserSubscriptionDto
                     {
-                        SubscriptionId = highestActiveSubscription.Id,
-                        SubscriptionName = highestActiveSubscription.Name,
-                        LevelOrder = highestActiveSubscription.LevelOrder,
-                        MaxWorkspaces = highestActiveSubscription.MaxWorkspaces,
-                        Price = highestActiveSubscription.Price,
-                        DurationInDays = highestActiveSubscription.DurationInDays,
-                        AllowedModules = JsonDocument.Parse(highestActiveSubscription.AllowedModules).RootElement,
+                        SubscriptionId = effectiveSubscription.Id,
+                        SubscriptionName = effectiveSubscription.Name,
+                        LevelOrder = effectiveSubscription.LevelOrder ?? SubscriptionLevel.Free,
+                        MaxWorkspaces = effectiveSubscription.MaxWorkspaces ?? 0,
+                        Price = effectiveSubscription.Price ?? 0,
+                        DurationInDays = effectiveSubscription.DurationInDays ?? 0,
+                        AllowedModules = JsonDocument.Parse(string.IsNullOrWhiteSpace(effectiveSubscription.AllowedModules) ? "[]" : effectiveSubscription.AllowedModules).RootElement.Clone(),
                         StartDate = null,
                         EndDate = null,
                         Status = null,
                         IsActive = true
                     };
 
-                _logger.LogInformation("Successfully retrieved highest subscription information for admin/staff user: {UserId}", userId);
+                _logger.LogInformation("Successfully retrieved admin subscription information for admin/staff user: {UserId}", userId);
                 return ApiResponse<UserSubscriptionDto>.Success(adminDto, "Lấy thông tin gói đăng ký thành công.");
             }
 
-            var userSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
-
             UserSubscriptionDto dto;
 
-            if (userSubscription == null)
+            if (effectiveSubscription == null)
             {
                 dto = new UserSubscriptionDto
                 {
@@ -84,37 +86,34 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetMySub
                     MaxWorkspaces = 1,
                     Price = 0,
                     DurationInDays = 0,
-                    AllowedModules = JsonDocument.Parse("[]").RootElement,
+                    AllowedModules = JsonDocument.Parse("[]").RootElement.Clone(),
                     StartDate = null,
                     EndDate = null,
                     Status = null,
-                    IsActive = false
+                    IsActive = true
                 };
             }
             else
             {
-                var subscription = userSubscription.Subscription;
-
                 var allActiveSubscriptions = await _uow.UserSubscriptions.GetAllActiveByUserIdAsync(userId, cancellationToken);
                 var sameTypeSubscriptions = allActiveSubscriptions
-                    .Where(us => us.SubscriptionId == subscription.Id)
+                    .Where(us => us.SubscriptionId == effectiveSubscription.Id)
                     .ToList();
 
-                var earliestStartDate = sameTypeSubscriptions.Min(us => us.StartDate);
-                var latestEndDate = sameTypeSubscriptions.Max(us => us.EndDate);
+                var hasUserSubscription = sameTypeSubscriptions.Count > 0;
 
                 dto = new UserSubscriptionDto
                 {
-                    SubscriptionId = subscription.Id,
-                    SubscriptionName = subscription.Name,
-                    LevelOrder = subscription.LevelOrder,
-                    MaxWorkspaces = subscription.MaxWorkspaces,
-                    Price = subscription.Price,
-                    DurationInDays = subscription.DurationInDays,
-                    AllowedModules = JsonDocument.Parse(subscription.AllowedModules).RootElement,
-                    StartDate = earliestStartDate,
-                    EndDate = latestEndDate,
-                    Status = userSubscription.Status.GetDisplayName(),
+                    SubscriptionId = effectiveSubscription.Id,
+                    SubscriptionName = effectiveSubscription.Name,
+                    LevelOrder = effectiveSubscription.LevelOrder ?? SubscriptionLevel.Free,
+                    MaxWorkspaces = effectiveSubscription.MaxWorkspaces ?? 0,
+                    Price = effectiveSubscription.Price ?? 0,
+                    DurationInDays = effectiveSubscription.DurationInDays ?? 0,
+                    AllowedModules = JsonDocument.Parse(string.IsNullOrWhiteSpace(effectiveSubscription.AllowedModules) ? "[]" : effectiveSubscription.AllowedModules).RootElement.Clone(),
+                    StartDate = hasUserSubscription ? sameTypeSubscriptions.Min(us => us.StartDate) : null,
+                    EndDate = hasUserSubscription ? sameTypeSubscriptions.Max(us => us.EndDate) : null,
+                    Status = hasUserSubscription ? sameTypeSubscriptions.First().Status.GetDisplayName() : null,
                     IsActive = true
                 };
             }

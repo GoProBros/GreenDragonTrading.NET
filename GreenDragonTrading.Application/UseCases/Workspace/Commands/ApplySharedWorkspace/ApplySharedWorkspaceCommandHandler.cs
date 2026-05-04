@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Exceptions;
@@ -38,19 +39,25 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplyShared
 
             if (!_currentUserService.IsAdminOrStaff)
             {
-                var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+                var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                    _uow,
+                    false,
+                    userId,
+                    cancellationToken);
 
-                if (activeSubscription != null)
+                if (effectiveSubscription != null)
                 {
                     var existingWorkspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(
                         userId,
                         sharedWorkspace.Type,
                         cancellationToken);
 
-                    if (existingWorkspaces.Count >= activeSubscription.Subscription.MaxWorkspaces)
+                    var maxWorkspaces = effectiveSubscription.MaxWorkspaces ?? 1;
+
+                    if (existingWorkspaces.Count >= maxWorkspaces)
                     {
                         throw new Domain.Exceptions.BusinessRuleException(
-                            $"Gói đăng ký của bạn chỉ cho phép tối đa {activeSubscription.Subscription.MaxWorkspaces} workspace cho loại {sharedWorkspace.Type}.");
+                            $"Gói đăng ký của bạn chỉ cho phép tối đa {maxWorkspaces} workspace cho loại {sharedWorkspace.Type}.");
                     }
                 }
             }

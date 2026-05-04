@@ -17,25 +17,29 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("name", TypeName = "varchar(50)")]
         public string Name { get; set; } = string.Empty;
 
-        [Required]
         [Column("level_order", TypeName = "integer")]
-        public SubscriptionLevel LevelOrder { get; set; }
+        public SubscriptionLevel? LevelOrder { get; set; }
 
-        [Required]
         [Column("max_workspaces", TypeName = "integer")]
-        public int MaxWorkspaces { get; set; }
+        public int? MaxWorkspaces { get; set; }
 
-        [Required]
         [Column("price", TypeName = "numeric(18, 2)")]
-        public decimal Price { get; set; }
+        public decimal? Price { get; set; }
 
-        [Required]
         [Column("duration_in_days", TypeName = "integer")]
-        public int DurationInDays { get; set; }
+        public int? DurationInDays { get; set; }
 
         [Required]
         [Column("is_active", TypeName = "smallint")]
-        public CommonStatus IsActive { get; set; } = CommonStatus.Active; 
+        public CommonStatus IsActive { get; set; } = CommonStatus.Active;
+
+        [Required]
+        [Column("is_free", TypeName = "boolean")]
+        public bool IsFree { get; set; } = false;
+
+        [Required]
+        [Column("is_admin", TypeName = "boolean")]
+        public bool IsAdmin { get; set; } = false;
 
         [Required]
         [Column("allowed_modules", TypeName = "jsonb")]

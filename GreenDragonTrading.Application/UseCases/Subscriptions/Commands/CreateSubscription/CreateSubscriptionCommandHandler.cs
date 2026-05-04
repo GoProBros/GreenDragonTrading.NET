@@ -30,6 +30,8 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
                 Price = request.Price,
                 DurationInDays = request.DurationInDays,
                 IsActive = request.IsActive,
+                IsFree = false,
+                IsAdmin = false,
                 AllowedModules = request.AllowedModules.GetRawText()
             };
 
@@ -42,10 +44,10 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
             {
                 Id = subscription.Id,
                 Name = subscription.Name,
-                LevelOrder = subscription.LevelOrder,
-                MaxWorkspaces = subscription.MaxWorkspaces,
-                Price = subscription.Price,
-                DurationInDays = subscription.DurationInDays,
+                LevelOrder = subscription.LevelOrder ?? default,
+                MaxWorkspaces = subscription.MaxWorkspaces ?? 0,
+                Price = subscription.Price ?? 0,
+                DurationInDays = subscription.DurationInDays ?? 0,
                 IsActive = subscription.IsActive,
                 AllowedModules = request.AllowedModules
             };

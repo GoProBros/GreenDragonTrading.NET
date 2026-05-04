@@ -51,12 +51,13 @@ namespace GreenDragonTrading.Infrastructure.Services
             await EnsureSubscriptionCanBePurchasedAsync(userId, newSubscription, cancellationToken);
 
             var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
-            var currentLevelOrder = currentHighestSub?.Subscription.LevelOrder ?? 0;
+            var currentLevelInt = (int)(currentHighestSub?.Subscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
+            var newLevelInt = (int)(newSubscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
 
-            if (newSubscription.LevelOrder < currentLevelOrder)
+            if (newLevelInt < currentLevelInt)
             {
                 _logger.LogWarning("Downgrade attempt blocked: UserId={UserId}, CurrentLevel={CurrentLevel}, RequestedLevel={RequestedLevel}",
-                    userId, currentLevelOrder, newSubscription.LevelOrder);
+                    userId, currentLevelInt, newLevelInt);
                 throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ. Vui lòng chọn gói cao hơn hoặc bằng gói hiện tại.");
             }
 
@@ -69,14 +70,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             var gatewayDescription = BuildGatewayDescription(transactionType, newSubscription.Id);
 
             var purchasedAt = DateTimeOffset.UtcNow;
-            var transactionDescription = BuildTransactionDescription(gatewayDescription, newSubscription.Price, purchasedAt);
+            var transactionDescription = BuildTransactionDescription(gatewayDescription, newSubscription.Price ?? 0m, purchasedAt);
 
             var transaction = new Transaction
             {
                 OrderCode = orderCode,
                 UserId = userId,
                 SubscriptionId = subscriptionId,
-                Amount = newSubscription.Price,
+                Amount = newSubscription.Price ?? 0m,
                 Status = TransactionStatus.Pending,
                 Type = transactionType,
                 PaymentProvider = PaymentType.Payos,
@@ -91,7 +92,7 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             var result = await _payOSService.CreatePaymentLinkAsync(
                 orderCode,
-                (int)newSubscription.Price,
+                (int)(newSubscription.Price ?? 0m),
                 gatewayDescription,
                 listItems,
                 _payOSOptions.ReturnUrl,
@@ -139,9 +140,11 @@ namespace GreenDragonTrading.Infrastructure.Services
                     var newSubscription = await _uow.Subscriptions.GetByIdAsync(transaction.SubscriptionId, cancellationToken)
                         ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
-                    int durationDays = newSubscription.DurationInDays;
+                    int durationDays = newSubscription.DurationInDays ?? 0;
 
                     var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(transaction.UserId, cancellationToken);
+                    var currentLevelInt = (int)(currentHighestSub?.Subscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
+                    var newLevelInt = (int)(newSubscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
 
                     DateTimeOffset startDate;
                     DateTimeOffset endDate;
@@ -165,7 +168,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                         _logger.LogInformation("Case 2 - Stacking: UserId={UserId}, SubscriptionId={SubscriptionId}, StartDate={StartDate}", 
                             transaction.UserId, transaction.SubscriptionId, startDate);
                     }
-                    else if (newSubscription.LevelOrder > currentHighestSub.Subscription.LevelOrder)
+                    else if (newLevelInt > currentLevelInt)
                     {
                         startDate = DateTimeOffset.UtcNow;
                         endDate = startDate.AddDays(durationDays);
@@ -174,9 +177,9 @@ namespace GreenDragonTrading.Infrastructure.Services
                         await _uow.UserSubscriptions.MarkAllActiveAsUpgradedAsync(transaction.UserId, cancellationToken);
 
                         _logger.LogInformation("Case 3 - Upgrade: UserId={UserId}, OldLevel={OldLevel}, NewLevel={NewLevel}", 
-                            transaction.UserId, currentHighestSub.Subscription.LevelOrder, newSubscription.LevelOrder);
+                            transaction.UserId, currentLevelInt, newLevelInt);
                     }
-                    else if (newSubscription.LevelOrder == currentHighestSub.Subscription.LevelOrder
+                    else if (newLevelInt == currentLevelInt
                         && newSubscription.Id != currentHighestSub.SubscriptionId)
                     {
                         _logger.LogWarning(
@@ -340,13 +343,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             await EnsureSubscriptionCanBePurchasedAsync(userId, newSubscription, cancellationToken);
 
             var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
-            var currentLevelOrder = currentHighestSub?.Subscription.LevelOrder ?? 0;
+            var currentLevelInt = (int)(currentHighestSub?.Subscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
+            var newLevelInt = (int)(newSubscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
 
-            if (newSubscription.LevelOrder < currentLevelOrder)
+            if (newLevelInt < currentLevelInt)
             {
                 _logger.LogWarning(
                     "Momo downgrade attempt blocked: UserId={UserId}, CurrentLevel={CurrentLevel}, RequestedLevel={RequestedLevel}",
-                    userId, currentLevelOrder, newSubscription.LevelOrder);
+                    userId, currentLevelInt, newLevelInt);
                 throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ. Vui lòng chọn gói cao hơn hoặc bằng gói hiện tại.");
             }
 
@@ -359,14 +363,14 @@ namespace GreenDragonTrading.Infrastructure.Services
             var gatewayDescription = BuildGatewayDescription(momoTransactionType, newSubscription.Id);
 
             var purchasedAt = DateTimeOffset.UtcNow;
-            var transactionDescription = BuildTransactionDescription(gatewayDescription, newSubscription.Price, purchasedAt);
+            var transactionDescription = BuildTransactionDescription(gatewayDescription, newSubscription.Price ?? 0m, purchasedAt);
 
             var transaction = new Transaction
             {
                 OrderCode = long.Parse(orderId),
                 UserId = userId,
                 SubscriptionId = subscriptionId,
-                Amount = newSubscription.Price,
+                Amount = newSubscription.Price ?? 0m,
                 Status = TransactionStatus.Pending,
                 Type = momoTransactionType,
                 PaymentProvider = PaymentType.Momo,
@@ -378,7 +382,7 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             var momoResponse = await _momoService.CreatePaymentAsync(
                 orderId,
-                (long)newSubscription.Price,
+                (long)(newSubscription.Price ?? 0m),
                 gatewayDescription,
                 cancellationToken);
 
@@ -669,9 +673,11 @@ namespace GreenDragonTrading.Infrastructure.Services
                 var newSubscription = await _uow.Subscriptions.GetByIdAsync(transaction.SubscriptionId, cancellationToken)
                     ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
-                int durationDays = newSubscription.DurationInDays;
+                int durationDays = newSubscription.DurationInDays ?? 0;
 
                 var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(transaction.UserId, cancellationToken);
+                var currentLevelInt = (int)(currentHighestSub?.Subscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
+                var newLevelInt = (int)(newSubscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
 
                 DateTimeOffset startDate;
                 DateTimeOffset endDate;
@@ -702,7 +708,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                         transaction.SubscriptionId,
                         startDate);
                 }
-                else if (newSubscription.LevelOrder > currentHighestSub.Subscription.LevelOrder)
+                else if (newLevelInt > currentLevelInt)
                 {
                     startDate = DateTimeOffset.UtcNow;
                     endDate = startDate.AddDays(durationDays);
@@ -712,10 +718,10 @@ namespace GreenDragonTrading.Infrastructure.Services
                     _logger.LogInformation(
                         "PayOS sync case 3 - Upgrade: UserId={UserId}, OldLevel={OldLevel}, NewLevel={NewLevel}",
                         transaction.UserId,
-                        currentHighestSub.Subscription.LevelOrder,
-                        newSubscription.LevelOrder);
+                        currentLevelInt,
+                        newLevelInt);
                 }
-                else if (newSubscription.LevelOrder == currentHighestSub.Subscription.LevelOrder
+                else if (newLevelInt == currentLevelInt
                     && newSubscription.Id != currentHighestSub.SubscriptionId)
                 {
                     _logger.LogWarning(
@@ -901,9 +907,11 @@ namespace GreenDragonTrading.Infrastructure.Services
                     var newSubscription = await _uow.Subscriptions.GetByIdAsync(transaction.SubscriptionId, cancellationToken)
                         ?? throw new NotFoundException("Gói dịch vụ không tồn tại");
 
-                    int durationDays = newSubscription.DurationInDays;
+                    int durationDays = newSubscription.DurationInDays ?? 0;
 
                     var currentHighestSub = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(transaction.UserId, cancellationToken);
+                    var currentLevelInt = (int)(currentHighestSub?.Subscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
+                    var newLevelInt = (int)(newSubscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
 
                     DateTimeOffset startDate;
                     DateTimeOffset endDate;
@@ -929,7 +937,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                             "Momo Case 2 - Stacking: UserId={UserId}, SubscriptionId={SubscriptionId}, StartDate={StartDate}",
                             transaction.UserId, transaction.SubscriptionId, startDate);
                     }
-                    else if (newSubscription.LevelOrder > currentHighestSub.Subscription.LevelOrder)
+                    else if (newLevelInt > currentLevelInt)
                     {
                         startDate = DateTimeOffset.UtcNow;
                         endDate = startDate.AddDays(durationDays);
@@ -938,9 +946,9 @@ namespace GreenDragonTrading.Infrastructure.Services
 
                         _logger.LogInformation(
                             "Momo Case 3 - Upgrade: UserId={UserId}, OldLevel={OldLevel}, NewLevel={NewLevel}",
-                            transaction.UserId, currentHighestSub.Subscription.LevelOrder, newSubscription.LevelOrder);
+                            transaction.UserId, currentLevelInt, newLevelInt);
                     }
-                    else if (newSubscription.LevelOrder == currentHighestSub.Subscription.LevelOrder
+                    else if (newLevelInt == currentLevelInt
                         && newSubscription.Id != currentHighestSub.SubscriptionId)
                     {
                         _logger.LogWarning(
