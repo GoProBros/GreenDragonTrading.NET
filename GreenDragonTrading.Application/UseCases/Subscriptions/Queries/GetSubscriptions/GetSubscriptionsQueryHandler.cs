@@ -38,6 +38,12 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubsc
 
             var subscriptions = await _uow.Subscriptions.GetAllAsync(cancellationToken);
 
+            // Always exclude admin and free packages from the returned list
+            subscriptions = subscriptions
+                .Where(s => !s.IsFree && !s.IsAdmin)
+                .ToList();
+
+            // If caller is not admin/staff, also exclude inactive packages
             if (!includeInactive)
             {
                 subscriptions = subscriptions
@@ -51,12 +57,12 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Queries.GetSubsc
                 {
                     Id = s.Id,
                     Name = s.Name,
-                    LevelOrder = s.LevelOrder,
-                    MaxWorkspaces = s.MaxWorkspaces,
-                    Price = s.Price,
-                    DurationInDays = s.DurationInDays,
+                    LevelOrder = s.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free,
+                    MaxWorkspaces = s.MaxWorkspaces ?? 0,
+                    Price = s.Price ?? 0m,
+                    DurationInDays = s.DurationInDays ?? 0,
                     IsActive = s.IsActive,
-                    AllowedModules = JsonDocument.Parse(s.AllowedModules).RootElement.Clone()
+                    AllowedModules = JsonDocument.Parse(string.IsNullOrWhiteSpace(s.AllowedModules) ? "[]" : s.AllowedModules).RootElement.Clone()
                 })
                 .ToList();
 

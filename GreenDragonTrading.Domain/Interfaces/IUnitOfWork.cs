@@ -11,8 +11,6 @@
         IWorkspaceRepository Workspaces { get; }
         IModuleLayoutRepository ModuleLayouts { get; }
         IWatchListRepository WatchLists { get; }
-        IPortfolioRepository Portfolios { get; }
-        ITradingTransactionRepository TradingTransactions { get; }
         IFinancialReportRepository FinancialReports { get; }
         IAnalysisReportRepository AnalysisReports { get; }
         IAnalysisReportSourceRepository AnalysisReportSources { get; }

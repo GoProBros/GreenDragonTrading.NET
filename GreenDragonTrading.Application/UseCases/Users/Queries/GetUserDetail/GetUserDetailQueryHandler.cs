@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Common.Models;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Enums;
@@ -49,12 +50,16 @@ public class GetUserDetailQueryHandler : IRequestHandler<GetUserDetailQuery, Api
             throw new AccessDeniedException("Bạn không có quyền xem người dùng này.");
         }
 
-        var userSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+        var userSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+            _uow,
+            user.Role is UserRole.Admin or UserRole.Staff,
+            user.Id,
+            cancellationToken);
         CurrentVipPackageDto? currentVipPackage = null;
 
         if (userSubscription != null)
         {
-            var subscription = userSubscription.Subscription;
+            var subscription = userSubscription;
             var allActiveSubscriptions = await _uow.UserSubscriptions.GetAllActiveByUserIdAsync(user.Id, cancellationToken);
             var sameTypeSubscriptions = allActiveSubscriptions
                 .Where(us => us.SubscriptionId == subscription.Id)
@@ -67,7 +72,7 @@ public class GetUserDetailQueryHandler : IRequestHandler<GetUserDetailQuery, Api
             {
                 SubscriptionId = subscription.Id,
                 SubscriptionName = subscription.Name,
-                VipLevelName = subscription.LevelOrder.GetDisplayName(),
+                VipLevelName = subscription.LevelOrder is { } level ? level.GetDisplayName() : subscription.Name,
                 AllowedModules = ParseAllowedModuleNames(subscription.AllowedModules),
                 StartDate = earliestStartDate,
                 EndDate = latestEndDate
