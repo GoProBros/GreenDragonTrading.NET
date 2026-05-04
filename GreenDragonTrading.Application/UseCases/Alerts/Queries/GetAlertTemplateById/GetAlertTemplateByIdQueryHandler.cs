@@ -21,21 +21,21 @@ public class GetAlertTemplateByIdQueryHandler(
     {
         if (!_currentUserService.IsAdminOrStaff)
         {
-            throw new AccessDeniedException("Chi admin/staff moi co quyen xem alert template.");
+            throw new AccessDeniedException("Chỉ admin/staff mới có quyền xem alert template.");
         }
 
         if (request.Id <= 0)
         {
-            throw new BusinessRuleException("Id template khong hop le.");
+            throw new BusinessRuleException("Id template không hợp lệ.");
         }
 
         var template = await _uow.AlertTemplates.GetByIdAsync(request.Id, cancellationToken);
         if (template == null)
         {
-            throw new NotFoundException("Khong tim thay alert template.");
+            throw new NotFoundException("Không tìm thấy alert template.");
         }
 
-        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), "Lay alert template thanh cong.");
+        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), "Lấy alert template thành công.");
     }
 
     private static AlertTemplateDto MapToDto(Domain.Entities.AlertTemplate template)

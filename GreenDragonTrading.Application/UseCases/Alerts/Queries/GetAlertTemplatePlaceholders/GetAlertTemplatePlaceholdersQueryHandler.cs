@@ -30,6 +30,6 @@ public class GetAlertTemplatePlaceholdersQueryHandler
 
         return Task.FromResult(ApiResponse<AlertTemplatePlaceholdersDto>.Success(
             dto,
-            "Lay danh sach placeholder thanh cong."));
+            "Lấy danh sách placeholder thành công."));
     }
 }

@@ -43,11 +43,8 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatMessages
             var participant = session.Participants.FirstOrDefault(x => x.UserId == userId.Value);
             if (participant == null)
             {
-                if (session.SessionType == ChatSessionType.AI && session.CreatedBy == userId)
-                {
-                    // chổ này vẫn ổn vì chat với Ai chỉ có 1 người tham gia 
-                }
-                else
+                var isAiOwner = session.SessionType == ChatSessionType.AI && session.CreatedBy == userId;
+                if (!isAiOwner)
                 {
                     throw new AccessDeniedException("Bạn không có quyền xem phiên chat này.");
                 }

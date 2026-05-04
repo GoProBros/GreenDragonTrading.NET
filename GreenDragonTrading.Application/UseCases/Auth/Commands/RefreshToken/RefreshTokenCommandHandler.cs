@@ -49,7 +49,7 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
 
                 if (user == null)
                 {
-                    throw new NotFoundException("User id", userId);
+                    throw new NotFoundException("Người dùng không tồn tại.");
                 }
 
                 if(userId != request.UserId)
@@ -57,7 +57,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                     throw new UnauthenticatedException("Refresh token không hợp lệ cho người dùng này.");
                 }
 
-                // Get current subscription level
                 var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
 
                 var accessToken = _jwtService.GenerateAccessToken(
@@ -70,7 +69,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.RefreshToken
                 );
                 var newRefreshToken = _jwtService.GenerateRefreshToken();
           
-                // Update redis key
                 await _redisService.RemoveAsync(tokenKey);
                 var newTokenKey = $"refresh:token:{newRefreshToken}";
                 await _redisService.SetAsync(newTokenKey, userId, TimeSpan.FromDays(_jwtOptions.RefreshTokenExpirationDays));

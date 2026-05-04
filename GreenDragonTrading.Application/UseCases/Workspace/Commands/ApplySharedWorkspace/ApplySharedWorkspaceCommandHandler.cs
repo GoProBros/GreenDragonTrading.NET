@@ -38,7 +38,6 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.ApplyShared
 
             if (!_currentUserService.IsAdminOrStaff)
             {
-                // Enforce MaxWorkspaces limit before duplicating
                 var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
 
                 if (activeSubscription != null)

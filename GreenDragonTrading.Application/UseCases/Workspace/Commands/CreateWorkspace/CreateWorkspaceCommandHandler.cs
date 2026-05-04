@@ -52,7 +52,6 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Commands.CreateWorks
 
             var shareCode = await GenerateUniqueShareCodeAsync(cancellationToken);
 
-            // Use layout from the system default workspace, ignoring request layout
             var systemDefault = await _uow.Workspaces.GetSystemDefaultWorkspaceAsync(request.Type, cancellationToken);
             var layoutJsonString = systemDefault?.LayoutJson ?? "{}";
 

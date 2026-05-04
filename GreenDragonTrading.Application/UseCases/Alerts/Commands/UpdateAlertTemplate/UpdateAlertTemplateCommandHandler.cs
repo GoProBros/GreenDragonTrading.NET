@@ -21,18 +21,18 @@ public class UpdateAlertTemplateCommandHandler(
     {
         if (!_currentUserService.IsAdminOrStaff)
         {
-            throw new AccessDeniedException("Chi admin/staff moi co quyen cap nhat alert template.");
+            throw new AccessDeniedException("Chỉ admin/staff mới có quyền cập nhật alert template.");
         }
 
         if (request.Id <= 0)
         {
-            throw new BusinessRuleException("Id template khong hop le.");
+            throw new BusinessRuleException("Id template không hợp lệ.");
         }
 
         var template = await _uow.AlertTemplates.GetByIdAsync(request.Id, cancellationToken);
         if (template == null)
         {
-            throw new NotFoundException("Khong tim thay alert template.");
+            throw new NotFoundException("Không tìm thấy alert template.");
         }
 
         if (request.IsDefault)
@@ -42,7 +42,7 @@ public class UpdateAlertTemplateCommandHandler(
                 cancellationToken);
             if (otherDefault != null)
             {
-                throw new ConflictException("Da ton tai alert template mac dinh.");
+                throw new ConflictException("Đã tồn tại alert template mặc định.");
             }
         }
 
@@ -56,7 +56,7 @@ public class UpdateAlertTemplateCommandHandler(
                 cancellationToken);
             if (conflict != null)
             {
-                throw new ConflictException("Da ton tai alert template dang hoat dong cho cap type/condition nay.");
+                throw new ConflictException("Đã tồn tại alert template đang hoạt động cho cặp type/condition này.");
             }
         }
 
@@ -71,7 +71,7 @@ public class UpdateAlertTemplateCommandHandler(
         _uow.AlertTemplates.Update(template);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), "Cap nhat alert template thanh cong.");
+        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), "Cập nhật alert template thành công.");
     }
 
     private static AlertTemplateDto MapToDto(Domain.Entities.AlertTemplate template)

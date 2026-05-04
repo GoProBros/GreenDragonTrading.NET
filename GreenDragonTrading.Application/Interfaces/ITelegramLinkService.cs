@@ -1,3 +1,5 @@
+using GreenDragonTrading.Application.DTOs;
+
 namespace GreenDragonTrading.Application.Interfaces;
 
 public interface ITelegramLinkService
@@ -8,13 +10,4 @@ public interface ITelegramLinkService
         string startToken,
         string chatId,
         CancellationToken cancellationToken = default);
-}
-
-public sealed class TelegramLinkResult
-{
-    public bool IsSuccess { get; init; }
-
-    public string Message { get; init; } = string.Empty;
-
-    public Guid? UserId { get; init; }
 }

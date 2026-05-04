@@ -58,7 +58,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
                     throw new BusinessRuleException("Email chưa được xác thực");
                 }
 
-                // Get current subscription level
                 var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
 
                 var accessToken = _jwtService.GenerateAccessToken(

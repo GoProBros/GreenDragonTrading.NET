@@ -21,7 +21,7 @@ public class GetAlertTemplatesQueryHandler(
     {
         if (!_currentUserService.IsAdminOrStaff)
         {
-            throw new AccessDeniedException("Chi admin/staff moi co quyen xem alert template.");
+            throw new AccessDeniedException("Chỉ admin/staff mới có quyền xem alert template.");
         }
 
         var templates = await _uow.AlertTemplates.GetAllAsync(cancellationToken);
@@ -36,7 +36,7 @@ public class GetAlertTemplatesQueryHandler(
             .ThenByDescending(x => x.Id)
             .ToList();
 
-        return ApiResponse<List<AlertTemplateDto>>.Success(filtered, "Lay danh sach alert template thanh cong.");
+        return ApiResponse<List<AlertTemplateDto>>.Success(filtered, "Lấy danh sách alert template thành công.");
     }
 
     private static AlertTemplateDto MapToDto(Domain.Entities.AlertTemplate template)

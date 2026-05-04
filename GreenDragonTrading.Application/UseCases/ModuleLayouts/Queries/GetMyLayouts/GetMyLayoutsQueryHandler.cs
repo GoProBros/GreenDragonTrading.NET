@@ -33,7 +33,6 @@ public class GetMyLayoutsQueryHandler : IRequestHandler<GetMyLayoutsQuery, ApiRe
     {
         var userId = _currentUserService.GetRequiredUserId();
 
-        // Get layouts (system + personal of user)
         var layouts = await _uow.ModuleLayouts.GetByModuleTypeAsync(
             request.ModuleType,
             userId,

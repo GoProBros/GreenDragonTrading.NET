@@ -69,7 +69,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
                 await _uow.Users.AddAsync(user, cancellationToken);
                 await _uow.SaveChangesAsync(cancellationToken);
 
-                // Create both Web and Mobile default workspaces for the new user
                 await CreateDefaultWorkspacesForUserAsync(user.Id, cancellationToken);
 
                 var verificationToken = GenerateSecureToken();
@@ -146,7 +145,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Register
                 }
                 catch (Exception ex)
                 {
-                    // Log warning but don't fail registration if workspace creation fails
                     _logger.LogWarning(
                         ex,
                         "Failed to create default workspace for user {UserId} with type {WorkspaceType}. User registration will continue.",

@@ -57,7 +57,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     return;
                 }
 
-                // Check user interest first to avoid Layer A/B computation for untracked tickers.
                 var candidateUserIds = await GetCandidateUserIdsByTickerAsync(ticker, cancellationToken);
                 if (candidateUserIds.Count == 0)
                 {
@@ -265,7 +264,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
         private async Task<List<Guid>> GetCandidateUserIdsByTickerAsync(string ticker, CancellationToken cancellationToken)
         {
-            // Portfolio users will be merged here when portfolio scope is finalized.
             var watchListIndex = await GetWatchListTickerIndexAsync(cancellationToken);
             if (!watchListIndex.TryGetValue(ticker, out var userIds) || userIds.Count == 0)
             {
