@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Application.Interfaces;
@@ -95,19 +96,22 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
             var recentMessages = await _uow.ChatMessages.GetRecentMessagesAsync(
                 request.SessionId, _aiOptions.RecentMessagesLimit, cancellationToken);
 
+            var normalizedMessage = AlertAiNumberNormalizer.NormalizeMessage(request.Message);
             var context = new AiChatContext
             {
                 Summary = session.ConversationSummary,
                 RecentMessages = recentMessages.Select(m => new AiMessageInput
                 {
                     Role = m.SenderId == null ? "assistant" : "user",
-                    Content = m.Content
+                    Content = m.SenderId == null
+                        ? m.Content
+                        : AlertAiNumberNormalizer.NormalizeMessage(m.Content)
                 }).ToList()
             };
 
             var conversationId = $"session-{request.SessionId}";
             var submitResult = await _aiChatService.SubmitMessageAsync(
-                conversationId, request.Message, context, cancellationToken);
+                conversationId, normalizedMessage, context, cancellationToken);
 
             if (submitResult.Accepted && submitResult.AcceptedResponse != null)
             {
