@@ -6,6 +6,7 @@ using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.Json;
 
 namespace GreenDragonTrading.Application.UseCases.Alerts.Events
@@ -19,6 +20,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
     public class ProactivePriceUpdatedEventHandler(
         IRedisService redisService,
         IUnitOfWork uow,
+        IProactiveAlertEvidenceService evidenceService,
         ILogger<ProactivePriceUpdatedEventHandler> logger) : INotificationHandler<PriceUpdatedEvent>
     {
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> TickerLocks = new();
@@ -37,6 +39,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
         private readonly IRedisService _redisService = redisService;
         private readonly IUnitOfWork _uow = uow;
+        private readonly IProactiveAlertEvidenceService _evidenceService = evidenceService;
         private readonly ILogger<ProactivePriceUpdatedEventHandler> _logger = logger;
 
         public async Task Handle(PriceUpdatedEvent notification, CancellationToken cancellationToken)
@@ -50,16 +53,38 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             var tickerLock = TickerLocks.GetOrAdd(ticker, _ => new SemaphoreSlim(1, 1));
             await tickerLock.WaitAsync(cancellationToken);
 
+            var traceId = Guid.NewGuid().ToString("N");
+            var candidateUserCount = 0;
+            var eligibleUserCount = 0;
+
             try
             {
+                // ── STEP: trigger ──
+                await _evidenceService.AppendStepAsync(traceId, ticker, "trigger", "pass", detail: new()
+                {
+                    ["price"] = notification.CurrentPrice.ToString(CultureInfo.InvariantCulture),
+                    ["volume"] = (notification.CurrentVolume ?? 0m).ToString(CultureInfo.InvariantCulture),
+                    ["refPrice"] = (notification.ReferencePrice?.ToString(CultureInfo.InvariantCulture)) ?? "null",
+                }, cancellationToken: cancellationToken);
+
                 if (!await ShouldEvaluateProactiveSignalAsync(ticker))
                 {
+                    await _evidenceService.AppendStepAsync(traceId, ticker, "layerA_filter", "fail",
+                        failReason: "Throttled — ticker evaluated within last 10 seconds",
+                        cancellationToken: cancellationToken);
+                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_throttle", 0, 0, 0, cancellationToken);
                     return;
                 }
 
                 var candidateUserIds = await GetCandidateUserIdsByTickerAsync(ticker, cancellationToken);
+                candidateUserCount = candidateUserIds.Count;
+
                 if (candidateUserIds.Count == 0)
                 {
+                    await _evidenceService.AppendStepAsync(traceId, ticker, "layerA_filter", "fail",
+                        failReason: "No users have this ticker in their watchlist",
+                        cancellationToken: cancellationToken);
+                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_no_users", candidateUserCount, 0, 0, cancellationToken);
                     return;
                 }
 
@@ -75,14 +100,53 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
                 if (layerAContext == null)
                 {
+                    var absoluteMove = referencePrice.HasValue && referencePrice.Value > 0
+                        ? Math.Abs(((currentPrice - referencePrice.Value) / referencePrice.Value) * 100m)
+                        : 0m;
+                    await _evidenceService.AppendStepAsync(traceId, ticker, "layerA_filter", "fail",
+                        failReason: absoluteMove > MaxAbsoluteMovePercent
+                            ? $"Absolute move {absoluteMove:F2}% exceeds max {MaxAbsoluteMovePercent}%"
+                            : "Invalid price/volume data or trading state halted/closed",
+                        detail: new()
+                        {
+                            ["absMovePercent"] = absoluteMove.ToString("F2", CultureInfo.InvariantCulture),
+                            ["maxAllowed"] = MaxAbsoluteMovePercent.ToString(CultureInfo.InvariantCulture),
+                        },
+                        cancellationToken: cancellationToken);
+                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_layerA", candidateUserCount, 0, 0, cancellationToken);
                     return;
                 }
+
+                // ── STEP: layerA_filter pass ──
+                await _evidenceService.AppendStepAsync(traceId, ticker, "layerA_filter", "pass", detail: new()
+                {
+                    ["signedMovePercent"] = layerAContext.SignedMovePercent.ToString("F2", CultureInfo.InvariantCulture),
+                    ["tradingStatus"] = layerAContext.TradingStatus ?? "unknown",
+                    ["tradingSession"] = layerAContext.TradingSession ?? "unknown",
+                    ["candidateUserCount"] = candidateUserCount.ToString(),
+                }, cancellationToken: cancellationToken);
 
                 var signalContext = await BuildRealtimeSignalContextAsync(ticker, layerAContext);
                 if (signalContext == null)
                 {
+                    await _evidenceService.AppendStepAsync(traceId, ticker, "layerB_filter", "fail",
+                        failReason: "Technical indicators missing, stale (>2 days), or below thresholds (ADX/volume/trend alignment)",
+                        cancellationToken: cancellationToken);
+                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_layerB", candidateUserCount, 0, 0, cancellationToken);
                     return;
                 }
+
+                // ── STEP: layerB_filter pass ──
+                await _evidenceService.AppendStepAsync(traceId, ticker, "layerB_filter", "pass", detail: new()
+                {
+                    ["requiredMovePercent"] = signalContext.RequiredMovePercent.ToString("F2", CultureInfo.InvariantCulture),
+                    ["volumeRatio"] = signalContext.VolumeRatio.ToString("F2", CultureInfo.InvariantCulture),
+                    ["minVolumeRatio"] = MinVolumeRatio.ToString(CultureInfo.InvariantCulture),
+                    ["adx14"] = signalContext.Adx14.ToString("F1", CultureInfo.InvariantCulture),
+                    ["minAdx"] = MinAdx.ToString(CultureInfo.InvariantCulture),
+                    ["ema20"] = signalContext.Ema20.ToString("F2", CultureInfo.InvariantCulture),
+                    ["ema50"] = signalContext.Ema50.ToString("F2", CultureInfo.InvariantCulture),
+                }, cancellationToken: cancellationToken);
 
                 var activeUsers = (await _uow.Users.FindAsync(
                     x => candidateUserIds.Contains(x.Id) && x.Status == CommonStatus.Active,
@@ -90,6 +154,10 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
                 if (activeUsers.Count == 0)
                 {
+                    await _evidenceService.AppendStepAsync(traceId, ticker, "cooldown_filter", "fail",
+                        failReason: "All candidate users are inactive/deleted",
+                        cancellationToken: cancellationToken);
+                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_no_active_users", candidateUserCount, 0, 0, cancellationToken);
                     return;
                 }
 
@@ -104,29 +172,55 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     eligibleUserIds.Add(user.Id);
                 }
 
+                eligibleUserCount = eligibleUserIds.Count;
+
                 if (eligibleUserIds.Count == 0)
                 {
+                    await _evidenceService.AppendStepAsync(traceId, ticker, "cooldown_filter", "fail",
+                        failReason: "All users are in cooldown period (20 min per user per ticker)",
+                        detail: new() { ["totalActiveUsers"] = activeUsers.Count.ToString() },
+                        cancellationToken: cancellationToken);
+                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_cooldown", candidateUserCount, 0, 0, cancellationToken);
                     return;
                 }
+
+                // ── STEP: cooldown_filter pass ──
+                await _evidenceService.AppendStepAsync(traceId, ticker, "cooldown_filter", "pass", detail: new()
+                {
+                    ["eligibleUsers"] = eligibleUserCount.ToString(),
+                    ["totalCandidates"] = candidateUserCount.ToString(),
+                }, cancellationToken: cancellationToken);
 
                 var job = BuildAiEvaluationJob(
                     eligibleUserIds,
                     ticker,
                     layerAContext,
                     signalContext);
+                job.TraceId = traceId;
 
                 await _redisService.ListRightPushAsync(
                     RedisConstants.ProactiveAiEvaluationQueue(),
                     job);
 
+                // ── STEP: enqueued ──
+                await _evidenceService.AppendStepAsync(traceId, ticker, "enqueued", "success", detail: new()
+                {
+                    ["jobId"] = job.JobId,
+                    ["targetUserCount"] = eligibleUserCount.ToString(),
+                }, cancellationToken: cancellationToken);
+
                 _logger.LogInformation(
-                    "Enqueued proactive AI evaluation job for {Ticker} with {UserCount} target users",
+                    "Enqueued proactive AI evaluation job for {Ticker} with {UserCount} target users (trace={TraceId})",
                     ticker,
-                    eligibleUserIds.Count);
+                    eligibleUserIds.Count,
+                    traceId);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error producing proactive AI jobs for {Ticker}", ticker);
+                _ = Task.Run(() => _evidenceService.AppendStepAsync(traceId, ticker, "error", "error",
+                    failReason: ex.Message, cancellationToken: CancellationToken.None));
+                _ = Task.Run(() => _evidenceService.FinalizeTraceAsync(traceId, "error", candidateUserCount, eligibleUserCount, 0, CancellationToken.None));
             }
             finally
             {
