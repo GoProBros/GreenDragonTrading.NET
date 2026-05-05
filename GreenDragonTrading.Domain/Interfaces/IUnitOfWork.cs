@@ -26,6 +26,7 @@
         IMacroeconomicDataRepository MacroeconomicData { get; }
         IUserPushTokenRepository UserPushTokens { get; }
         ICorporateActionRepository CorporateActions { get; }
+        IProactiveAlertLayerBSettingRepository ProactiveAlertLayerBSettings { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);
