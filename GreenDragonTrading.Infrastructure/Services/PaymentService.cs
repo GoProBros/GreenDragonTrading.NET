@@ -54,12 +54,12 @@ namespace GreenDragonTrading.Infrastructure.Services
             var currentLevelInt = (int)(currentHighestSub?.Subscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
             var newLevelInt = (int)(newSubscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
 
-            if (newLevelInt < currentLevelInt)
-            {
-                _logger.LogWarning("Downgrade attempt blocked: UserId={UserId}, CurrentLevel={CurrentLevel}, RequestedLevel={RequestedLevel}",
-                    userId, currentLevelInt, newLevelInt);
-                throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ. Vui lòng chọn gói cao hơn hoặc bằng gói hiện tại.");
-            }
+            await EnsureSubscriptionLevelAllowsNewPurchaseAsync(
+                userId,
+                currentHighestSub,
+                newSubscription,
+                currentLevelInt,
+                newLevelInt);
 
             long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -346,13 +346,12 @@ namespace GreenDragonTrading.Infrastructure.Services
             var currentLevelInt = (int)(currentHighestSub?.Subscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
             var newLevelInt = (int)(newSubscription.LevelOrder ?? Domain.Enums.SubscriptionLevel.Free);
 
-            if (newLevelInt < currentLevelInt)
-            {
-                _logger.LogWarning(
-                    "Momo downgrade attempt blocked: UserId={UserId}, CurrentLevel={CurrentLevel}, RequestedLevel={RequestedLevel}",
-                    userId, currentLevelInt, newLevelInt);
-                throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ. Vui lòng chọn gói cao hơn hoặc bằng gói hiện tại.");
-            }
+            await EnsureSubscriptionLevelAllowsNewPurchaseAsync(
+                userId,
+                currentHighestSub,
+                newSubscription,
+                currentLevelInt,
+                newLevelInt);
 
             var orderId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
 
@@ -851,6 +850,45 @@ namespace GreenDragonTrading.Infrastructure.Services
                 subscription.Id);
 
             throw new BusinessRuleException("Gói dịch vụ này đã được ẩn và không thể đăng ký mới.");
+        }
+
+        private async Task EnsureSubscriptionLevelAllowsNewPurchaseAsync(
+            Guid userId,
+            UserSubscription? currentHighestSub,
+            Subscription newSubscription,
+            int currentLevelInt,
+            int newLevelInt)
+        {
+            if (currentHighestSub == null)
+            {
+                return;
+            }
+
+            if (newLevelInt < currentLevelInt)
+            {
+                _logger.LogWarning(
+                    "Downgrade attempt blocked: UserId={UserId}, CurrentLevel={CurrentLevel}, RequestedLevel={RequestedLevel}",
+                    userId,
+                    currentLevelInt,
+                    newLevelInt);
+
+                throw new BusinessRuleException("Không thể hạ cấp gói dịch vụ. Vui lòng chọn gói cao hơn hoặc bằng gói hiện tại.");
+            }
+
+            if (newLevelInt != currentLevelInt || newSubscription.Id == currentHighestSub.SubscriptionId)
+            {
+                return;
+            }
+
+            _logger.LogWarning(
+                "Same level purchase blocked: UserId={UserId}, CurrentSubscriptionId={CurrentSubscriptionId}, RequestedSubscriptionId={RequestedSubscriptionId}, Level={Level}",
+                userId,
+                currentHighestSub.SubscriptionId,
+                newSubscription.Id,
+                currentLevelInt);
+
+            throw new BusinessRuleException(
+                "Bạn đang sử dụng gói cùng cấp. Vui lòng dùng hết gói hiện tại trước khi đăng ký gói mới hoặc liên hệ CSKH để hủy gói hiện tại.");
         }
 
         private static string BuildGatewayDescription(TransactionType transactionType, int subscriptionId)
