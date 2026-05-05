@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Commands.ResendVerificationEmail
 {
@@ -7,9 +7,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.ResendVerificati
         public ResendVerificationEmailCommandValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("Email is required")
-                .EmailAddress().WithMessage("Email is invalid")
-                .MaximumLength(255).WithMessage("Email must not exceed 255 characters");
+                .NotEmpty().WithMessage("Email là bắt buộc.")
+                .EmailAddress().WithMessage("Email không hợp lệ.")
+                .MaximumLength(255).WithMessage("Email không được vượt quá 255 ký tự.");
         }
     }
 }

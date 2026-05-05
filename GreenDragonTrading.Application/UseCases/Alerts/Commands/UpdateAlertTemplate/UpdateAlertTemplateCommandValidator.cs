@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 using GreenDragonTrading.Application.Common.Utils;
 
 namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.UpdateAlertTemplate;
@@ -11,23 +11,23 @@ public class UpdateAlertTemplateCommandValidator : AbstractValidator<UpdateAlert
     {
         _allowedKeys = AlertTemplatePlaceholderCatalog
             .GetDefinitions()
-            .Select(x => x.Key)
+            .SelectMany(x => new[] { x.TokenKey, x.Key })
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id template khong hop le.");
+            .GreaterThan(0).WithMessage("Id template Không hợp lệ.");
 
         RuleFor(x => x.TitleTemplate)
-            .NotEmpty().WithMessage("TitleTemplate la bat buoc.")
-            .MaximumLength(500).WithMessage("TitleTemplate khong duoc vuot qua 500 ky tu.");
+            .NotEmpty().WithMessage("TitleTemplate là bắt buộc.")
+            .MaximumLength(500).WithMessage("TitleTemplate không được vượt qua 500 ký tự.");
 
         RuleFor(x => x.BodyTemplate)
-            .NotEmpty().WithMessage("BodyTemplate la bat buoc.")
-            .MaximumLength(4000).WithMessage("BodyTemplate khong duoc vuot qua 4000 ky tu.");
+            .NotEmpty().WithMessage("BodyTemplate là bắt buộc.")
+            .MaximumLength(4000).WithMessage("BodyTemplate không được vượt qua 4000 ký tự.");
 
         RuleFor(x => x)
             .Must(HasTypeAndConditionWhenNotDefault)
-            .WithMessage("Type va Condition la bat buoc khi khong phai template mac dinh.");
+            .WithMessage("Type và Condition là bắt buộc khi không phải template mặc định.");
 
         RuleFor(x => x.TitleTemplate)
             .Custom((value, context) => ValidatePlaceholders(value, context, "TitleTemplate"));
@@ -55,6 +55,6 @@ public class UpdateAlertTemplateCommandValidator : AbstractValidator<UpdateAlert
             return;
         }
 
-        context.AddFailure(field, $"Placeholder khong hop le: {string.Join(", ", invalid)}");
+        context.AddFailure(field, $"Placeholder không hợp lệ: {string.Join(", ", invalid)}");
     }
 }
