@@ -2,6 +2,7 @@ using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.CreateChatSession;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.GetOrCreateDirectSession;
+using GreenDragonTrading.Application.UseCases.Chat.Commands.MarkAllSessionsAsRead;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.MarkSessionAsRead;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendDirectMessage;
@@ -144,6 +145,22 @@ namespace GreenDragonTrading.Api.Controllers
             CancellationToken cancellationToken)
         {
             var command = new MarkSessionAsReadCommand(sessionId);
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
+        /// Mark all chat sessions as read for the current user.
+        /// Updates LastReadAt on every participant record belonging to the current user.
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns>Operation status</returns>
+        [HttpPatch("sessions/read-all")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse>> MarkAllSessionsAsRead(
+            CancellationToken cancellationToken)
+        {
+            var command = new MarkAllSessionsAsReadCommand();
             var result = await _mediator.Send(command, cancellationToken);
             return result;
         }
