@@ -3,6 +3,7 @@ using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.WatchLists.Commands.CreateWatchList;
 using GreenDragonTrading.Application.UseCases.WatchLists.Commands.DeleteWatchList;
 using GreenDragonTrading.Application.UseCases.WatchLists.Commands.UpdateWatchList;
+using GreenDragonTrading.Application.UseCases.WatchLists.Queries.GetAllWatchListSymbols;
 using GreenDragonTrading.Application.UseCases.WatchLists.Queries.GetMyWatchLists;
 using GreenDragonTrading.Application.UseCases.WatchLists.Queries.GetWatchListById;
 using MediatR;
@@ -28,6 +29,18 @@ public class WatchListController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(new GetMyWatchListsQuery(), cancellationToken);
+        return result;
+    }
+
+    /// <summary>
+    /// Retrieves all unique symbols across all watchlists of the current user.
+    /// </summary>
+    /// <returns>Deduplicated, sorted list of symbols</returns>
+    [HttpGet("symbols")]
+    public async Task<ActionResult<ApiResponse<List<string>>>> GetAllWatchListSymbols(
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetAllWatchListSymbolsQuery(), cancellationToken);
         return result;
     }
 
