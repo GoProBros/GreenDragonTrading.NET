@@ -35,6 +35,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
         public DbSet<AlertTemplate> AlertTemplates => Set<AlertTemplate>();
         public DbSet<CorporateAction> CorporateActions => Set<CorporateAction>();
+       public DbSet<ProactiveAlertLayerBSetting> ProactiveAlertLayerBSettings => Set<ProactiveAlertLayerBSetting>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
