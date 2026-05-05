@@ -28,14 +28,26 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
         private static readonly TimeSpan ProactiveTickerEvaluationThrottle = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan ProactiveUserCooldown = TimeSpan.FromMinutes(20);
         private static readonly TimeSpan WatchListUserCacheTtl = TimeSpan.FromMinutes(3);
-        private static readonly TimeSpan MaxIndicatorSnapshotAge = TimeSpan.FromDays(2);
+        private static readonly TimeSpan LayerBSettingsCacheTtl = TimeSpan.FromMinutes(5);
 
-        private const decimal MinAbsoluteMovePercent = 1.0m;
+        private static readonly HashSet<string> TradingStatusesAllowed = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "N",
+            "NL",
+            "ST",
+        };
+
+        private static readonly HashSet<string> TradingStatusesBlocked = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "D",
+            "H",
+            "S",
+            "ND",
+            "SA",
+            "SP",
+        };
+
         private const decimal MaxAbsoluteMovePercent = 20m;
-        private const decimal AtrMoveMultiplier = 0.7m;
-        private const decimal MinVolumeRatio = 1.8m;
-        private const decimal MinAdx = 18m;
-        private const string ProactiveTimeframe = "D1";
 
         private readonly IRedisService _redisService = redisService;
         private readonly IUnitOfWork _uow = uow;
@@ -59,6 +71,14 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
             try
             {
+                var candidateUserIds = await GetCandidateUserIdsByTickerAsync(ticker, cancellationToken);
+                if (candidateUserIds.Count == 0)
+                {
+                    return;
+                }
+
+                candidateUserCount = candidateUserIds.Count;
+
                 // ── STEP: trigger ──
                 await _evidenceService.AppendStepAsync(traceId, ticker, "trigger", "pass", detail: new()
                 {
@@ -73,18 +93,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         failReason: "Throttled — ticker evaluated within last 10 seconds",
                         cancellationToken: cancellationToken);
                     await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_throttle", 0, 0, 0, cancellationToken);
-                    return;
-                }
-
-                var candidateUserIds = await GetCandidateUserIdsByTickerAsync(ticker, cancellationToken);
-                candidateUserCount = candidateUserIds.Count;
-
-                if (candidateUserIds.Count == 0)
-                {
-                    await _evidenceService.AppendStepAsync(traceId, ticker, "layerA_filter", "fail",
-                        failReason: "No users have this ticker in their watchlist",
-                        cancellationToken: cancellationToken);
-                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_no_users", candidateUserCount, 0, 0, cancellationToken);
                     return;
                 }
 
@@ -126,11 +134,12 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     ["candidateUserCount"] = candidateUserCount.ToString(),
                 }, cancellationToken: cancellationToken);
 
-                var signalContext = await BuildRealtimeSignalContextAsync(ticker, layerAContext);
+                var layerBSettings = await GetLayerBSettingsAsync(cancellationToken);
+                var signalContext = await BuildRealtimeSignalContextAsync(ticker, layerAContext, layerBSettings);
                 if (signalContext == null)
                 {
                     await _evidenceService.AppendStepAsync(traceId, ticker, "layerB_filter", "fail",
-                        failReason: "Technical indicators missing, stale (>2 days), or below thresholds (ADX/volume/trend alignment)",
+                        failReason: "Technical indicators missing, stale, or below thresholds (ADX/volume/trend alignment)",
                         cancellationToken: cancellationToken);
                     await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_layerB", candidateUserCount, 0, 0, cancellationToken);
                     return;
@@ -141,9 +150,9 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 {
                     ["requiredMovePercent"] = signalContext.RequiredMovePercent.ToString("F2", CultureInfo.InvariantCulture),
                     ["volumeRatio"] = signalContext.VolumeRatio.ToString("F2", CultureInfo.InvariantCulture),
-                    ["minVolumeRatio"] = MinVolumeRatio.ToString(CultureInfo.InvariantCulture),
+                    ["minVolumeRatio"] = layerBSettings.MinVolumeRatio.ToString(CultureInfo.InvariantCulture),
                     ["adx14"] = signalContext.Adx14.ToString("F1", CultureInfo.InvariantCulture),
-                    ["minAdx"] = MinAdx.ToString(CultureInfo.InvariantCulture),
+                    ["minAdx"] = layerBSettings.MinAdx.ToString(CultureInfo.InvariantCulture),
                     ["ema20"] = signalContext.Ema20.ToString("F2", CultureInfo.InvariantCulture),
                     ["ema50"] = signalContext.Ema50.ToString("F2", CultureInfo.InvariantCulture),
                 }, cancellationToken: cancellationToken);
@@ -240,6 +249,56 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             return true;
         }
 
+        private async Task<ProactiveAlertLayerBSettingsDto> GetLayerBSettingsAsync(CancellationToken cancellationToken)
+        {
+            var cacheKey = RedisConstants.ProactiveAlertLayerBSettings();
+            var cached = await _redisService.GetAsync<ProactiveAlertLayerBSettingsDto>(cacheKey);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            var settings = await _uow.ProactiveAlertLayerBSettings.FirstOrDefaultAsync(
+                _ => true,
+                cancellationToken);
+
+            ProactiveAlertLayerBSettingsDto snapshot;
+            if (settings == null)
+            {
+                var now = DateTimeOffset.UtcNow;
+                snapshot = new ProactiveAlertLayerBSettingsDto
+                {
+                    Id = 0,
+                    Timeframe = ProactiveAlertLayerBDefaults.Timeframe,
+                    MinAbsoluteMovePercent = ProactiveAlertLayerBDefaults.MinAbsoluteMovePercent,
+                    AtrMoveMultiplier = ProactiveAlertLayerBDefaults.AtrMoveMultiplier,
+                    MinVolumeRatio = ProactiveAlertLayerBDefaults.MinVolumeRatio,
+                    MinAdx = ProactiveAlertLayerBDefaults.MinAdx,
+                    MaxIndicatorSnapshotAgeMinutes = ProactiveAlertLayerBDefaults.MaxIndicatorSnapshotAgeMinutes,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+            }
+            else
+            {
+                snapshot = new ProactiveAlertLayerBSettingsDto
+                {
+                    Id = settings.Id,
+                    Timeframe = settings.Timeframe,
+                    MinAbsoluteMovePercent = settings.MinAbsoluteMovePercent,
+                    AtrMoveMultiplier = settings.AtrMoveMultiplier,
+                    MinVolumeRatio = settings.MinVolumeRatio,
+                    MinAdx = settings.MinAdx,
+                    MaxIndicatorSnapshotAgeMinutes = settings.MaxIndicatorSnapshotAgeMinutes,
+                    CreatedAt = settings.CreatedAt,
+                    UpdatedAt = settings.UpdatedAt
+                };
+            }
+
+            await _redisService.SetAsync(cacheKey, snapshot, LayerBSettingsCacheTtl);
+            return snapshot;
+        }
+
         private async Task<LayerAContext?> BuildLayerAContextAsync(
             string ticker,
             decimal currentPrice,
@@ -284,19 +343,21 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
         private static bool IsTradingStateEligible(string? tradingStatus, string? tradingSession)
         {
-            if (!string.IsNullOrWhiteSpace(tradingStatus))
+            var status = NormalizeTradingStatus(tradingStatus);
+            if (TradingStatusesBlocked.Contains(status))
             {
-                var status = tradingStatus.Trim().ToLowerInvariant();
-                if (status.Contains("halt") || status.Contains("suspend") || status.Contains("close"))
-                {
-                    return false;
-                }
+                return false;
+            }
+
+            if (TradingStatusesAllowed.Contains(status))
+            {
+                return true;
             }
 
             if (!string.IsNullOrWhiteSpace(tradingSession))
             {
                 var session = tradingSession.Trim().ToLowerInvariant();
-                if (session.Contains("closed") || session.Contains("break"))
+                if (session.Contains("halt") || session.Contains("suspend") || session.Contains("close") || session.Contains("break"))
                 {
                     return false;
                 }
@@ -305,12 +366,33 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             return true;
         }
 
+        private static string NormalizeTradingStatus(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var trimmed = value.Trim();
+            var token = trimmed.Split([' ', '-', '_', '/', '\\', ':'], StringSplitOptions.RemoveEmptyEntries)[0];
+            return token.ToUpperInvariant();
+        }
+
         private async Task<RealtimeSignalContext?> BuildRealtimeSignalContextAsync(
             string ticker,
-            LayerAContext layerAContext)
+            LayerAContext layerAContext,
+            ProactiveAlertLayerBSettingsDto settings)
         {
+            var timeframe = string.IsNullOrWhiteSpace(settings.Timeframe)
+                ? ProactiveAlertLayerBDefaults.Timeframe
+                : settings.Timeframe;
+            var maxSnapshotAgeMinutes = settings.MaxIndicatorSnapshotAgeMinutes > 0
+                ? settings.MaxIndicatorSnapshotAgeMinutes
+                : ProactiveAlertLayerBDefaults.MaxIndicatorSnapshotAgeMinutes;
+            var maxSnapshotAge = TimeSpan.FromMinutes(maxSnapshotAgeMinutes);
+
             var snapshot = await _redisService.GetHashAsync<IndicatorSnapshotDto>(
-                RedisConstants.Indicators(ticker, ProactiveTimeframe));
+                RedisConstants.Indicators(ticker, timeframe));
 
             if (snapshot == null
                 || !snapshot.Atr14.HasValue
@@ -318,7 +400,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 || !snapshot.Ema20.HasValue
                 || !snapshot.Ema50.HasValue
                 || snapshot.CalculatedAt == default
-                || DateTime.UtcNow - snapshot.CalculatedAt > MaxIndicatorSnapshotAge)
+                || DateTime.UtcNow - snapshot.CalculatedAt > maxSnapshotAge)
             {
                 return null;
             }
@@ -327,7 +409,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             var atrPercent = snapshot.Atr14.Value > 0
                 ? (snapshot.Atr14.Value / layerAContext.CurrentPrice) * 100m
                 : 0m;
-            var requiredMovePercent = Math.Max(MinAbsoluteMovePercent, AtrMoveMultiplier * atrPercent);
+            var requiredMovePercent = Math.Max(settings.MinAbsoluteMovePercent, settings.AtrMoveMultiplier * atrPercent);
 
             var volumeRatio = snapshot.VolumeToVolumeMa20Ratio ?? 0m;
             var adx = snapshot.Adx14.Value;
@@ -338,8 +420,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 || (ema20 < ema50 && layerAContext.CurrentPrice < ema20);
 
             if (absoluteMovePercent < requiredMovePercent
-                || volumeRatio < MinVolumeRatio
-                || adx < MinAdx
+                || volumeRatio < settings.MinVolumeRatio
+                || adx < settings.MinAdx
                 || !trendAligned)
             {
                 return null;

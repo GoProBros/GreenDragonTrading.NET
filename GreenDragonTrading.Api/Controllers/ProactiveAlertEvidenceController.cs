@@ -1,29 +1,37 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Application.UseCases.Alerts.Commands.UpdateProactiveAlertLayerBSettings;
+using GreenDragonTrading.Application.UseCases.Alerts.Queries.GetProactiveAlertLayerBSettings;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GreenDragonTrading.Api.Controllers
 {
     /// <summary>
-    /// Admin controller for proactive alert evidence.
-    /// All endpoints are publicly accessible (no auth) for demo purposes.
+    /// Proactive alert controller for evidence and settings endpoints.
+    /// Evidence endpoints are public for demo purposes.
     /// </summary>
     [ApiController]
-    [Route("api/admin/proactive-evidence")]
-    public class ProactiveAlertEvidenceController : ControllerBase
+    [Route("api/v1/proactive-alert")]
+    public class ProactiveAlertController : ControllerBase
     {
         private readonly IProactiveAlertEvidenceService _evidenceService;
+        private readonly IMediator _mediator;
 
-        public ProactiveAlertEvidenceController(IProactiveAlertEvidenceService evidenceService)
+        public ProactiveAlertController(
+            IProactiveAlertEvidenceService evidenceService,
+            IMediator mediator)
         {
             _evidenceService = evidenceService;
+            _mediator = mediator;
         }
 
         /// <summary>
         /// Returns aggregate statistics for the evidence dashboard.
         /// </summary>
-        [HttpGet("stats")]
+        [HttpGet("evidence/stats")]
         [Produces("application/json")]
         public async Task<IActionResult> GetStats(CancellationToken cancellationToken)
         {
@@ -34,7 +42,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// <summary>
         /// Lists trace summaries with optional filters.
         /// </summary>
-        [HttpGet("traces")]
+        [HttpGet("evidence/traces")]
         [Produces("application/json")]
         public async Task<IActionResult> ListTraces(
             [FromQuery] string? ticker,
@@ -63,7 +71,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// <summary>
         /// Retrieves full detail for a single trace.
         /// </summary>
-        [HttpGet("traces/{traceId}")]
+        [HttpGet("evidence/traces/{traceId}")]
         [Produces("application/json")]
         public async Task<IActionResult> GetTrace(string traceId, CancellationToken cancellationToken)
         {
@@ -74,6 +82,33 @@ namespace GreenDragonTrading.Api.Controllers
             }
 
             return Ok(ApiResponse<ProactiveAlertTraceDto>.Success(trace, "Lấy trace thành công"));
+        }
+
+        /// <summary>
+        /// Gets the current global layer B settings.
+        /// </summary>
+        [HttpGet("settings/layer-b")]
+        [Authorize]
+        [Produces("application/json")]
+        public async Task<ActionResult<ApiResponse<ProactiveAlertLayerBSettingsDto>>> GetLayerBSettings(
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new GetProactiveAlertLayerBSettingsQuery(), cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Updates the current global layer B settings.
+        /// </summary>
+        [HttpPut("settings/layer-b")]
+        [Authorize]
+        [Produces("application/json")]
+        public async Task<ActionResult<ApiResponse<ProactiveAlertLayerBSettingsDto>>> UpdateLayerBSettings(
+            [FromBody] UpdateProactiveAlertLayerBSettingsCommand command,
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return Ok(result);
         }
 
     }
