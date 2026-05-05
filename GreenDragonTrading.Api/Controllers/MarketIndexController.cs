@@ -116,13 +116,13 @@ namespace GreenDragonTrading.Api.Controllers
         /// Suitable for rendering sparkline charts in the Index Module.
         /// </summary>
         /// <param name="code">Index code (e.g. "VNINDEX").</param>
-        /// <param name="maxPoints">Maximum number of data points to return (default 4000 — full trading day, max 4000).</param>
+        /// <param name="maxPoints">Maximum number of data points to return. Omit or pass -1 to return all points for the day.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>List of time/value pairs in ascending time order.</returns>
         [HttpGet("{code}/intraday")]
         public async Task<ActionResult<ApiResponse<List<IndexHistoryPointDto>>>> GetIndexIntraday(
             string code,
-            [FromQuery] int maxPoints = 4000,
+            [FromQuery] int maxPoints = -1,
             CancellationToken cancellationToken = default)
         {
             var result = await _mediator.Send(new GetIntradayIndexQuery(code, maxPoints), cancellationToken);

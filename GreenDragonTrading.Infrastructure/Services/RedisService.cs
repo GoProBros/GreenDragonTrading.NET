@@ -281,9 +281,10 @@ namespace GreenDragonTrading.Infrastructure.Services
         }
 
         /// <inheritdoc/>
-        public async Task<List<T>> ListRangeAsync<T>(string key, int count)
+        public async Task<List<T>> ListRangeAsync<T>(string key, int count = -1)
         {
-            var values = await _db.ListRangeAsync(key, 0, count - 1);
+            // count <= 0 means "all" — Redis uses -1 as end-index to mean the last element.
+            var values = await _db.ListRangeAsync(key, 0, count <= 0 ? -1 : count - 1);
             return values
                 .Where(v => !v.IsNullOrEmpty)
                 .Select(v => JsonSerializer.Deserialize<T>(v!, _jsonOptions)!)

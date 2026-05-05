@@ -75,9 +75,9 @@
         Task ListPushTrimAsync<T>(string key, T value, int maxLength);
 
         /// <summary>
-        /// Get the first <paramref name="count"/> items from a Redis list.
+        /// Get items from a Redis list. Pass <paramref name="count"/> = -1 to return all items.
         /// </summary>
-        Task<List<T>> ListRangeAsync<T>(string key, int count);
+        Task<List<T>> ListRangeAsync<T>(string key, int count = -1);
 
         /// <summary>
         /// Append one item to the end of a Redis list.

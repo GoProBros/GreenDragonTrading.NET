@@ -13,13 +13,14 @@ namespace GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetIntrada
         /// <summary>Index code (e.g. "VNINDEX"). Case-insensitive.</summary>
         public string Code { get; }
 
-        /// <summary>Maximum number of history points to return (default 4000 — covers full trading day at 5s intervals).</summary>
+        /// <summary>Maximum number of history points to return. Pass -1 (default) to return all points for the day.</summary>
         public int MaxPoints { get; }
 
-        public GetIntradayIndexQuery(string code, int maxPoints = 4000)
+        public GetIntradayIndexQuery(string code, int maxPoints = -1)
         {
             Code = code.ToUpperInvariant();
-            MaxPoints = Math.Clamp(maxPoints, 1, 4000);
+            // -1 (or 0) means "all"; positive values cap the result.
+            MaxPoints = maxPoints <= 0 ? -1 : maxPoints;
         }
     }
 }
