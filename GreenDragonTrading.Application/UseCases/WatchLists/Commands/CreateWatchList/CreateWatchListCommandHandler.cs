@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
@@ -17,15 +18,18 @@ namespace GreenDragonTrading.Application.UseCases.WatchLists.Commands.CreateWatc
 public class CreateWatchListCommandHandler : IRequestHandler<CreateWatchListCommand, ApiResponse<WatchListDto>>
 {
     private readonly IUnitOfWork _uow;
+    private readonly IRedisService _redisService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<CreateWatchListCommandHandler> _logger;
 
     public CreateWatchListCommandHandler(
         IUnitOfWork uow,
+        IRedisService redisService,
         ICurrentUserService currentUserService,
         ILogger<CreateWatchListCommandHandler> logger)
     {
         _uow = uow;
+        _redisService = redisService;
         _currentUserService = currentUserService;
         _logger = logger;
     }
@@ -56,6 +60,15 @@ public class CreateWatchListCommandHandler : IRequestHandler<CreateWatchListComm
 
         await _uow.WatchLists.AddAsync(watchList, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _redisService.RemoveAsync(RedisConstants.ProactiveWatchListTickerIndex());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate proactive watchlist index cache after creating watchlist {WatchListId}", watchList.Id);
+        }
 
         var result = new WatchListDto
         {

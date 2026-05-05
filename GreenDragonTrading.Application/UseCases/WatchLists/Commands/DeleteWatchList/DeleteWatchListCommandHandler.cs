@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
@@ -13,15 +14,18 @@ namespace GreenDragonTrading.Application.UseCases.WatchLists.Commands.DeleteWatc
 public class DeleteWatchListCommandHandler : IRequestHandler<DeleteWatchListCommand, ApiResponse>
 {
     private readonly IUnitOfWork _uow;
+    private readonly IRedisService _redisService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<DeleteWatchListCommandHandler> _logger;
 
     public DeleteWatchListCommandHandler(
         IUnitOfWork uow,
+        IRedisService redisService,
         ICurrentUserService currentUserService,
         ILogger<DeleteWatchListCommandHandler> logger)
     {
         _uow = uow;
+        _redisService = redisService;
         _currentUserService = currentUserService;
         _logger = logger;
     }
@@ -40,6 +44,15 @@ public class DeleteWatchListCommandHandler : IRequestHandler<DeleteWatchListComm
 
         _uow.WatchLists.Delete(watchList);
         await _uow.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _redisService.RemoveAsync(RedisConstants.ProactiveWatchListTickerIndex());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate proactive watchlist index cache after deleting watchlist {WatchListId}", request.Id);
+        }
 
         _logger.LogInformation("Watch list deleted successfully {WatchListId} for user {UserId}", request.Id, userId);
 

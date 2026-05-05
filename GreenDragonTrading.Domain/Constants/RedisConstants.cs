@@ -15,6 +15,7 @@ namespace GreenDragonTrading.Domain.Constants
         public const string REDIS_KEY_PREFIX_INDICATORS = "INDICATORS";
         public const string REDIS_KEY_PREFIX_INDICATORS_ZSCORE = "INDICATORS:ZSCORE";
         public const string REDIS_KEY_PROACTIVE_AI_EVALUATION_QUEUE = "alerts:proactive:ai:queue";
+        public const string REDIS_KEY_PROACTIVE_WATCHLIST_INDEX = "alerts:proactive:watchlist-index";
         public const string REDIS_KEY_PREFIX_PAYMENT_SYNC = "PAYMENT:SYNC";
         public const string REDIS_KEY_PENDING_PAYMENT_SYNC_QUEUE = "PAYMENT:SYNC:PENDING";
         public const string REDIS_KEY_PREFIX_ALERTS_ABOVE = "alerts:above";
@@ -72,6 +73,9 @@ namespace GreenDragonTrading.Domain.Constants
 
         public static string ProactiveAiEvaluationQueue()
             => REDIS_KEY_PROACTIVE_AI_EVALUATION_QUEUE;
+
+        public static string ProactiveWatchListTickerIndex()
+            => REDIS_KEY_PROACTIVE_WATCHLIST_INDEX;
 
         public static string PendingPaymentSyncQueue()
             => REDIS_KEY_PENDING_PAYMENT_SYNC_QUEUE;
