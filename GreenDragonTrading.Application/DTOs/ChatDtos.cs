@@ -94,6 +94,7 @@ namespace GreenDragonTrading.Application.DTOs
         public Guid? SenderId { get; set; }
         public string? SenderName { get; set; }
         public string Content { get; set; } = string.Empty;
+        public string? ResponseData { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public bool IsUnreadForCurrentUser { get; set; }
     }
