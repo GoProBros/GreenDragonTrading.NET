@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
 {
@@ -7,11 +7,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Login
         public LoginCommandValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("Email is required")
-                .EmailAddress().WithMessage("Email is invalid");
+                .NotEmpty().WithMessage("Email là bắt buộc.")
+                .EmailAddress().WithMessage("Email không hợp lệ.");
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Password is required");
+                .NotEmpty().WithMessage("Password là bắt buộc.");
         }
     }
 }

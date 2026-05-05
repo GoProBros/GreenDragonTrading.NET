@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.ToggleAlertTemplateStatus;
 
@@ -7,6 +7,6 @@ public class ToggleAlertTemplateStatusCommandValidator : AbstractValidator<Toggl
     public ToggleAlertTemplateStatusCommandValidator()
     {
         RuleFor(x => x.Id)
-            .GreaterThan(0).WithMessage("Id template khong hop le.");
+            .GreaterThan(0).WithMessage("Id template Không hợp lệ.");
     }
 }
