@@ -90,6 +90,7 @@ public static class EnvironmentConfiguration
             // AI Engine
             ["AiEngine:BaseUrl"] = Environment.GetEnvironmentVariable("AI_ENGINE_BASE_URL"),
             ["AiEngine:TimeoutSeconds"] = Environment.GetEnvironmentVariable("AI_ENGINE_TIMEOUT_SECONDS"),
+            ["AiEngine:ApiKey"] = Environment.GetEnvironmentVariable("AI_ENGINE_API_KEY"),
             ["AiEngine:RecentMessagesLimit"] = Environment.GetEnvironmentVariable("AI_ENGINE_RECENT_MESSAGES_LIMIT"),
             ["AiEngine:SummaryBatchSize"] = Environment.GetEnvironmentVariable("AI_ENGINE_SUMMARY_BATCH_SIZE"),
             ["AiEngine:SummaryKeepRecentCount"] = Environment.GetEnvironmentVariable("AI_ENGINE_SUMMARY_KEEP_RECENT_COUNT"),
