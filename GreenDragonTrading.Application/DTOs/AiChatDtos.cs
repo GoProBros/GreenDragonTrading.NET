@@ -152,4 +152,37 @@ namespace GreenDragonTrading.Application.DTOs
         [JsonPropertyName("sentiment_score")]
         public decimal? SentimentScore { get; set; }
     }
+
+    /// <summary>
+    /// Response from AI engine suggestions endpoint.
+    /// </summary>
+    public class AiChatSuggestionsResponse
+    {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [JsonPropertyName("questions")]
+        public List<string> Questions { get; set; } = new();
+
+        [JsonPropertyName("sourceSymbols")]
+        public List<string> SourceSymbols { get; set; } = new();
+
+        [JsonPropertyName("metadata")]
+        public AiChatSuggestionsMetadata? Metadata { get; set; }
+
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Metadata for AI suggestions response.
+    /// </summary>
+    public class AiChatSuggestionsMetadata
+    {
+        [JsonPropertyName("modelName")]
+        public string ModelName { get; set; } = string.Empty;
+
+        [JsonPropertyName("latencyMs")]
+        public long LatencyMs { get; set; }
+    }
 }
