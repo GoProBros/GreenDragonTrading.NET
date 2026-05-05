@@ -17,7 +17,7 @@ public class GetAlertTemplatePlaceholdersQueryHandler
             .Select(definition => new AlertTemplatePlaceholderDto
             {
                 Key = definition.Key,
-                Token = AlertTemplatePlaceholderCatalog.ToToken(definition.Key),
+                Token = AlertTemplatePlaceholderCatalog.ToToken(definition.TokenKey),
                 Category = definition.Category,
                 Description = definition.Description
             })

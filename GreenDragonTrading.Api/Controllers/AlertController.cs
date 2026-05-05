@@ -92,7 +92,7 @@ namespace GreenDragonTrading.Api.Controllers
         /// Returns alert templates (admin/staff only).
         /// </summary>
         [HttpGet("templates")]
-        public async Task<ActionResult<ApiResponse<List<AlertTemplateDto>>>> GetAlertTemplates(
+        public async Task<ActionResult<ApiResponse<PaginatedResponse<AlertTemplateDto>>>> GetAlertTemplates(
             [FromQuery] GetAlertTemplatesQuery query,
             CancellationToken cancellationToken)
         {

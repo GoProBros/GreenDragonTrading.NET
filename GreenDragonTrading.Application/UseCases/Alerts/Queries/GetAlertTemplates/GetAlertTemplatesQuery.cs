@@ -10,4 +10,4 @@ public record GetAlertTemplatesQuery(
     ConditionType? Condition = null,
     bool? IsActive = null,
     bool? IsDefault = null)
-    : IRequest<ApiResponse<List<AlertTemplateDto>>>;
+    : PaginationQuery, IRequest<ApiResponse<PaginatedResponse<AlertTemplateDto>>>;
