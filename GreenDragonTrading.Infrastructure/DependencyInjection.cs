@@ -53,6 +53,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IChatAsyncJobService, ChatAsyncJobService>();
             services.AddSingleton<IUserIdProvider, MarketDataUserIdProvider>();
             services.AddScoped<IHeatmapService, HeatmapService>();
+            services.AddScoped<IProactiveAlertEvidenceService, ProactiveAlertEvidenceService>();
             services.AddSingleton<ITelegramBotService, TelegramBotService>();
             services.AddScoped<ITelegramLinkService, TelegramLinkService>();
 
@@ -167,6 +168,10 @@ namespace GreenDragonTrading.Infrastructure
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+                if (!string.IsNullOrWhiteSpace(options.ApiKey))
+                {
+                    client.DefaultRequestHeaders.Add("X-Api-Key", options.ApiKey);
+                }
             });
 
             services.AddHttpClient<IProactiveAlertEvaluationService, ProactiveAlertEvaluationService>((sp, client) =>
@@ -176,6 +181,10 @@ namespace GreenDragonTrading.Infrastructure
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
+                if (!string.IsNullOrWhiteSpace(options.ApiKey))
+                {
+                    client.DefaultRequestHeaders.Add("X-Api-Key", options.ApiKey);
+                }
             });
 
             services.AddHttpClient<INewsRssService, NewsRssService>((_, client) =>

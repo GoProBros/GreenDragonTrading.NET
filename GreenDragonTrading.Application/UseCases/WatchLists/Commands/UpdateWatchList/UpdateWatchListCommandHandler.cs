@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Exceptions;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
@@ -15,15 +16,18 @@ namespace GreenDragonTrading.Application.UseCases.WatchLists.Commands.UpdateWatc
 public class UpdateWatchListCommandHandler : IRequestHandler<UpdateWatchListCommand, ApiResponse<WatchListDto>>
 {
     private readonly IUnitOfWork _uow;
+    private readonly IRedisService _redisService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<UpdateWatchListCommandHandler> _logger;
 
     public UpdateWatchListCommandHandler(
         IUnitOfWork uow,
+        IRedisService redisService,
         ICurrentUserService currentUserService,
         ILogger<UpdateWatchListCommandHandler> logger)
     {
         _uow = uow;
+        _redisService = redisService;
         _currentUserService = currentUserService;
         _logger = logger;
     }
@@ -58,6 +62,15 @@ public class UpdateWatchListCommandHandler : IRequestHandler<UpdateWatchListComm
         watchList.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _uow.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _redisService.RemoveAsync(RedisConstants.ProactiveWatchListTickerIndex());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate proactive watchlist index cache after updating watchlist {WatchListId}", request.Id);
+        }
 
         JsonElement tickers;
         try
