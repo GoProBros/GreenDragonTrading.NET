@@ -53,6 +53,7 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IChatAsyncJobService, ChatAsyncJobService>();
             services.AddSingleton<IUserIdProvider, MarketDataUserIdProvider>();
             services.AddScoped<IHeatmapService, HeatmapService>();
+            services.AddScoped<IProactiveAlertEvidenceService, ProactiveAlertEvidenceService>();
             services.AddSingleton<ITelegramBotService, TelegramBotService>();
             services.AddScoped<ITelegramLinkService, TelegramLinkService>();
 

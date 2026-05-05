@@ -74,6 +74,24 @@ namespace GreenDragonTrading.Domain.Constants
         public static string ProactiveAiEvaluationQueue()
             => REDIS_KEY_PROACTIVE_AI_EVALUATION_QUEUE;
 
+        // ── Proactive Alert Evidence ────────────────────────────────────────────
+        private const string REDIS_KEY_PREFIX_EVIDENCE_TRACE = "evidence:trace";
+        private const string REDIS_KEY_EVIDENCE_TIMELINE = "evidence:timeline";
+        private const string REDIS_KEY_PREFIX_EVIDENCE_TICKER_INDEX = "evidence:ticker";
+        private static readonly TimeSpan EvidenceDefaultTtl = TimeSpan.FromDays(7);
+
+        public static string EvidenceTrace(string traceId)
+            => $"{REDIS_KEY_PREFIX_EVIDENCE_TRACE}:{traceId}";
+
+        public static string EvidenceTimeline()
+            => REDIS_KEY_EVIDENCE_TIMELINE;
+
+        public static string EvidenceTickerIndex(string ticker)
+            => $"{REDIS_KEY_PREFIX_EVIDENCE_TICKER_INDEX}:{ticker.ToUpperInvariant()}";
+
+        public static TimeSpan EvidenceTtl()
+            => EvidenceDefaultTtl;
+
         public static string ProactiveWatchListTickerIndex()
             => REDIS_KEY_PROACTIVE_WATCHLIST_INDEX;
 
