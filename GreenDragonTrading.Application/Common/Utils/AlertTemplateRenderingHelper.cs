@@ -17,13 +17,14 @@ public static class AlertTemplateRenderingHelper
     {
         return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Ticker"] = alert.Ticker,
-            ["ThresholdValue"] = alert.ThresholdValue.ToString("0.####"),
-            ["ChangePercentage"] = alert.ChangePercentage?.ToString("0.##") ?? string.Empty,
-            ["Type"] = alert.Type.GetDisplayName(),
-            ["Condition"] = alert.Condition.GetDisplayName(),
-            ["CurrentPrice"] = currentPrice.ToString("0.####"),
-            ["CurrentVolume"] = currentVolume.ToString("0.####")
+            ["Mã Chứng Khoán"] = alert.Ticker,
+            ["Giá Định Mức"] = alert.ThresholdValue.ToString("0.####"),
+            ["Phần Trăm Thay Đổi"] = alert.ChangePercentage?.ToString("0.##") ?? string.Empty,
+            ["Loại Cảnh Báo"] = alert.Type.GetDisplayName(),
+            ["Điều Kiện"] = alert.Condition.GetDisplayName(),
+            ["Giá Hiện Tại"] = currentPrice.ToString("0.####"),
+            ["Khối Lượng Hiện Tại"] = currentVolume.ToString("0.####"),
+            ["Thời Gian"] = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("HH:mm:ss dd/MM/yyyy")
         };
     }
 
