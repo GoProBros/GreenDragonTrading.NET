@@ -150,8 +150,10 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                 }
                 else
                 {
-                    // Full trading day (9:00-11:30 + 13:00-15:00) at 5s intervals ≈ 3,240 points. Use 4,000 as buffer.
-                    await redis.ListPushTrimAsync(intradayKey, historyPoint, maxLength: 4000);
+                    // No trim — list is reset each trading day, so growth is bounded to one session.
+                    // SSI can push faster than 5s/tick during active trading, so a fixed cap risks
+                    // losing early-session data. int.MaxValue effectively disables the trim.
+                    await redis.ListPushTrimAsync(intradayKey, historyPoint, maxLength: int.MaxValue);
                 }
 
                 // Queue SignalR broadcast to INDEX:{CODE} group
