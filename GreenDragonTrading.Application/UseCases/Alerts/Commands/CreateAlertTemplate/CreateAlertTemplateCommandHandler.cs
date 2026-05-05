@@ -26,10 +26,13 @@ public class CreateAlertTemplateCommandHandler(
         }
 
         var now = DateTimeOffset.UtcNow;
+        var normalizedType = request.IsDefault ? null : request.Type;
+        var normalizedCondition = request.IsDefault ? null : request.Condition;
+
         var template = new AlertTemplate
         {
-            Type = request.Type,
-            Condition = request.Condition,
+            Type = normalizedType,
+            Condition = normalizedCondition,
             TitleTemplate = request.TitleTemplate.Trim(),
             BodyTemplate = request.BodyTemplate.Trim(),
             IsActive = request.IsActive,
