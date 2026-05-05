@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,11 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
         public async Task<ApiResponse<SubscriptionDto>> Handle(CreateSubscriptionCommand request, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Creating subscription: Name={Name}, LevelOrder={LevelOrder}", request.Name, request.LevelOrder);
+            if(request.LevelOrder < SubscriptionLevel.Advanced || request.LevelOrder > SubscriptionLevel.VipThree)
+            {
+                _logger.LogWarning("Invalid subscription level: {LevelOrder}", request.LevelOrder);
+                return ApiResponse<SubscriptionDto>.Failure("Cấp độ đăng ký không hợp lệ.");
+            }
 
             var subscription = new Subscription
             {

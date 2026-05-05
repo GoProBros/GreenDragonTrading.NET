@@ -85,6 +85,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatMessages
                         SenderId = m.SenderId,
                         SenderName = m.Sender?.Username,
                         Content = m.Content,
+                        ResponseData = m.ResponseData,
                         CreatedAt = m.CreatedAt,
                         IsUnreadForCurrentUser =
                             m.SenderId != userId
