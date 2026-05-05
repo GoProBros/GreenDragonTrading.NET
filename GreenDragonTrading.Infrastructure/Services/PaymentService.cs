@@ -503,6 +503,54 @@ namespace GreenDragonTrading.Infrastructure.Services
                     cancellationToken);
             }
 
+            if (IsMomoCancelledResult(queryResult))
+            {
+                transaction.Status = TransactionStatus.Cancelled;
+                transaction.ProviderTransactionId = queryResult.TransId > 0
+                    ? queryResult.TransId.ToString()
+                    : transaction.ProviderTransactionId;
+                _uow.Transactions.Update(transaction);
+                await _uow.SaveChangesAsync(cancellationToken);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+
+                _logger.LogWarning(
+                    "Momo sync marked transaction as Cancelled: OrderCode={OrderCode}, ResultCode={ResultCode}, Message={Message}",
+                    orderCode,
+                    queryResult.ResultCode,
+                    queryResult.Message);
+
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    OrderCode = orderCode,
+                    Message = "Giao dịch đã bị hủy và được cập nhật trong hệ thống"
+                };
+            }
+
+            if (IsMomoExpiredResult(queryResult))
+            {
+                transaction.Status = TransactionStatus.Expired;
+                transaction.ProviderTransactionId = queryResult.TransId > 0
+                    ? queryResult.TransId.ToString()
+                    : transaction.ProviderTransactionId;
+                _uow.Transactions.Update(transaction);
+                await _uow.SaveChangesAsync(cancellationToken);
+                await RemovePendingPaymentFromSyncQueueAsync(orderCode);
+
+                _logger.LogWarning(
+                    "Momo sync marked transaction as Expired: OrderCode={OrderCode}, ResultCode={ResultCode}, Message={Message}",
+                    orderCode,
+                    queryResult.ResultCode,
+                    queryResult.Message);
+
+                return new WebhookUpdateResult
+                {
+                    IsSuccess = false,
+                    OrderCode = orderCode,
+                    Message = "Giao dịch đã hết hạn và được cập nhật trong hệ thống"
+                };
+            }
+
             if (HasTimedOut(transaction.CreatedAt, _momoOptions.ExpirationMinutes))
             {
                 transaction.Status = TransactionStatus.Expired;
@@ -787,6 +835,37 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             var validExpirationMinutes = expirationMinutes > 0 ? expirationMinutes : 15;
             return createdAt.AddMinutes(validExpirationMinutes).ToUnixTimeSeconds();
+        }
+
+        private static bool IsMomoCancelledResult(MomoQueryTransactionResponse queryResult)
+        {
+            if (queryResult.ResultCode == 1006)
+            {
+                return true;
+            }
+
+            var message = (queryResult.Message ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(message))
+            {
+                return false;
+            }
+
+            return message.Contains("hủy", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("từ chối", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("cancel", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsMomoExpiredResult(MomoQueryTransactionResponse queryResult)
+        {
+            var message = (queryResult.Message ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(message))
+            {
+                return false;
+            }
+
+            return message.Contains("hết hạn", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("expired", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("timeout", StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task TrackPendingPaymentForSyncAsync(long orderCode, long expiredAtUnix)
