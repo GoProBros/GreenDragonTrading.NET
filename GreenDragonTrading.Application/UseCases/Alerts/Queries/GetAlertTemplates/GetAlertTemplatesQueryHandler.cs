@@ -10,12 +10,12 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Queries.GetAlertTemplat
 public class GetAlertTemplatesQueryHandler(
     IUnitOfWork uow,
     ICurrentUserService currentUserService)
-    : IRequestHandler<GetAlertTemplatesQuery, ApiResponse<List<AlertTemplateDto>>>
+    : IRequestHandler<GetAlertTemplatesQuery, ApiResponse<PaginatedResponse<AlertTemplateDto>>>
 {
     private readonly IUnitOfWork _uow = uow;
     private readonly ICurrentUserService _currentUserService = currentUserService;
 
-    public async Task<ApiResponse<List<AlertTemplateDto>>> Handle(
+    public async Task<ApiResponse<PaginatedResponse<AlertTemplateDto>>> Handle(
         GetAlertTemplatesQuery request,
         CancellationToken cancellationToken)
     {
@@ -24,6 +24,9 @@ public class GetAlertTemplatesQueryHandler(
             throw new AccessDeniedException("Chỉ admin/staff mới có quyền xem alert template.");
         }
 
+        var pageIndex = request.PageIndex < 1 ? 1 : request.PageIndex;
+        var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
+
         var templates = await _uow.AlertTemplates.GetAllAsync(cancellationToken);
 
         var filtered = templates
@@ -31,12 +34,26 @@ public class GetAlertTemplatesQueryHandler(
             .Where(x => request.Condition == null || x.Condition == request.Condition)
             .Where(x => request.IsActive == null || x.IsActive == request.IsActive)
             .Where(x => request.IsDefault == null || x.IsDefault == request.IsDefault)
-            .Select(MapToDto)
             .OrderByDescending(x => x.CreatedAt)
             .ThenByDescending(x => x.Id)
             .ToList();
 
-        return ApiResponse<List<AlertTemplateDto>>.Success(filtered, "Lấy danh sách alert template thành công.");
+        var totalCount = filtered.Count;
+        var items = filtered
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .Select(MapToDto)
+            .ToList();
+
+        var paginatedResponse = PaginatedResponse<AlertTemplateDto>.Create(
+            items,
+            totalCount,
+            pageIndex,
+            pageSize);
+
+        return ApiResponse<PaginatedResponse<AlertTemplateDto>>.Success(
+            paginatedResponse,
+            "Lấy danh sách alert template thành công.");
     }
 
     private static AlertTemplateDto MapToDto(Domain.Entities.AlertTemplate template)
