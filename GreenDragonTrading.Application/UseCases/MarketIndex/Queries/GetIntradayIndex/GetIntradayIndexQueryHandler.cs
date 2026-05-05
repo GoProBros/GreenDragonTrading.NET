@@ -25,6 +25,7 @@ namespace GreenDragonTrading.Application.UseCases.MarketIndex.Queries.GetIntrada
             CancellationToken cancellationToken)
         {
             var key = RedisConstants.IndexIntraday(request.Code);
+            // -1 → return all items in the list (no cap).
             var points = await _redisService.ListRangeAsync<IndexHistoryPointDto>(key, request.MaxPoints);
 
             // Redis list is newest-first; reverse to chronological order for sparkline
