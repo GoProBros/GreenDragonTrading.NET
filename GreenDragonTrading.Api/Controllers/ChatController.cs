@@ -10,6 +10,7 @@ using GreenDragonTrading.Application.UseCases.Chat.Commands.SummarizeSession;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatJobStatus;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatMessages;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSessions;
+using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSuggestions;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetDirectChatSessions;
 using GreenDragonTrading.Domain.Enums;
 using MediatR;
@@ -198,8 +199,22 @@ namespace GreenDragonTrading.Api.Controllers
             return result;
         }
 
-        /// <summary>
-        /// Send a message in a Direct (1-1) chat session.
+        /// <summary>        /// Get AI-powered chat question suggestions based on the user's watchlist.
+        /// Returns 3 starter questions (FORECAST, RESEARCH, SUMMARIZE) in Vietnamese.
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns>List of suggested questions with source symbols and metadata</returns>
+        [HttpGet("suggestions")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<ChatSuggestionsDto>>> GetChatSuggestions(
+            CancellationToken cancellationToken)
+        {
+            var query = new GetChatSuggestionsQuery();
+            var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>        /// Send a message in a Direct (1-1) chat session.
         /// </summary>
         /// <param name="sessionId">The Direct chat session ID</param>
         /// <param name="request">Message content</param>

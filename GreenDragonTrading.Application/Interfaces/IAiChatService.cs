@@ -48,5 +48,11 @@ namespace GreenDragonTrading.Application.Interfaces
             string title,
             string content,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get chat question suggestions from the AI engine for the current user.
+        /// </summary>
+        Task<AiChatSuggestionsResponse?> GetSuggestionsAsync(
+            CancellationToken cancellationToken = default);
     }
 }
