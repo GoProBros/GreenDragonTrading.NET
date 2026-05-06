@@ -42,9 +42,14 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetWorkspace
                 if (!allowAllModules)
                 {
                     var userId = _currentUserService.GetRequiredUserId();
-                    var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
+                    var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                        _uow,
+                        false,
+                        userId,
+                        cancellationToken);
+
                     allowedModules = WorkspaceLayoutLockingHelper.ParseAllowedModuleKeys(
-                        activeSubscription?.Subscription?.AllowedModules);
+                        effectiveSubscription?.AllowedModules);
                 }
 
                 JsonElement? layoutJson = null;

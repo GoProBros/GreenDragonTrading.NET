@@ -35,10 +35,17 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
 
             var allowAllModules = _currentUserService.IsAdminOrStaff;
             var allowedModules = new List<string>();
+            var maxWorkspaces = int.MaxValue;
             if (!allowAllModules)
             {
-                var activeSubscription = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(userId, cancellationToken);
-                allowedModules = WorkspaceLayoutLockingHelper.ParseAllowedModuleKeys(activeSubscription?.Subscription?.AllowedModules);
+                var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                    _uow,
+                    false,
+                    userId,
+                    cancellationToken);
+
+                allowedModules = WorkspaceLayoutLockingHelper.ParseAllowedModuleKeys(effectiveSubscription?.AllowedModules);
+                maxWorkspaces = effectiveSubscription?.MaxWorkspaces ?? 1;
             }
 
             _logger.LogInformation("Workspaces retrieved successfully for user: {UserId}", userId);
@@ -47,6 +54,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                 userId,
                 WorkspaceType.Web,
                 allowedModules,
+                maxWorkspaces,
                 allowAllModules,
                 cancellationToken);
 
@@ -54,6 +62,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                 userId,
                 WorkspaceType.Mobile,
                 allowedModules,
+                maxWorkspaces,
                 allowAllModules,
                 cancellationToken);
 
@@ -70,6 +79,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
             Guid userId,
             WorkspaceType type,
             IReadOnlyCollection<string> allowedModules,
+            int maxWorkspaces,
             bool allowAllModules,
             CancellationToken cancellationToken)
         {
@@ -86,13 +96,16 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                 workspaces = await _uow.Workspaces.GetWorkspaceByUserIdAsync(userId, type, cancellationToken);
             }
 
-            return workspaces.Select(w => MapToDto(w, allowedModules, allowAllModules)).ToList();
+            return workspaces
+                .Select((workspace, index) => MapToDto(workspace, allowedModules, allowAllModules, index >= maxWorkspaces))
+                .ToList();
         }
 
         private static WorkspaceDto MapToDto(
             Domain.Entities.Workspace workspace,
             IReadOnlyCollection<string> allowedModules,
-            bool allowAllModules)
+            bool allowAllModules,
+            bool isLocked)
         {
             JsonElement? layoutJson = null;
             if (!string.IsNullOrEmpty(workspace.LayoutJson))
@@ -113,6 +126,7 @@ namespace GreenDragonTrading.Application.UseCases.Workspace.Queries.GetMyWorkspa
                 LayoutJson = layoutJson,
                 Type = workspace.Type,
                 IsDefault = workspace.IsDefault,
+                IsLocked = !allowAllModules && isLocked,
                 ShareCode = workspace.ShareCode
             };
         }
