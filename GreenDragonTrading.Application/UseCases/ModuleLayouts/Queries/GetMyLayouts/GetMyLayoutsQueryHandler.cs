@@ -32,10 +32,12 @@ public class GetMyLayoutsQueryHandler : IRequestHandler<GetMyLayoutsQuery, ApiRe
         CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetRequiredUserId();
+        var isAdminOrStaff = _currentUserService.IsAdminOrStaff;
 
         var layouts = await _uow.ModuleLayouts.GetByModuleTypeAsync(
             request.ModuleType,
             userId,
+            includeSystemDefaults: isAdminOrStaff,
             cancellationToken);
 
         var result = layouts.Select(l => new ModuleLayoutListItemDto

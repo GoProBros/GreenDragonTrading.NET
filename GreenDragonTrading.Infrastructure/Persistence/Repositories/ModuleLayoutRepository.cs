@@ -17,16 +17,24 @@ public class ModuleLayoutRepository : PostgreSqlGenericRepository<ModuleLayout>,
     /// <inheritdoc/>
     public async Task<List<ModuleLayout>> GetByModuleTypeAsync(
         ModuleType moduleType, 
-        Guid? userId, 
+        Guid userId,
+        bool includeSystemDefaults = false,
         CancellationToken cancellationToken = default)
     {
         var query = _dbSet.AsQueryable();
 
-        // Lấy layout hệ thống hoặc layout cá nhân của user
-        query = query.Where(l => 
-            l.ModuleType == moduleType && 
-            (l.IsSystemDefault || (userId.HasValue && l.UserId == userId.Value))
-        );
+        query = query.Where(l => l.ModuleType == moduleType);
+
+        if (includeSystemDefaults)
+        {
+            // Admin/Staff: lấy layout cá nhân + system default
+            query = query.Where(l => l.UserId == userId || l.IsSystemDefault);
+        }
+        else
+        {
+            // Normal user: chỉ lấy layout của chính mình
+            query = query.Where(l => l.UserId == userId);
+        }
 
         return await query
             .OrderByDescending(l => l.IsSystemDefault)
@@ -45,11 +53,22 @@ public class ModuleLayoutRepository : PostgreSqlGenericRepository<ModuleLayout>,
     public async Task<ModuleLayout?> GetByIdAndUserIdAsync(
         long id,
         Guid userId,
+        bool includeSystemDefaults = false,
         CancellationToken cancellationToken = default)
     {
+        if (includeSystemDefaults)
+        {
+            // Admin/Staff: truy cập layout cá nhân + system default
+            return await _dbSet
+                .FirstOrDefaultAsync(
+                    l => l.Id == id && (l.UserId == userId || l.IsSystemDefault),
+                    cancellationToken);
+        }
+
+        // Normal user: chỉ truy cập layout của chính mình
         return await _dbSet
             .FirstOrDefaultAsync(
-                l => l.Id == id && (l.UserId == userId || l.IsSystemDefault), 
+                l => l.Id == id && l.UserId == userId,
                 cancellationToken);
     }
 

@@ -34,8 +34,13 @@ public class GetLayoutByIdQueryHandler : IRequestHandler<GetLayoutByIdQuery, Api
         CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetRequiredUserId();
+        var isAdminOrStaff = _currentUserService.IsAdminOrStaff;
 
-        var layout = await _uow.ModuleLayouts.GetByIdAndUserIdAsync(request.Id, userId, cancellationToken);
+        var layout = await _uow.ModuleLayouts.GetByIdAndUserIdAsync(
+            request.Id,
+            userId,
+            includeSystemDefaults: isAdminOrStaff,
+            cancellationToken);
         if (layout == null)
         {
             throw new NotFoundException("Layout không tồn tại hoặc bạn không có quyền truy cập.");
