@@ -91,10 +91,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
                 if (!await ShouldEvaluateProactiveSignalAsync(ticker, throttleWindow))
                 {
-                    await _evidenceService.AppendStepAsync(traceId, ticker, "layerA_filter", "fail",
-                        failReason: "Throttled — ticker evaluated within last 10 seconds",
-                        cancellationToken: cancellationToken);
-                    await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_throttle", 0, 0, 0, cancellationToken);
                     return;
                 }
 
