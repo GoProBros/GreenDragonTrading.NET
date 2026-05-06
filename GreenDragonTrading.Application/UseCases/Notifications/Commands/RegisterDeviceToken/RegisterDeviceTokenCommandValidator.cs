@@ -7,9 +7,8 @@ namespace GreenDragonTrading.Application.UseCases.Notifications.Commands.Registe
         public RegisterDeviceTokenCommandValidator()
         {
             RuleFor(x => x.ExpoPushToken)
-                .NotEmpty().WithMessage("Expo push token không được để trống.")
-                .Must(t => t.StartsWith("ExponentPushToken[") && t.EndsWith("]"))
-                .WithMessage("Expo push token không hợp lệ. Phải có dạng ExponentPushToken[...].");
+                .NotEmpty().WithMessage("FCM push token không được để trống.")
+                .MinimumLength(10).WithMessage("FCM push token không hợp lệ.");
         }
     }
 }
