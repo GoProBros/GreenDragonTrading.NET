@@ -1,30 +1,29 @@
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
-using GreenDragonTrading.Domain.Constants;
+using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
 {
     /// <summary>
-    /// Redis-backed implementation of proactive alert evidence recording.
+    /// PostgreSQL-backed implementation of proactive alert evidence recording.
     ///
     /// Storage design:
-    /// - Each trace is a string key:  evidence:trace:{traceId}  → JSON of ProactiveAlertTraceDto (TTL 7 days)
-    /// - Timeline sorted set:        evidence:timeline          → member = traceId, score = CreatedAt ticks
-    /// - Ticker index sorted set:    evidence:ticker:{TICKER}   → member = traceId, score = CreatedAt ticks
-    ///
-    /// All operations use Redis SETNX / JSON patch to be thread-safe across multiple workers.
+    /// - Each trace is a row in proactive_alert_traces.
+    /// - Steps are stored as JSONB within the row.
+    /// - Indexes on tracer, final_result, and created_at for efficient querying.
     /// </summary>
     public class ProactiveAlertEvidenceService : IProactiveAlertEvidenceService
     {
-        private readonly IRedisService _redis;
+        private readonly IUnitOfWork _uow;
         private readonly ILogger<ProactiveAlertEvidenceService> _logger;
-        private static readonly TimeSpan Ttl = RedisConstants.EvidenceTtl();
 
-        public ProactiveAlertEvidenceService(IRedisService redis, ILogger<ProactiveAlertEvidenceService> logger)
+        public ProactiveAlertEvidenceService(IUnitOfWork uow, ILogger<ProactiveAlertEvidenceService> logger)
         {
-            _redis = redis;
+            _uow = uow;
             _logger = logger;
         }
 
@@ -39,47 +38,35 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
-                var traceKey = RedisConstants.EvidenceTrace(traceId);
-                var timelineKey = RedisConstants.EvidenceTimeline();
-                var tickerIndexKey = RedisConstants.EvidenceTickerIndex(ticker);
+                var entity = await _uow.ProactiveAlertTraces.FirstOrDefaultAsync(
+                    e => e.TraceId == traceId,
+                    cancellationToken);
 
-                // Attempt to load existing trace
-                var existing = await _redis.GetAsync<ProactiveAlertTraceDto>(traceKey);
-                ProactiveAlertTraceDto trace;
-
-                if (existing != null)
+                if (entity == null)
                 {
-                    trace = existing;
-                }
-                else
-                {
-                    trace = new ProactiveAlertTraceDto
+                    entity = new Domain.Entities.ProactiveAlertTrace
                     {
                         TraceId = traceId,
                         Ticker = ticker,
                         CreatedAt = DateTime.UtcNow,
                     };
-
-                    // Add to timeline index (newest-first: score = -CreatedAt.Ticks)
-                    await _redis.SortedSetAddAsync(timelineKey, traceId, -trace.CreatedAt.Ticks);
-
-                    // Add to ticker index
-                    await _redis.SortedSetAddAsync(tickerIndexKey, traceId, -trace.CreatedAt.Ticks);
+                    await _uow.ProactiveAlertTraces.AddAsync(entity, cancellationToken);
                 }
 
-                trace.Steps.Add(new ProactiveAlertTraceStepDto
+                entity.Steps.Add(new ProactiveAlertTraceStep
                 {
                     Step = step,
                     Result = result,
                     FailReason = failReason,
-                    Detail = detail,
+                    Detail = detail != null
+                        ? detail.ToDictionary(kv => kv.Key, kv => kv.Value)
+                        : null,
                     Timestamp = DateTime.UtcNow,
                 });
 
-                trace.UpdatedAt = DateTime.UtcNow;
+                entity.UpdatedAt = DateTime.UtcNow;
 
-                // Persist
-                await _redis.SetAsync(traceKey, trace, Ttl);
+                await _uow.SaveChangesAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -97,22 +84,23 @@ namespace GreenDragonTrading.Infrastructure.Services
         {
             try
             {
-                var traceKey = RedisConstants.EvidenceTrace(traceId);
-                var trace = await _redis.GetAsync<ProactiveAlertTraceDto>(traceKey);
+                var entity = await _uow.ProactiveAlertTraces.FirstOrDefaultAsync(
+                    e => e.TraceId == traceId,
+                    cancellationToken);
 
-                if (trace == null)
+                if (entity == null)
                 {
                     _logger.LogWarning("Cannot finalize trace {TraceId}: not found", traceId);
                     return;
                 }
 
-                trace.FinalResult = finalResult;
-                trace.CandidateUserCount = candidateUserCount;
-                trace.EligibleUserCount = eligibleUserCount;
-                trace.NotifiedUserCount = notifiedUserCount;
-                trace.UpdatedAt = DateTime.UtcNow;
+                entity.FinalResult = finalResult;
+                entity.CandidateUserCount = candidateUserCount;
+                entity.EligibleUserCount = eligibleUserCount;
+                entity.NotifiedUserCount = notifiedUserCount;
+                entity.UpdatedAt = DateTime.UtcNow;
 
-                await _redis.SetAsync(traceKey, trace, Ttl);
+                await _uow.SaveChangesAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -122,169 +110,156 @@ namespace GreenDragonTrading.Infrastructure.Services
 
         public async Task<ProactiveAlertTraceDto?> GetTraceAsync(string traceId, CancellationToken cancellationToken = default)
         {
-            var traceKey = RedisConstants.EvidenceTrace(traceId);
-            return await _redis.GetAsync<ProactiveAlertTraceDto>(traceKey);
+            var entity = await _uow.ProactiveAlertTraces.FirstOrDefaultAsync(
+                e => e.TraceId == traceId,
+                cancellationToken);
+
+            if (entity == null)
+            {
+                return null;
+            }
+
+            return MapToDto(entity);
         }
 
         public async Task<(List<ProactiveAlertTraceSummaryDto> Items, int TotalCount)> ListTracesAsync(
             ProactiveAlertTraceQueryDto query,
             CancellationToken cancellationToken = default)
         {
-            var timelineKey = RedisConstants.EvidenceTimeline();
+            var queryable = _uow.ProactiveAlertTraces.GetQueryable();
 
-            // Fetch all trace IDs from timeline (negative score = newest first, ascending range)
-            var members = await _redis.SortedSetRangeByScoreAsync(
-                timelineKey,
-                double.NegativeInfinity,
-                double.PositiveInfinity);
-
-            if (members == null || members.Count == 0)
+            if (!string.IsNullOrWhiteSpace(query.Ticker))
             {
-                return (new List<ProactiveAlertTraceSummaryDto>(), 0);
+                queryable = queryable.Where(e => e.Ticker.Contains(query.Ticker));
             }
 
-            var summaries = new List<ProactiveAlertTraceSummaryDto>();
+            if (!string.IsNullOrWhiteSpace(query.FinalResult))
+            {
+                queryable = queryable.Where(e => e.FinalResult == query.FinalResult);
+            }
+
+            if (query.From.HasValue)
+            {
+                queryable = queryable.Where(e => e.CreatedAt >= query.From.Value);
+            }
+
+            if (query.To.HasValue)
+            {
+                queryable = queryable.Where(e => e.CreatedAt <= query.To.Value);
+            }
+
+            var totalCount = queryable.Count();
+
             var pageIndex = Math.Max(0, query.PageIndex);
             var pageSize = Math.Clamp(query.PageSize, 1, 200);
 
-            foreach (var member in members)
+            var entities = queryable
+                .OrderByDescending(e => e.CreatedAt)
+                .Skip(pageIndex * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var items = entities.Select(e => new ProactiveAlertTraceSummaryDto
             {
-                if (summaries.Count >= (pageIndex + 1) * pageSize + pageSize) // fetched enough for filtering
-                {
-                    break;
-                }
+                TraceId = e.TraceId,
+                Ticker = e.Ticker,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt,
+                FinalResult = e.FinalResult ?? "pending",
+                StepCount = e.Steps.Count,
+                CandidateUserCount = e.CandidateUserCount,
+                EligibleUserCount = e.EligibleUserCount,
+                NotifiedUserCount = e.NotifiedUserCount,
+            }).ToList();
 
-                var trace = await GetTraceAsync(member, cancellationToken);
-                if (trace == null) continue;
-
-                // Apply filters
-                if (!string.IsNullOrWhiteSpace(query.Ticker) &&
-                    !trace.Ticker.Contains(query.Ticker, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                if (!string.IsNullOrWhiteSpace(query.FinalResult) &&
-                    !string.Equals(trace.FinalResult, query.FinalResult, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                if (query.From.HasValue && trace.CreatedAt < query.From.Value)
-                    continue;
-
-                if (query.To.HasValue && trace.CreatedAt > query.To.Value)
-                    continue;
-
-                summaries.Add(new ProactiveAlertTraceSummaryDto
-                {
-                    TraceId = trace.TraceId,
-                    Ticker = trace.Ticker,
-                    CreatedAt = trace.CreatedAt,
-                    UpdatedAt = trace.UpdatedAt,
-                    FinalResult = trace.FinalResult,
-                    StepCount = trace.Steps.Count,
-                    CandidateUserCount = trace.CandidateUserCount,
-                    EligibleUserCount = trace.EligibleUserCount,
-                    NotifiedUserCount = trace.NotifiedUserCount,
-                });
-            }
-
-            var totalCount = summaries.Count;
-            var paged = summaries.Skip(pageIndex * pageSize).Take(pageSize).ToList();
-
-            return (paged, totalCount);
+            return (items, totalCount);
         }
 
         public async Task<ProactiveAlertEvidenceStatsDto> GetStatsAsync(CancellationToken cancellationToken = default)
         {
             var stats = new ProactiveAlertEvidenceStatsDto();
-            var timelineKey = RedisConstants.EvidenceTimeline();
 
-            var members = await _redis.SortedSetRangeByScoreAsync(
-                timelineKey,
-                double.NegativeInfinity,
-                double.PositiveInfinity);
+            var allTraces = _uow.ProactiveAlertTraces.GetQueryable();
+            var totalCount = allTraces.Count();
 
-            if (members == null || members.Count == 0)
+            if (totalCount == 0)
             {
                 return stats;
             }
 
-            var byFinalResult = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var byTicker = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var byHour = new Dictionary<int, int>();
-            long totalAiLatencyMs = 0;
+            stats.TotalTraces = totalCount;
 
-            DateTime? oldest = null;
-            DateTime? newest = null;
-
-            foreach (var member in members)
-            {
-                var trace = await GetTraceAsync(member, cancellationToken);
-                if (trace == null) continue;
-
-                stats.TotalTraces++;
-
-                // By final result
-                var fr = string.IsNullOrWhiteSpace(trace.FinalResult) ? "pending" : trace.FinalResult;
-                byFinalResult.TryGetValue(fr, out var frCount);
-                byFinalResult[fr] = frCount + 1;
-
-                // By ticker
-                byTicker.TryGetValue(trace.Ticker, out var tCount);
-                byTicker[trace.Ticker] = tCount + 1;
-
-                // By hour (UTC)
-                var hour = trace.CreatedAt.Hour;
-                byHour.TryGetValue(hour, out var hCount);
-                byHour[hour] = hCount + 1;
-
-                // AI stats
-                var aiStep = trace.Steps.FirstOrDefault(s => s.Step == "ai_evaluation");
-                if (aiStep != null)
+            // Materialize basic fields first, then compute JSONB-derived fields in memory
+            var raw = allTraces
+                .Select(e => new
                 {
-                    stats.AiEvaluationAttempted++;
-                    if (aiStep.Result == "success")
-                    {
-                        stats.AiEvaluationSuccess++;
-                        if (aiStep.Detail != null &&
-                            aiStep.Detail.TryGetValue("latencyMs", out var latObj) &&
-                            latObj is JsonElement latElem &&
-                            latElem.TryGetInt32(out var latMs))
-                        {
-                            totalAiLatencyMs += latMs;
-                        }
-                    }
-                    else if (aiStep.Result == "fallback")
-                    {
-                        stats.AiEvaluationFallback++;
-                    }
-                    else
-                    {
-                        stats.AiEvaluationFailed++;
-                    }
-                }
+                    e.Ticker,
+                    FinalResult = string.IsNullOrWhiteSpace(e.FinalResult) ? "pending" : e.FinalResult,
+                    e.CreatedAt,
+                    e.NotifiedUserCount,
+                    e.Steps,
+                })
+                .ToList();
 
-                // Notified users
-                stats.TotalNotifiedUsers += trace.NotifiedUserCount;
-
-                // Time range
-                if (oldest == null || trace.CreatedAt < oldest.Value)
-                    oldest = trace.CreatedAt;
-                if (newest == null || trace.CreatedAt > newest.Value)
-                    newest = trace.CreatedAt;
-            }
-
-            stats.ByFinalResult = byFinalResult;
-            stats.TopTickers = byTicker.OrderByDescending(kv => kv.Value).Take(20)
-                .ToDictionary(kv => kv.Key, kv => kv.Value);
-            stats.ByHour = byHour;
-            stats.OldestTrace = oldest;
-            stats.NewestTrace = newest;
-
-            if (stats.AiEvaluationSuccess > 0)
+            var summary = raw.Select(e => new
             {
-                stats.AvgAiLatencyMs = Math.Round((double)totalAiLatencyMs / stats.AiEvaluationSuccess, 1);
-            }
+                e.Ticker,
+                e.FinalResult,
+                Hour = e.CreatedAt.Hour,
+                e.CreatedAt,
+                e.NotifiedUserCount,
+                HasAiStep = e.Steps.Any(s => s.Step == "ai_evaluation"),
+            }).ToList();
+
+            // By final result
+            stats.ByFinalResult = summary
+                .GroupBy(x => x.FinalResult)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            // Top tickers
+            stats.TopTickers = summary
+                .GroupBy(x => x.Ticker)
+                .OrderByDescending(g => g.Count())
+                .Take(20)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            // By hour (UTC)
+            stats.ByHour = summary
+                .GroupBy(x => x.Hour)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            // Oldest / newest
+            stats.OldestTrace = summary.Min(x => (DateTime?)x.CreatedAt);
+            stats.NewestTrace = summary.Max(x => (DateTime?)x.CreatedAt);
+
+            // AI stats
+            stats.AiEvaluationAttempted = summary.Count(x => x.HasAiStep);
+            stats.TotalNotifiedUsers = summary.Sum(x => x.NotifiedUserCount);
 
             return stats;
+        }
+
+        private static ProactiveAlertTraceDto MapToDto(Domain.Entities.ProactiveAlertTrace entity)
+        {
+            return new ProactiveAlertTraceDto
+            {
+                TraceId = entity.TraceId,
+                Ticker = entity.Ticker,
+                CreatedAt = entity.CreatedAt,
+                UpdatedAt = entity.UpdatedAt,
+                FinalResult = entity.FinalResult ?? "pending",
+                CandidateUserCount = entity.CandidateUserCount,
+                EligibleUserCount = entity.EligibleUserCount,
+                NotifiedUserCount = entity.NotifiedUserCount,
+                Steps = entity.Steps.Select(s => new ProactiveAlertTraceStepDto
+                {
+                    Step = s.Step,
+                    Result = s.Result,
+                    FailReason = s.FailReason,
+                    Detail = s.Detail,
+                    Timestamp = s.Timestamp,
+                }).ToList(),
+            };
         }
     }
 }

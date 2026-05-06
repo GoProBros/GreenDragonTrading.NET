@@ -58,6 +58,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private ICorporateActionRepository? corporateActions;
 
+        private IProactiveAlertTraceRepository? proactiveAlertTraces;
+
         private IProactiveAlertLayerBSettingRepository? proactiveAlertLayerBSettings;
 
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
@@ -84,6 +86,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IMacroeconomicDataRepository MacroeconomicData => macroeconomicData ??= new MacroeconomicDataRepository(_context);
         public IUserPushTokenRepository UserPushTokens => userPushTokens ??= new UserPushTokenRepository(_context);
         public ICorporateActionRepository CorporateActions => corporateActions ??= new CorporateActionRepository(_context);
+        public IProactiveAlertTraceRepository ProactiveAlertTraces => proactiveAlertTraces ??= new ProactiveAlertTraceRepository(_context);
         public IProactiveAlertLayerBSettingRepository ProactiveAlertLayerBSettings => proactiveAlertLayerBSettings ??= new ProactiveAlertLayerBSettingRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
