@@ -36,7 +36,7 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public DbSet<AlertTemplate> AlertTemplates => Set<AlertTemplate>();
         public DbSet<CorporateAction> CorporateActions => Set<CorporateAction>();
        public DbSet<ProactiveAlertLayerBSetting> ProactiveAlertLayerBSettings => Set<ProactiveAlertLayerBSetting>();
-
+        public DbSet<ProactiveAlertTrace> ProactiveAlertTraces => Set<ProactiveAlertTrace>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -385,6 +385,27 @@ namespace GreenDragonTrading.Infrastructure.Persistence
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
+
+            modelBuilder.Entity<ProactiveAlertTrace>(entity =>
+            {
+                entity.HasKey(e => e.TraceId);
+                entity.HasIndex(e => e.Ticker);
+                entity.HasIndex(e => e.FinalResult);
+                entity.HasIndex(e => e.CreatedAt);
+
+                entity.Property(e => e.Steps)
+                      .HasColumnType("jsonb")
+                      .HasConversion(
+                          v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                          v => JsonSerializer.Deserialize<List<ProactiveAlertTraceStep>>(v, (JsonSerializerOptions?)null) ?? new List<ProactiveAlertTraceStep>(),
+                          new ValueComparer<List<ProactiveAlertTraceStep>>(
+                              (c1, c2) => JsonSerializer.Serialize(c1, (JsonSerializerOptions?)null) == JsonSerializer.Serialize(c2, (JsonSerializerOptions?)null),
+                              c => JsonSerializer.Serialize(c, (JsonSerializerOptions?)null).GetHashCode(),
+                              c => JsonSerializer.Deserialize<List<ProactiveAlertTraceStep>>(JsonSerializer.Serialize(c, (JsonSerializerOptions?)null), (JsonSerializerOptions?)null) ?? new List<ProactiveAlertTraceStep>()
+                          )
+                      );
+            });
+
             DatabaseSeeder.SeedAll(modelBuilder);
         }
     }
