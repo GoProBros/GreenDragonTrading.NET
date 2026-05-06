@@ -35,13 +35,7 @@ public class GetLayoutByIdQueryHandler : IRequestHandler<GetLayoutByIdQuery, Api
     {
         var userId = _currentUserService.GetRequiredUserId();
 
-        // Allow all authenticated users to read system default layouts by ID
-        // (FE needs this to get default config as template for creating new layouts)
-        var layout = await _uow.ModuleLayouts.GetByIdAndUserIdAsync(
-            request.Id,
-            userId,
-            includeSystemDefaults: true,
-            cancellationToken);
+        var layout = await _uow.ModuleLayouts.GetByIdAndUserIdAsync(request.Id, userId, cancellationToken);
         if (layout == null)
         {
             throw new NotFoundException("Layout không tồn tại hoặc bạn không có quyền truy cập.");
