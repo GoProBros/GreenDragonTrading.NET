@@ -53,14 +53,13 @@ namespace GreenDragonTrading.Infrastructure
             services.AddSingleton<IChatAsyncJobService, ChatAsyncJobService>();
             services.AddSingleton<IUserIdProvider, MarketDataUserIdProvider>();
             services.AddScoped<IHeatmapService, HeatmapService>();
-            services.AddScoped<IProactiveAlertEvidenceService, ProactiveAlertEvidenceService>();
             services.AddSingleton<ITelegramBotService, TelegramBotService>();
             services.AddScoped<ITelegramLinkService, TelegramLinkService>();
 
-            // FCM HTTP v1 Push — named HttpClient + Singleton service
-            services.Configure<FcmOptions>(configuration.GetSection(FcmOptions.SectionName));
-            services.AddHttpClient("FcmPush", client =>
+            // Expo Push (FCM) — named HttpClient + Singleton service
+            services.AddHttpClient("ExpoPush", client =>
             {
+                client.BaseAddress = new Uri("https://exp.host/");
                 client.Timeout = TimeSpan.FromSeconds(15);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
@@ -168,10 +167,6 @@ namespace GreenDragonTrading.Infrastructure
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
-                if (!string.IsNullOrWhiteSpace(options.ApiKey))
-                {
-                    client.DefaultRequestHeaders.Add("X-Api-Key", options.ApiKey);
-                }
             });
 
             services.AddHttpClient<IProactiveAlertEvaluationService, ProactiveAlertEvaluationService>((sp, client) =>
@@ -181,10 +176,6 @@ namespace GreenDragonTrading.Infrastructure
                 client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
-                if (!string.IsNullOrWhiteSpace(options.ApiKey))
-                {
-                    client.DefaultRequestHeaders.Add("X-Api-Key", options.ApiKey);
-                }
             });
 
             services.AddHttpClient<INewsRssService, NewsRssService>((_, client) =>
