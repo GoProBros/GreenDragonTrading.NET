@@ -133,10 +133,11 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 }, cancellationToken: cancellationToken);
 
                 var signalContext = await BuildRealtimeSignalContextAsync(ticker, layerAContext, layerBSettings);
-                if (signalContext == null)
+                if (signalContext.Context == null)
                 {
                     await _evidenceService.AppendStepAsync(traceId, ticker, "layerB_filter", "fail",
-                        failReason: "Technical indicators missing, stale, or below thresholds (ADX/volume/trend alignment)",
+                        failReason: signalContext.FailReason ?? "Technical indicators missing, stale, or below thresholds (ADX/volume/trend alignment)",
+                        detail: signalContext.FailDetail,
                         cancellationToken: cancellationToken);
                     await _evidenceService.FinalizeTraceAsync(traceId, "filter_failed_layerB", candidateUserCount, 0, 0, cancellationToken);
                     return;
@@ -145,13 +146,13 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 // ── STEP: layerB_filter pass ──
                 await _evidenceService.AppendStepAsync(traceId, ticker, "layerB_filter", "pass", detail: new()
                 {
-                    ["requiredMovePercent"] = signalContext.RequiredMovePercent.ToString("F2", CultureInfo.InvariantCulture),
-                    ["volumeRatio"] = signalContext.VolumeRatio.ToString("F2", CultureInfo.InvariantCulture),
+                    ["requiredMovePercent"] = signalContext.Context.RequiredMovePercent.ToString("F2", CultureInfo.InvariantCulture),
+                    ["volumeRatio"] = signalContext.Context.VolumeRatio.ToString("F2", CultureInfo.InvariantCulture),
                     ["minVolumeRatio"] = layerBSettings.MinVolumeRatio.ToString(CultureInfo.InvariantCulture),
-                    ["adx14"] = signalContext.Adx14.ToString("F1", CultureInfo.InvariantCulture),
+                    ["adx14"] = signalContext.Context.Adx14.ToString("F1", CultureInfo.InvariantCulture),
                     ["minAdx"] = layerBSettings.MinAdx.ToString(CultureInfo.InvariantCulture),
-                    ["ema20"] = signalContext.Ema20.ToString("F2", CultureInfo.InvariantCulture),
-                    ["ema50"] = signalContext.Ema50.ToString("F2", CultureInfo.InvariantCulture),
+                    ["ema20"] = signalContext.Context.Ema20.ToString("F2", CultureInfo.InvariantCulture),
+                    ["ema50"] = signalContext.Context.Ema50.ToString("F2", CultureInfo.InvariantCulture),
                 }, cancellationToken: cancellationToken);
 
                 var activeUsers = (await _uow.Users.FindAsync(
@@ -201,7 +202,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     eligibleUserIds,
                     ticker,
                     layerAContext,
-                    signalContext);
+                    signalContext.Context);
                 job.TraceId = traceId;
 
                 await _redisService.ListRightPushAsync(
@@ -379,7 +380,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             return token.ToUpperInvariant();
         }
 
-        private async Task<RealtimeSignalContext?> BuildRealtimeSignalContextAsync(
+        private async Task<LayerBResult> BuildRealtimeSignalContextAsync(
             string ticker,
             LayerAContext layerAContext,
             ProactiveAlertLayerBSettingsDto settings)
@@ -395,15 +396,48 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             var snapshot = await _redisService.GetHashAsync<IndicatorSnapshotDto>(
                 RedisConstants.Indicators(ticker, timeframe));
 
-            if (snapshot == null
-                || !snapshot.Atr14.HasValue
-                || !snapshot.Adx14.HasValue
-                || !snapshot.Ema20.HasValue
-                || !snapshot.Ema50.HasValue
-                || snapshot.CalculatedAt == default
-                || DateTime.UtcNow - snapshot.CalculatedAt > maxSnapshotAge)
+            if (snapshot == null)
             {
-                return null;
+                return LayerBResult.Fail("Indicator snapshot not found in Redis.",
+                    new() { ["indicatorKey"] = RedisConstants.Indicators(ticker, timeframe) });
+            }
+
+            if (!snapshot.Atr14.HasValue)
+            {
+                return LayerBResult.Fail("ATR14 indicator is missing.");
+            }
+
+            if (!snapshot.Adx14.HasValue)
+            {
+                return LayerBResult.Fail("ADX14 indicator is missing.");
+            }
+
+            if (!snapshot.Ema20.HasValue)
+            {
+                return LayerBResult.Fail("EMA20 indicator is missing.");
+            }
+
+            if (!snapshot.Ema50.HasValue)
+            {
+                return LayerBResult.Fail("EMA50 indicator is missing.");
+            }
+
+            if (snapshot.CalculatedAt == default)
+            {
+                return LayerBResult.Fail("Indicator snapshot has no calculation timestamp.");
+            }
+
+            var snapshotAge = DateTime.UtcNow - snapshot.CalculatedAt;
+            if (snapshotAge > maxSnapshotAge)
+            {
+                return LayerBResult.Fail(
+                    $"Indicator snapshot is stale: {snapshotAge.TotalHours:F1}h old (max allowed: {maxSnapshotAgeMinutes / 60.0:F1}h).",
+                    new()
+                    {
+                        ["calculatedAt"] = snapshot.CalculatedAt.ToString("O"),
+                        ["snapshotAgeHours"] = snapshotAge.TotalHours.ToString("F1"),
+                        ["maxAgeHours"] = (maxSnapshotAgeMinutes / 60.0).ToString("F1"),
+                    });
             }
 
             var absoluteMovePercent = Math.Abs(layerAContext.SignedMovePercent);
@@ -420,15 +454,47 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             var trendAligned = (ema20 > ema50 && layerAContext.CurrentPrice > ema20)
                 || (ema20 < ema50 && layerAContext.CurrentPrice < ema20);
 
-            if (absoluteMovePercent < requiredMovePercent
-                || volumeRatio < settings.MinVolumeRatio
-                || adx < settings.MinAdx
-                || !trendAligned)
+            var failReasons = new List<string>();
+            var failDetail = new Dictionary<string, object?>();
+
+            failDetail["absoluteMovePercent"] = absoluteMovePercent.ToString("F2", CultureInfo.InvariantCulture);
+            failDetail["requiredMovePercent"] = requiredMovePercent.ToString("F2", CultureInfo.InvariantCulture);
+            failDetail["atrPercent"] = atrPercent.ToString("F2", CultureInfo.InvariantCulture);
+            failDetail["volumeRatio"] = volumeRatio.ToString("F2", CultureInfo.InvariantCulture);
+            failDetail["minVolumeRatio"] = settings.MinVolumeRatio.ToString(CultureInfo.InvariantCulture);
+            failDetail["adx14"] = adx.ToString("F1", CultureInfo.InvariantCulture);
+            failDetail["minAdx"] = settings.MinAdx.ToString(CultureInfo.InvariantCulture);
+            failDetail["ema20"] = ema20.ToString("F2", CultureInfo.InvariantCulture);
+            failDetail["ema50"] = ema50.ToString("F2", CultureInfo.InvariantCulture);
+            failDetail["currentPrice"] = layerAContext.CurrentPrice.ToString(CultureInfo.InvariantCulture);
+
+            if (absoluteMovePercent < requiredMovePercent)
             {
-                return null;
+                failReasons.Add($"Price move {absoluteMovePercent:F2}% below required {requiredMovePercent:F2}% (ATR%={atrPercent:F2}%, minAbs={settings.MinAbsoluteMovePercent}, multiplier={settings.AtrMoveMultiplier})");
             }
 
-            return new RealtimeSignalContext
+            if (volumeRatio < settings.MinVolumeRatio)
+            {
+                failReasons.Add($"Volume ratio {volumeRatio:F2} below minimum {settings.MinVolumeRatio}");
+            }
+
+            if (adx < settings.MinAdx)
+            {
+                failReasons.Add($"ADX {adx:F1} below minimum {settings.MinAdx}");
+            }
+
+            if (!trendAligned)
+            {
+                var trendDir = ema20 > ema50 ? "bullish" : "bearish";
+                failReasons.Add($"Trend not aligned: EMA20 ({ema20:F2}) {(ema20 > ema50 ? ">" : "<")} EMA50 ({ema50:F2}), but price ({layerAContext.CurrentPrice}) not above EMA20 in bullish or not below EMA20 in bearish scenario");
+            }
+
+            if (failReasons.Count > 0)
+            {
+                return LayerBResult.Fail(string.Join(" | ", failReasons), failDetail);
+            }
+
+            return LayerBResult.Pass(new RealtimeSignalContext
             {
                 RequiredMovePercent = requiredMovePercent,
                 VolumeRatio = volumeRatio,
@@ -436,7 +502,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 Adx14 = adx,
                 Ema20 = ema20,
                 Ema50 = ema50,
-            };
+            });
         }
 
         private async Task<List<Guid>> GetCandidateUserIdsByTickerAsync(string ticker, CancellationToken cancellationToken)
@@ -626,6 +692,19 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             public decimal SignedMovePercent { get; init; }
             public string? TradingStatus { get; init; }
             public string? TradingSession { get; init; }
+        }
+
+        private sealed class LayerBResult
+        {
+            public RealtimeSignalContext? Context { get; private init; }
+            public string? FailReason { get; private init; }
+            public Dictionary<string, object?>? FailDetail { get; private init; }
+
+            public static LayerBResult Pass(RealtimeSignalContext context)
+                => new() { Context = context };
+
+            public static LayerBResult Fail(string reason, Dictionary<string, object?>? detail = null)
+                => new() { FailReason = reason, FailDetail = detail };
         }
     }
 }
