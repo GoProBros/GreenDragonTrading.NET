@@ -10,6 +10,7 @@ namespace GreenDragonTrading.Application.DTOs
         public JsonElement? LayoutJson { get; set; }
         public WorkspaceType Type { get; set; }
         public bool IsDefault { get; set; } = false;
+        public bool IsLocked { get; set; } = false;
         public string? ShareCode { get; set; }
     }
 

@@ -210,7 +210,7 @@ namespace GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage
         {
             var aiContent = !string.IsNullOrWhiteSpace(aiResponse.Response)
                 ? aiResponse.Response
-                : "Toi chua co du thong tin de tra loi cau hoi nay.";
+                : "Tôi chưa có đủ thông tin để trả lời câu hỏi này.";
 
             var aiMessage = new ChatMessage
             {
