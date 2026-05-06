@@ -21,6 +21,12 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.UpdateProactiv
 
             RuleFor(x => x.MaxIndicatorSnapshotAgeMinutes)
                 .GreaterThan(0).WithMessage("MaxIndicatorSnapshotAgeMinutes must be > 0.");
+
+            RuleFor(x => x.ThrottleSeconds)
+                .GreaterThan(0).WithMessage("ThrottleSeconds must be > 0.");
+
+            RuleFor(x => x.CooldownMinutes)
+                .GreaterThan(0).WithMessage("CooldownMinutes must be > 0.");
         }
     }
 }

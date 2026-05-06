@@ -9,6 +9,8 @@ namespace GreenDragonTrading.Application.DTOs
         public decimal MinVolumeRatio { get; set; }
         public decimal MinAdx { get; set; }
         public int MaxIndicatorSnapshotAgeMinutes { get; set; }
+        public int ThrottleSeconds { get; set; }
+        public int CooldownMinutes { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset UpdatedAt { get; set; }
     }

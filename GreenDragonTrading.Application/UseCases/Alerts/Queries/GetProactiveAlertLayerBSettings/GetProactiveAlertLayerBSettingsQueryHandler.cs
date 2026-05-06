@@ -53,6 +53,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Queries.GetProactiveAle
                 MinVolumeRatio = settings.MinVolumeRatio,
                 MinAdx = settings.MinAdx,
                 MaxIndicatorSnapshotAgeMinutes = settings.MaxIndicatorSnapshotAgeMinutes,
+                ThrottleSeconds = settings.ThrottleSeconds,
+                CooldownMinutes = settings.CooldownMinutes,
                 CreatedAt = settings.CreatedAt,
                 UpdatedAt = settings.UpdatedAt
             };

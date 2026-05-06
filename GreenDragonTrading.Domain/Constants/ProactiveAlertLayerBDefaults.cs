@@ -9,5 +9,7 @@ namespace GreenDragonTrading.Domain.Constants
         public const decimal MinVolumeRatio = 1.8m;
         public const decimal MinAdx = 18m;
         public const int MaxIndicatorSnapshotAgeMinutes = 2880;
+        public const int ThrottleSeconds = 10;
+        public const int CooldownMinutes = 20;
     }
 }

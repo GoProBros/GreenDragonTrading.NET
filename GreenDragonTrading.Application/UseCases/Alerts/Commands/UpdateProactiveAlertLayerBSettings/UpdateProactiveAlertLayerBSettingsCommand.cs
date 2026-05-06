@@ -12,6 +12,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.UpdateProactiv
         decimal AtrMoveMultiplier,
         decimal MinVolumeRatio,
         decimal MinAdx,
-        int MaxIndicatorSnapshotAgeMinutes)
+        int MaxIndicatorSnapshotAgeMinutes,
+        int ThrottleSeconds,
+        int CooldownMinutes)
         : IRequest<ApiResponse<ProactiveAlertLayerBSettingsDto>>;
 }
