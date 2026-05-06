@@ -12,6 +12,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
         public ConditionType Condition { get; set; }
         public decimal? ChangePercentage { get; set; }
         public decimal? ThresholdValue { get; set; }
+        public VolumeTimeFrame? VolumeTimeFrame { get; set; }
+        public int? VolumeLookbackBars { get; set; }
         public string? Name { get; set; }
         public bool IsActive { get; set; } = true;
         public int? ChatSessionId { get; set; }
