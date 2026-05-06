@@ -44,6 +44,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.UpdateProactiv
                     MinVolumeRatio = request.MinVolumeRatio,
                     MinAdx = request.MinAdx,
                     MaxIndicatorSnapshotAgeMinutes = request.MaxIndicatorSnapshotAgeMinutes,
+                    ThrottleSeconds = request.ThrottleSeconds,
+                    CooldownMinutes = request.CooldownMinutes,
                     CreatedAt = now,
                     UpdatedAt = now
                 };
@@ -57,6 +59,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.UpdateProactiv
                 settings.MinVolumeRatio = request.MinVolumeRatio;
                 settings.MinAdx = request.MinAdx;
                 settings.MaxIndicatorSnapshotAgeMinutes = request.MaxIndicatorSnapshotAgeMinutes;
+                settings.ThrottleSeconds = request.ThrottleSeconds;
+                settings.CooldownMinutes = request.CooldownMinutes;
                 settings.UpdatedAt = now;
 
                 _uow.ProactiveAlertLayerBSettings.Update(settings);
@@ -81,6 +85,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.UpdateProactiv
                 MinVolumeRatio = settings.MinVolumeRatio,
                 MinAdx = settings.MinAdx,
                 MaxIndicatorSnapshotAgeMinutes = settings.MaxIndicatorSnapshotAgeMinutes,
+                ThrottleSeconds = settings.ThrottleSeconds,
+                CooldownMinutes = settings.CooldownMinutes,
                 CreatedAt = settings.CreatedAt,
                 UpdatedAt = settings.UpdatedAt
             };
