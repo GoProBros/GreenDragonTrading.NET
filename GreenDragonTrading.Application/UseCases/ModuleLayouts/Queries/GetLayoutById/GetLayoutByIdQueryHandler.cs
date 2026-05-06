@@ -34,12 +34,13 @@ public class GetLayoutByIdQueryHandler : IRequestHandler<GetLayoutByIdQuery, Api
         CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetRequiredUserId();
-        var isAdminOrStaff = _currentUserService.IsAdminOrStaff;
 
+        // Allow all authenticated users to read system default layouts by ID
+        // (FE needs this to get default config as template for creating new layouts)
         var layout = await _uow.ModuleLayouts.GetByIdAndUserIdAsync(
             request.Id,
             userId,
-            includeSystemDefaults: isAdminOrStaff,
+            includeSystemDefaults: true,
             cancellationToken);
         if (layout == null)
         {
