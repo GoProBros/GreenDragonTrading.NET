@@ -178,6 +178,8 @@ namespace GreenDragonTrading.Infrastructure
                 client.DefaultRequestHeaders.Add("User-Agent", "GDT/1.0");
             });
 
+            services.AddScoped<IProactiveAlertEvidenceService, ProactiveAlertEvidenceService>();
+
             services.AddHttpClient<INewsRssService, NewsRssService>((_, client) =>
             {
                 client.Timeout = TimeSpan.FromSeconds(30);
