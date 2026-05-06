@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Interfaces;
@@ -52,7 +53,7 @@ namespace GreenDragonTrading.Infrastructure.Services
             var title = payload.Source == "PriceAlert" || payload.MessageType == "Alert"
                 ? $"C\u1ea3nh b\u00e1o gi\u00e1{(payload.Ticker != null ? $" \u2014 {payload.Ticker}" : "")}"
                 : "Th\u00f4ng b\u00e1o h\u1ec7 th\u1ed1ng";
-            _ = SendFcmAsync(userId, title, payload.Content, "kafistock://notifications");
+            _ = SendFcmAsync(userId, title, StripHtml(payload.Content), "kafistock://notifications");
         }
 
         /// <inheritdoc/>
@@ -117,11 +118,23 @@ namespace GreenDragonTrading.Infrastructure.Services
             _ = SendFcmAsync(
                 userId,
                 title: payload.SenderName,
-                body: payload.Content,
+                body: StripHtml(payload.Content),
                 dataUrl: $"kafistock://chat/{payload.SessionId}");
         }
 
         // \u2500\u2500\u2500 FCM Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+        /// <summary>
+        /// Strips HTML tags and normalises whitespace for use in OS notification tray.
+        /// </summary>
+        private static string StripHtml(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+            var text = Regex.Replace(html, @"<(br|p|div|li|h[1-6])(\s[^>]*)?>|</(p|div|li|h[1-6])>", " ", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"<[^>]+>", string.Empty);
+            text = Regex.Replace(text, @"\s+", " ").Trim();
+            return System.Net.WebUtility.HtmlDecode(text);
+        }
 
         /// <summary>
         /// Fire-and-forget FCM push. Uses a fresh DI scope for DB token look-up.
