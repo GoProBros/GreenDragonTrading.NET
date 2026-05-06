@@ -39,8 +39,16 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 throw new NotFoundException("Mã cổ phiếu không tồn tại");
             }
 
-            var currentMarketData = await GetCurrentMarketDataAsync(request.Type, ticker);
-            var currentMonitoredValue = GetCurrentMonitoredValue(request.Type, currentMarketData);
+            var isPercentCondition = request.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown;
+            MarketSymbolDto? currentMarketData = null;
+            decimal? currentMonitoredValue = null;
+
+            if (request.Type == AlertType.Price)
+            {
+                currentMarketData = await GetCurrentMarketDataAsync(request.Type, ticker);
+                currentMonitoredValue = GetCurrentMonitoredValue(request.Type, currentMarketData);
+            }
+
             var calculatedThreshold = CalculateThresholdValue(request, currentMonitoredValue);
 
             var alert = new Alert
@@ -49,11 +57,13 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 Ticker = ticker,
                 Type = request.Type,
                 Condition = request.Condition,
-                ChangePercentage = request.Condition is ConditionType.Above or ConditionType.Below
-                    ? null
-                    : request.ChangePercentage,
-                CurrentPrice = currentMonitoredValue,
+                ChangePercentage = isPercentCondition ? request.ChangePercentage : null,
+                CurrentPrice = request.Type == AlertType.Price ? currentMonitoredValue : null,
                 ThresholdValue = calculatedThreshold,
+                VolumeTimeFrame = request.VolumeTimeFrame,
+                VolumeLookbackBars = isPercentCondition && request.Type == AlertType.Volume
+                    ? request.VolumeLookbackBars
+                    : null,
                 Name = request.Name?.Trim(),
                 IsActive = request.IsActive,
                 IsTriggered = false,
@@ -69,12 +79,12 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
             await _uow.Alerts.AddAsync(alert, cancellationToken);
             await _uow.SaveChangesAsync(cancellationToken);
 
-            if (alert.IsActive && !alert.IsTriggered)
+            if (alert.Type == AlertType.Price && alert.IsActive && !alert.IsTriggered && currentMarketData != null && currentMonitoredValue.HasValue)
             {
                 // Calculate current values and percent changes (same logic as PriceUpdatedEventHandler)
                 var currentPrice = currentMarketData.LastPrice > 0
                     ? (decimal)currentMarketData.LastPrice
-                    : currentMonitoredValue;
+                    : currentMonitoredValue.Value;
 
                 var currentVolume = currentMarketData.TotalVol > 0
                     ? (decimal)currentMarketData.TotalVol
@@ -165,8 +175,15 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                     await _redisService.SortedSetAddAsync(
                         GetRedisKey(alert),
                         alert.Id.ToString(),
-                        (double)alert.ThresholdValue);
+                        (double)(alert.ThresholdValue ?? 0m));
                 }
+            }
+            else if (alert.IsActive && !alert.IsTriggered)
+            {
+                await _redisService.SortedSetAddAsync(
+                    GetRedisKey(alert),
+                    alert.Id.ToString(),
+                    (double)(alert.ThresholdValue ?? 0m));
             }
 
             var dto = MapToDto(alert);
@@ -208,7 +225,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
             return monitoredValue;
         }
 
-        private static decimal CalculateThresholdValue(CreateAlertCommand request, decimal currentMonitoredValue)
+        private static decimal? CalculateThresholdValue(CreateAlertCommand request, decimal? currentMonitoredValue)
         {
             if (request.Condition is ConditionType.Above or ConditionType.Below)
             {
@@ -220,20 +237,30 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 return request.ThresholdValue.Value;
             }
 
-            if (!request.ChangePercentage.HasValue)
+            if (request.Type == AlertType.Price)
             {
-                throw new BusinessRuleException("Condition 3,4 yêu cầu changePercentage");
+                if (!request.ChangePercentage.HasValue)
+                {
+                    throw new BusinessRuleException("Condition 3,4 yêu cầu changePercentage");
+                }
+
+                if (!currentMonitoredValue.HasValue)
+                {
+                    throw new BusinessRuleException("Giá hiện tại chưa sẵn sàng để đặt cảnh báo");
+                }
+
+                var pct = request.ChangePercentage.Value;
+                var factor = pct / 100m;
+
+                return request.Condition switch
+                {
+                    ConditionType.PercentChangeUp => currentMonitoredValue.Value * (1m + factor),
+                    ConditionType.PercentChangeDown => currentMonitoredValue.Value * (1m - factor),
+                    _ => throw new BusinessRuleException("Condition không hợp lệ"),
+                };
             }
 
-            var pct = request.ChangePercentage.Value;
-            var factor = pct / 100m;
-
-            return request.Condition switch
-            {
-                ConditionType.PercentChangeUp => currentMonitoredValue * (1m + factor),
-                ConditionType.PercentChangeDown => currentMonitoredValue * (1m - factor),
-                _ => throw new BusinessRuleException("Condition không hợp lệ"),
-            };
+            return null;
         }
 
         private async Task<AlertTemplate?> ResolveTemplateAsync(AlertType type, ConditionType condition, CancellationToken cancellationToken)
@@ -372,26 +399,41 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
             var percentUpValue = alert.Type == AlertType.Price ? pricePercentUp : volumePercentUp;
             var percentDownValue = alert.Type == AlertType.Price ? pricePercentDown : volumePercentDown;
 
+            if (alert.Condition is ConditionType.Above or ConditionType.Below && !alert.ThresholdValue.HasValue)
+            {
+                return false;
+            }
+
             if (alert.Type == AlertType.Volume && alert.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown)
             {
+                if (!alert.ChangePercentage.HasValue)
+                {
+                    return false;
+                }
+
                 return alert.Condition == ConditionType.PercentChangeUp
-                    ? currentVolume >= alert.ThresholdValue
-                    : currentVolume <= alert.ThresholdValue;
+                    ? percentUpValue >= alert.ChangePercentage.Value
+                    : percentDownValue >= alert.ChangePercentage.Value;
             }
 
             if (alert.Type == AlertType.Price && alert.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown)
             {
+                if (!alert.ChangePercentage.HasValue)
+                {
+                    return false;
+                }
+
                 return alert.Condition == ConditionType.PercentChangeUp
-                    ? currentPrice >= alert.ThresholdValue
-                    : currentPrice <= alert.ThresholdValue;
+                    ? percentUpValue >= alert.ChangePercentage.Value
+                    : percentDownValue >= alert.ChangePercentage.Value;
             }
 
             return alert.Condition switch
             {
                 ConditionType.Above => monitoredValue >= alert.ThresholdValue,
                 ConditionType.Below => monitoredValue <= alert.ThresholdValue,
-                ConditionType.PercentChangeUp => percentUpValue >= alert.ThresholdValue,
-                ConditionType.PercentChangeDown => percentDownValue >= alert.ThresholdValue,
+                ConditionType.PercentChangeUp => percentUpValue >= alert.ChangePercentage,
+                ConditionType.PercentChangeDown => percentDownValue >= alert.ChangePercentage,
                 _ => false,
             };
         }
@@ -407,6 +449,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 Condition = alert.Condition,
                 ChangePercentage = alert.ChangePercentage,
                 ThresholdValue = alert.ThresholdValue,
+                VolumeTimeFrame = alert.VolumeTimeFrame,
+                VolumeLookbackBars = alert.VolumeLookbackBars,
                 Name = alert.Name,
                 IsActive = alert.IsActive,
                 IsTriggered = alert.IsTriggered,
