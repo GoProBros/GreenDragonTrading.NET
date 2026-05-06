@@ -19,6 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{FAF1777D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenDragonTrading.DataImporter", "GreenDragonTrading.DataImporter\GreenDragonTrading.DataImporter.csproj", "{B346E4F0-A839-46B6-BE61-24F4230B13CF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenDragonTrading.Application.Tests", "GreenDragonTrading.Application.Tests\GreenDragonTrading.Application.Tests.csproj", "{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,18 @@ Global
 		{B346E4F0-A839-46B6-BE61-24F4230B13CF}.Release|x64.Build.0 = Release|Any CPU
 		{B346E4F0-A839-46B6-BE61-24F4230B13CF}.Release|x86.ActiveCfg = Release|Any CPU
 		{B346E4F0-A839-46B6-BE61-24F4230B13CF}.Release|x86.Build.0 = Release|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Debug|x64.Build.0 = Debug|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Debug|x86.Build.0 = Debug|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Release|x64.ActiveCfg = Release|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Release|x64.Build.0 = Release|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Release|x86.ActiveCfg = Release|Any CPU
+		{CA26BD2C-3E13-4FD4-8A1F-8645DD3C4070}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -81,13 +81,12 @@ public class CreateAlertCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenVolumePercentChangeUp_ShouldCalculateThresholdFromCurrentVolume()
+    public async Task Handle_WhenVolumePercentChangeUp_ShouldPersistPercentConfigWithoutThreshold()
     {
         var fixture = CreateFixture();
         Alert? savedAlert = null;
 
         fixture.Symbols.Setup(x => x.GetByIdAsync("FPT", It.IsAny<CancellationToken>())).ReturnsAsync(new Symbol { Ticker = "FPT" });
-        fixture.Redis.Setup(x => x.GetHashAsync<MarketSymbolDto>(RedisConstants.MarketDataSymbol("FPT"))).ReturnsAsync(new MarketSymbolDto { Ticker = "FPT", TotalVol = 1000 });
         fixture.Alerts.Setup(x => x.AddAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()))
             .Callback<Alert, CancellationToken>((alert, _) => savedAlert = alert)
             .Returns(Task.CompletedTask);
@@ -98,12 +97,16 @@ public class CreateAlertCommandHandlerTests
             Type = AlertType.Volume,
             Condition = ConditionType.PercentChangeUp,
             ChangePercentage = 10m,
+            VolumeTimeFrame = VolumeTimeFrame.M30,
+            VolumeLookbackBars = 20,
             IsActive = true
         }, CancellationToken.None);
 
         Assert.NotNull(savedAlert);
-        Assert.Equal(1100m, savedAlert!.ThresholdValue);
+        Assert.Null(savedAlert!.ThresholdValue);
         Assert.Equal(10m, savedAlert.ChangePercentage);
+        Assert.Equal(VolumeTimeFrame.M30, savedAlert.VolumeTimeFrame);
+        Assert.Equal(20, savedAlert.VolumeLookbackBars);
     }
 
     [Fact]
@@ -228,6 +231,8 @@ public class CreateAlertCommandHandlerTests
         var uow = new Mock<IUnitOfWork>();
         var currentUser = new Mock<ICurrentUserService>();
         var redis = new Mock<IRedisService>();
+        var broadcaster = new Mock<INotificationBroadcaster>();
+        var telegram = new Mock<ITelegramBotService>();
         var symbols = new Mock<ISymbolRepository>();
         var alerts = new Mock<IAlertRepository>();
         var userId = Guid.NewGuid();
@@ -246,7 +251,9 @@ public class CreateAlertCommandHandlerTests
         var handler = new CreateAlertCommandHandler(
             uow.Object,
             currentUser.Object,
-            redis.Object);
+            redis.Object,
+            broadcaster.Object,
+            telegram.Object);
 
         return new AlertFixture(handler, uow, currentUser, redis, symbols, alerts, userId);
     }

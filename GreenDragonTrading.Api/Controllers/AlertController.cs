@@ -31,8 +31,10 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
-        /// Creates an alert. Alert types: 1 = price, 2 = volume. Condition types: 1 = above, 2 = below, 3 = increase by percentage, 4 = decrease by percentage.
-        /// For percentage conditions, current market value is read from Redis at request time.
+        /// Creates an alert. Alert types: 1 = price, 2 = volume. Condition types: 1 = above, 2 = below, 3 = increase by percentage, 4 = decrease by percentage, volume lookback bars is number of bars to look back for volume percent change. Volume time frame 1 = 1 min, 2 = 5 min, 3 = 15 min, 4 = 30 min, 5 = 1 hour, 6 = 4 hour, 7 = 1 day.
+        /// For above/below, send thresholdValue (required). For percent conditions, send changePercentage (required).
+        /// For volume alerts, send volumeTimeFrame (required). For volume percent alerts, also send volumeLookbackBars (required).
+        /// Unused fields can be omitted or set to null.
         /// </summary>
         /// <param name="command"></param>
         /// <param name="cancellationToken"></param>

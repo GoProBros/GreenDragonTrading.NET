@@ -42,6 +42,36 @@ public static class AlertTemplatePlaceholderCatalog
                 "Realtime",
                 "Khối lượng hiện tại tại thời điểm kích hoạt."),
             new AlertTemplatePlaceholderDefinition(
+                "PricePercentUp",
+                "Tăng Giá %",
+                "Realtime",
+                "Phần trăm tăng giá tại thời điểm kích hoạt."),
+            new AlertTemplatePlaceholderDefinition(
+                "PricePercentDown",
+                "Giảm Giá %",
+                "Realtime",
+                "Phần trăm giảm giá tại thời điểm kích hoạt."),
+            new AlertTemplatePlaceholderDefinition(
+                "VolumePercentUp",
+                "Tăng Khối Lượng %",
+                "Realtime",
+                "Phần trăm tăng khối lượng tại thời điểm kích hoạt."),
+            new AlertTemplatePlaceholderDefinition(
+                "VolumePercentDown",
+                "Giảm Khối Lượng %",
+                "Realtime",
+                "Phần trăm giảm khối lượng tại thời điểm kích hoạt."),
+            new AlertTemplatePlaceholderDefinition(
+                "VolumeTimeFrame",
+                "Khung Thời Gian",
+                "Alert",
+                "Khung thời gian cấu hình cho cảnh báo khối lượng."),
+            new AlertTemplatePlaceholderDefinition(
+                "VolumeLookbackBars",
+                "Số Nến So Sánh",
+                "Alert",
+                "Số lượng nến so sánh cho cảnh báo khối lượng theo phần trăm."),
+            new AlertTemplatePlaceholderDefinition(
                 "Time",
                 "Thời Gian",
                 "Realtime",

@@ -25,17 +25,21 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                 .When(x => x.Condition is ConditionType.Above or ConditionType.Below);
 
             RuleFor(x => x.ChangePercentage)
-                .Null().WithMessage("Condition 1,2 không sử dụng changePercentage")
-                .When(x => x.Condition is ConditionType.Above or ConditionType.Below);
-
-            RuleFor(x => x.ChangePercentage)
                 .NotNull().WithMessage("Phần trăm thay đổi không được để trống")
                 .GreaterThan(0).WithMessage("Phần trăm thay đổi phải lớn hơn 0")
                 .When(x => x.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown);
 
-            RuleFor(x => x.ThresholdValue)
-                .Null().WithMessage("Condition 3,4 không cần nhập thresholdValue")
-                .When(x => x.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown);
+            When(x => x.Type == AlertType.Volume, () =>
+            {
+                RuleFor(x => x.VolumeTimeFrame)
+                    .NotNull().WithMessage("Khung thời gian không được để trống")
+                    .IsInEnum().WithMessage("Khung thời gian không hợp lệ");
+
+                RuleFor(x => x.VolumeLookbackBars)
+                    .NotNull().WithMessage("Số lượng nến so sánh không được để trống")
+                    .GreaterThan(0).WithMessage("Số lượng nến so sánh phải lớn hơn 0")
+                    .When(x => x.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown);
+            });
 
             RuleFor(x => x.Name)
                 .MaximumLength(255).WithMessage("Tên cảnh báo không được vượt quá 255 ký tự")
