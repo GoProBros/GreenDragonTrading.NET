@@ -38,6 +38,14 @@ namespace GreenDragonTrading.Domain.Entities
         public int MaxIndicatorSnapshotAgeMinutes { get; set; } = ProactiveAlertLayerBDefaults.MaxIndicatorSnapshotAgeMinutes;
 
         [Required]
+        [Column("throttle_seconds", TypeName = "integer")]
+        public int ThrottleSeconds { get; set; } = ProactiveAlertLayerBDefaults.ThrottleSeconds;
+
+        [Required]
+        [Column("cooldown_minutes", TypeName = "integer")]
+        public int CooldownMinutes { get; set; } = ProactiveAlertLayerBDefaults.CooldownMinutes;
+
+        [Required]
         [Column("created_at", TypeName = "timestamp with time zone")]
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
@@ -55,6 +63,8 @@ namespace GreenDragonTrading.Domain.Entities
                 MinVolumeRatio = ProactiveAlertLayerBDefaults.MinVolumeRatio,
                 MinAdx = ProactiveAlertLayerBDefaults.MinAdx,
                 MaxIndicatorSnapshotAgeMinutes = ProactiveAlertLayerBDefaults.MaxIndicatorSnapshotAgeMinutes,
+                ThrottleSeconds = ProactiveAlertLayerBDefaults.ThrottleSeconds,
+                CooldownMinutes = ProactiveAlertLayerBDefaults.CooldownMinutes,
                 CreatedAt = now,
                 UpdatedAt = now
             };

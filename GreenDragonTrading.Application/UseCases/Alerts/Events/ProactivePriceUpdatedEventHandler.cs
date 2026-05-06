@@ -25,8 +25,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
     {
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> TickerLocks = new();
         private static readonly SemaphoreSlim WatchListIndexBuildLock = new(1, 1);
-        private static readonly TimeSpan ProactiveTickerEvaluationThrottle = TimeSpan.FromSeconds(10);
-        private static readonly TimeSpan ProactiveUserCooldown = TimeSpan.FromMinutes(20);
         private static readonly TimeSpan WatchListUserCacheTtl = TimeSpan.FromMinutes(3);
         private static readonly TimeSpan LayerBSettingsCacheTtl = TimeSpan.FromMinutes(5);
 
@@ -79,6 +77,10 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
                 candidateUserCount = candidateUserIds.Count;
 
+                var layerBSettings = await GetLayerBSettingsAsync(cancellationToken);
+                var throttleWindow = ResolveThrottleWindow(layerBSettings);
+                var cooldownWindow = ResolveCooldownWindow(layerBSettings);
+
                 // ── STEP: trigger ──
                 await _evidenceService.AppendStepAsync(traceId, ticker, "trigger", "pass", detail: new()
                 {
@@ -87,7 +89,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     ["refPrice"] = (notification.ReferencePrice?.ToString(CultureInfo.InvariantCulture)) ?? "null",
                 }, cancellationToken: cancellationToken);
 
-                if (!await ShouldEvaluateProactiveSignalAsync(ticker))
+                if (!await ShouldEvaluateProactiveSignalAsync(ticker, throttleWindow))
                 {
                     await _evidenceService.AppendStepAsync(traceId, ticker, "layerA_filter", "fail",
                         failReason: "Throttled — ticker evaluated within last 10 seconds",
@@ -134,7 +136,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     ["candidateUserCount"] = candidateUserCount.ToString(),
                 }, cancellationToken: cancellationToken);
 
-                var layerBSettings = await GetLayerBSettingsAsync(cancellationToken);
                 var signalContext = await BuildRealtimeSignalContextAsync(ticker, layerAContext, layerBSettings);
                 if (signalContext == null)
                 {
@@ -173,7 +174,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 var eligibleUserIds = new List<Guid>();
                 foreach (var user in activeUsers)
                 {
-                    if (!await TryAcquireProactiveCooldownAsync(user.Id, ticker))
+                    if (!await TryAcquireProactiveCooldownAsync(user.Id, ticker, cooldownWindow))
                     {
                         continue;
                     }
@@ -237,7 +238,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             }
         }
 
-        private async Task<bool> ShouldEvaluateProactiveSignalAsync(string ticker)
+        private async Task<bool> ShouldEvaluateProactiveSignalAsync(string ticker, TimeSpan throttleWindow)
         {
             var evalKey = ProactiveTickerEvaluationKey(ticker);
             if (await _redisService.ExistsAsync(evalKey))
@@ -245,7 +246,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 return false;
             }
 
-            await _redisService.SetAsync(evalKey, true, ProactiveTickerEvaluationThrottle);
+            await _redisService.SetAsync(evalKey, true, throttleWindow);
             return true;
         }
 
@@ -275,6 +276,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     MinVolumeRatio = ProactiveAlertLayerBDefaults.MinVolumeRatio,
                     MinAdx = ProactiveAlertLayerBDefaults.MinAdx,
                     MaxIndicatorSnapshotAgeMinutes = ProactiveAlertLayerBDefaults.MaxIndicatorSnapshotAgeMinutes,
+                    ThrottleSeconds = ProactiveAlertLayerBDefaults.ThrottleSeconds,
+                    CooldownMinutes = ProactiveAlertLayerBDefaults.CooldownMinutes,
                     CreatedAt = now,
                     UpdatedAt = now
                 };
@@ -290,6 +293,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     MinVolumeRatio = settings.MinVolumeRatio,
                     MinAdx = settings.MinAdx,
                     MaxIndicatorSnapshotAgeMinutes = settings.MaxIndicatorSnapshotAgeMinutes,
+                    ThrottleSeconds = settings.ThrottleSeconds,
+                    CooldownMinutes = settings.CooldownMinutes,
                     CreatedAt = settings.CreatedAt,
                     UpdatedAt = settings.UpdatedAt
                 };
@@ -501,7 +506,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             }
         }
 
-        private async Task<bool> TryAcquireProactiveCooldownAsync(Guid userId, string ticker)
+        private async Task<bool> TryAcquireProactiveCooldownAsync(Guid userId, string ticker, TimeSpan cooldownWindow)
         {
             var cooldownKey = ProactiveUserCooldownKey(userId, ticker);
             if (await _redisService.ExistsAsync(cooldownKey))
@@ -509,8 +514,24 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 return false;
             }
 
-            await _redisService.SetAsync(cooldownKey, true, ProactiveUserCooldown);
+            await _redisService.SetAsync(cooldownKey, true, cooldownWindow);
             return true;
+        }
+
+        private static TimeSpan ResolveThrottleWindow(ProactiveAlertLayerBSettingsDto settings)
+        {
+            var seconds = settings.ThrottleSeconds > 0
+                ? settings.ThrottleSeconds
+                : ProactiveAlertLayerBDefaults.ThrottleSeconds;
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        private static TimeSpan ResolveCooldownWindow(ProactiveAlertLayerBSettingsDto settings)
+        {
+            var minutes = settings.CooldownMinutes > 0
+                ? settings.CooldownMinutes
+                : ProactiveAlertLayerBDefaults.CooldownMinutes;
+            return TimeSpan.FromMinutes(minutes);
         }
 
         private static List<string> ExtractTickersFromWatchList(string tickersJson)

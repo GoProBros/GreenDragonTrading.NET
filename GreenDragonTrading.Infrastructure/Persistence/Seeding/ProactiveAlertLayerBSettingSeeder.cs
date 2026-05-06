@@ -20,6 +20,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Seeding
                     MinVolumeRatio = ProactiveAlertLayerBDefaults.MinVolumeRatio,
                     MinAdx = ProactiveAlertLayerBDefaults.MinAdx,
                     MaxIndicatorSnapshotAgeMinutes = ProactiveAlertLayerBDefaults.MaxIndicatorSnapshotAgeMinutes,
+                    ThrottleSeconds = ProactiveAlertLayerBDefaults.ThrottleSeconds,
+                    CooldownMinutes = ProactiveAlertLayerBDefaults.CooldownMinutes,
                     CreatedAt = SeedTime,
                     UpdatedAt = SeedTime
                 });
