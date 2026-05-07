@@ -75,7 +75,12 @@ public static class AlertTemplatePlaceholderCatalog
                 "Time",
                 "Thời Gian",
                 "Realtime",
-                "Thời gian kích hoạt theo múi giờ Việt Nam.")
+                "Thời gian kích hoạt theo múi giờ Việt Nam."),
+            new AlertTemplatePlaceholderDefinition(
+                "CandleTimeRange",
+                "Khung Giờ Nến",
+                "Realtime",
+                "Khung giờ của nến được dùng để so sánh (vd: 14:00-15:00 06/05/2026). Chỉ có giá trị với cảnh báo khối lượng.")
         ];
     }
 
