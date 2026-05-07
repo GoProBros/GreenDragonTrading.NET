@@ -81,6 +81,12 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 var throttleWindow = ResolveThrottleWindow(layerBSettings);
                 var cooldownWindow = ResolveCooldownWindow(layerBSettings);
 
+                // Check throttle BEFORE creating trace — skip silently if throttled
+                if (!await ShouldEvaluateProactiveSignalAsync(ticker, throttleWindow))
+                {
+                    return;
+                }
+
                 // ── STEP: trigger ──
                 await _evidenceService.AppendStepAsync(traceId, ticker, "trigger", "pass", detail: new()
                 {
@@ -88,11 +94,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     ["volume"] = (notification.CurrentVolume ?? 0m).ToString(CultureInfo.InvariantCulture),
                     ["refPrice"] = (notification.ReferencePrice?.ToString(CultureInfo.InvariantCulture)) ?? "null",
                 }, cancellationToken: cancellationToken);
-
-                if (!await ShouldEvaluateProactiveSignalAsync(ticker, throttleWindow))
-                {
-                    return;
-                }
 
                 var currentPrice = notification.CurrentPrice;
                 var currentVolume = notification.CurrentVolume ?? 0m;
