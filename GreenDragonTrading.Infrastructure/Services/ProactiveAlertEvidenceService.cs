@@ -4,6 +4,7 @@ using GreenDragonTrading.Domain.Entities;
 using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.Text.Json;
 
 namespace GreenDragonTrading.Infrastructure.Services
@@ -235,6 +236,30 @@ namespace GreenDragonTrading.Infrastructure.Services
             // AI stats
             stats.AiEvaluationAttempted = summary.Count(x => x.HasAiStep);
             stats.TotalNotifiedUsers = summary.Sum(x => x.NotifiedUserCount);
+
+            // Break down AI evaluation results from step data
+            var aiSteps = raw
+                .SelectMany(e => e.Steps
+                    .Where(s => s.Step == "ai_evaluation")
+                    .Select(s => new { Trace = e, Step = s }))
+                .ToList();
+
+            stats.AiEvaluationSuccess = aiSteps.Count(x => x.Step.Result == "success");
+            stats.AiEvaluationFallback = aiSteps.Count(x => x.Step.Result == "fallback");
+            stats.AiEvaluationFailed = aiSteps.Count(x => x.Step.Result is "failed" or "error");
+
+            if (aiSteps.Count > 0)
+            {
+                var latencies = aiSteps
+                    .Select(x => x.Step.Detail?.TryGetValue("latencyMs", out var v) == true
+                        ? int.TryParse(v?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var ms) ? ms : (int?)null
+                        : null)
+                    .Where(x => x.HasValue)
+                    .Select(x => x!.Value)
+                    .ToList();
+
+                stats.AvgAiLatencyMs = latencies.Count > 0 ? latencies.Average() : 0;
+            }
 
             return stats;
         }
