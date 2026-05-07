@@ -38,8 +38,9 @@ namespace GreenDragonTrading.Infrastructure.Services
                 ?? reportData.IncomeStatement?.Expenses?.CostOfGoodsSold;
 
             var securitiesRevenueTotal = CalculateSecuritiesRevenueTotal(reportData);
-            var netMarginRevenue = securitiesRevenueTotal ?? netRevenue;
-            var operatingMarginRevenue = securitiesRevenueTotal ?? netRevenue;
+            var bankOperatingIncomeTotal = CalculateBankTotalOperatingIncome(reportData);
+            var netMarginRevenue = securitiesRevenueTotal ?? bankOperatingIncomeTotal ?? netRevenue;
+            var operatingMarginRevenue = securitiesRevenueTotal ?? bankOperatingIncomeTotal ?? netRevenue;
             var interestCoverageProfitBase = operatingProfit
                 ?? reportData.IncomeStatement?.ProfitBeforeTax?.ProfitBeforeTax;
 
@@ -77,7 +78,7 @@ namespace GreenDragonTrading.Infrastructure.Services
                 },
                 Efficiency = new EfficiencyRatiosDto
                 {
-                    TotalAssetTurnover = SafeDivide(netRevenue, totalAssets),
+                    TotalAssetTurnover = SafeDivide(netMarginRevenue, totalAssets),
                     InventoryTurnover = SafeDivide(costOfGoodsSold, inventory)
                 },
                 Growth = new GrowthRatiosDto
@@ -131,7 +132,8 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
 
             var securitiesRevenue = CalculateSecuritiesRevenueTotal(reportData);
-            return securitiesRevenue ?? reportData.IncomeStatement?.GrossProfit?.NetRevenue;
+            var bankOperatingIncome = CalculateBankTotalOperatingIncome(reportData);
+            return securitiesRevenue ?? bankOperatingIncome ?? reportData.IncomeStatement?.GrossProfit?.NetRevenue;
         }
 
         private static decimal? CalculateTotalEquity(FinancialReportData reportData)
@@ -176,6 +178,28 @@ namespace GreenDragonTrading.Infrastructure.Services
             if (bankShortTermAssets.HasValue || bankLongTermAssets.HasValue)
             {
                 return (bankShortTermAssets ?? 0m) + (bankLongTermAssets ?? 0m);
+            }
+
+            // Fallback: sum detailed BankAssets fields when total fields are not available
+            var bankAssets = reportData.BalanceSheet?.BankAssets;
+            if (bankAssets != null)
+            {
+                var hasDetailedAssets = bankAssets.DepositsAtCentralBank.HasValue
+                    || bankAssets.DepositsAtOtherCreditInstitutions.HasValue
+                    || bankAssets.TradingSecurities.HasValue
+                    || bankAssets.LoansToCustomers.HasValue
+                    || bankAssets.InvestmentSecurities.HasValue
+                    || bankAssets.OtherAssets.HasValue;
+
+                if (hasDetailedAssets)
+                {
+                    return (bankAssets.DepositsAtCentralBank ?? 0m)
+                        + (bankAssets.DepositsAtOtherCreditInstitutions ?? 0m)
+                        + (bankAssets.TradingSecurities ?? 0m)
+                        + (bankAssets.LoansToCustomers ?? 0m)
+                        + (bankAssets.InvestmentSecurities ?? 0m)
+                        + (bankAssets.OtherAssets ?? 0m);
+                }
             }
 
             return null;
