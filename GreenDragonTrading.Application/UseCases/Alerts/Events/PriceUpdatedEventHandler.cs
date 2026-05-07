@@ -390,10 +390,11 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             // may include a partial current-period candle as if it were closed.
             if (!useCurrentCandle)
             {
-                var vnNow = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).DateTime;
+                // c.Time is stored in UTC; compare against UTC now to avoid timezone mismatch
+                var utcNow = DateTimeOffset.UtcNow.DateTime;
                 var tfMinutes = OhlcvConstants.Timeframes.ToMinutes[timeframe];
                 closedCandles = closedCandles
-                    .Where(c => c.Time.AddMinutes(tfMinutes) <= vnNow)
+                    .Where(c => c.Time.AddMinutes(tfMinutes) <= utcNow)
                     .OrderByDescending(c => c.Time)
                     .ToList();
 
