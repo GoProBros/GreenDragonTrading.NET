@@ -121,9 +121,12 @@ namespace GreenDragonTrading.Infrastructure.Services
 
             var hashEntries = fieldValues.Select(kvp =>
             {
-                string stringValue = kvp.Value is string s
-                    ? s
-                    : JsonSerializer.Serialize(kvp.Value, _jsonOptions);
+                string stringValue = kvp.Value switch
+                {
+                    string s => s,
+                    DateTime dt => dt.ToString("O", CultureInfo.InvariantCulture),
+                    _ => JsonSerializer.Serialize(kvp.Value, _jsonOptions)
+                };
                 return new HashEntry(kvp.Key, stringValue);
             }).ToArray();
 
@@ -367,9 +370,12 @@ namespace GreenDragonTrading.Infrastructure.Services
 
                     var hashEntries = write.FieldValues.Select(kvp =>
                     {
-                        string stringValue = kvp.Value is string s
-                            ? s
-                            : JsonSerializer.Serialize(kvp.Value, _jsonOptions);
+                        string stringValue = kvp.Value switch
+                        {
+                            string s => s,
+                            DateTime dt => dt.ToString("O", CultureInfo.InvariantCulture),
+                            _ => JsonSerializer.Serialize(kvp.Value, _jsonOptions)
+                        };
                         return new HashEntry(kvp.Key, stringValue);
                     }).ToArray();
 

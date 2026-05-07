@@ -243,10 +243,17 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 if (!string.IsNullOrWhiteSpace(traceId))
                 {
-                    _ = Task.Run(() => evidenceService.AppendStepAsync(traceId, job.Ticker, "error", "error",
-                        failReason: ex.Message, cancellationToken: CancellationToken.None));
-                    _ = Task.Run(() => evidenceService.FinalizeTraceAsync(traceId, "error",
-                        candidateUserCount, candidateUserCount, notifiedUserCount, CancellationToken.None));
+                    try
+                    {
+                        await evidenceService.AppendStepAsync(traceId, job.Ticker, "error", "error",
+                            failReason: ex.Message, cancellationToken: CancellationToken.None);
+                        await evidenceService.FinalizeTraceAsync(traceId, "error",
+                            candidateUserCount, candidateUserCount, notifiedUserCount, CancellationToken.None);
+                    }
+                    catch (Exception innerEx)
+                    {
+                        _logger.LogWarning(innerEx, "Failed to record error evidence for trace {TraceId}", traceId);
+                    }
                 }
             }
         }
@@ -350,9 +357,16 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 if (!string.IsNullOrWhiteSpace(traceId))
                 {
-                    _ = Task.Run(() => evidenceService.AppendStepAsync(traceId, job.Ticker, "ai_evaluation", "error",
-                        failReason: ex.Message,
-                        cancellationToken: CancellationToken.None));
+                    try
+                    {
+                        await evidenceService.AppendStepAsync(traceId, job.Ticker, "ai_evaluation", "error",
+                            failReason: ex.Message,
+                            cancellationToken: CancellationToken.None);
+                    }
+                    catch (Exception innerEx)
+                    {
+                        _logger.LogWarning(innerEx, "Failed to record AI evaluation error for trace {TraceId}", traceId);
+                    }
                 }
 
                 return AiEvaluationResult.Failure();
