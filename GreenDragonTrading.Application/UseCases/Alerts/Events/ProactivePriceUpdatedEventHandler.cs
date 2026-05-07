@@ -226,9 +226,16 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error producing proactive AI jobs for {Ticker}", ticker);
-                _ = Task.Run(() => _evidenceService.AppendStepAsync(traceId, ticker, "error", "error",
-                    failReason: ex.Message, cancellationToken: CancellationToken.None));
-                _ = Task.Run(() => _evidenceService.FinalizeTraceAsync(traceId, "error", candidateUserCount, eligibleUserCount, 0, CancellationToken.None));
+                try
+                {
+                    await _evidenceService.AppendStepAsync(traceId, ticker, "error", "error",
+                        failReason: ex.Message, cancellationToken: CancellationToken.None);
+                    await _evidenceService.FinalizeTraceAsync(traceId, "error", candidateUserCount, eligibleUserCount, 0, CancellationToken.None);
+                }
+                catch (Exception innerEx)
+                {
+                    _logger.LogWarning(innerEx, "Failed to record error evidence for trace {TraceId}", traceId);
+                }
             }
             finally
             {
