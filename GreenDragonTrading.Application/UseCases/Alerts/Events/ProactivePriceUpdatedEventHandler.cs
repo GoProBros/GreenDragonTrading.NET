@@ -135,10 +135,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     ["refPrice"] = (referencePrice?.ToString(CultureInfo.InvariantCulture)) ?? "null",
                 });
 
-                var currentPrice = notification.CurrentPrice;
-                var currentVolume = notification.CurrentVolume ?? 0m;
-                var referencePrice = notification.ReferencePrice;
-
                 var layerAContext = await BuildLayerAContextAsync(
                     redis,
                     ticker,
