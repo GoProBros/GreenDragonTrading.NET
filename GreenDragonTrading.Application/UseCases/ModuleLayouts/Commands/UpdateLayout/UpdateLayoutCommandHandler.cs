@@ -42,8 +42,6 @@ public class UpdateLayoutCommandHandler : IRequestHandler<UpdateLayoutCommand, A
             throw new NotFoundException("Layout không tồn tại.");
         }
 
-        // Owner can update own layout.
-        // Admin/Staff can update default layout.
         var isOwner = layout.UserId == userId;
         var canAdminOrStaffUpdate = isAdminOrStaff && layout.IsSystemDefault;
         var canUpdate = isOwner || canAdminOrStaffUpdate;
@@ -52,7 +50,6 @@ public class UpdateLayoutCommandHandler : IRequestHandler<UpdateLayoutCommand, A
             throw new AccessDeniedException("Bạn không có quyền cập nhật layout này.");
         }
 
-        // Update fields
         layout.LayoutName = !string.IsNullOrWhiteSpace(request.LayoutName) ? request.LayoutName.Trim() : layout.LayoutName;
         layout.ConfigJson = request.ConfigJson.HasValue ? JsonSerializer.Serialize(request.ConfigJson.Value) : layout.ConfigJson;
         layout.IsSystemDefault = request.IsSystemDefault ?? layout.IsSystemDefault;
@@ -60,7 +57,6 @@ public class UpdateLayoutCommandHandler : IRequestHandler<UpdateLayoutCommand, A
 
         await _uow.SaveChangesAsync(cancellationToken);
 
-        // Parse JSON config for response
         JsonElement? configJson = null;
         if (!string.IsNullOrWhiteSpace(layout.ConfigJson))
         {

@@ -49,7 +49,7 @@ public class GetSubscriptionStatisticsQueryHandler : IRequestHandler<GetSubscrip
 
         var endUsers = users.Where(u => u.Role == UserRole.User).ToList();
         var vipSubscriptions = subscriptions
-            .Where(s => s.LevelOrder != SubscriptionLevel.Free)
+            .Where(s => !s.IsFree && !s.IsAdmin)
             .ToList();
 
         var newUsersByMonthMap = endUsers
@@ -116,8 +116,8 @@ public class GetSubscriptionStatisticsQueryHandler : IRequestHandler<GetSubscrip
             {
                 SubscriptionId = subscription.Id,
                 SubscriptionName = subscription.Name,
-                LevelOrder = subscription.LevelOrder,
-                LevelDisplayName = subscription.LevelOrder.GetDisplayName(),
+                LevelOrder = subscription.LevelOrder ?? SubscriptionLevel.Free,
+                LevelDisplayName = subscription.LevelOrder is { } level ? level.GetDisplayName() : subscription.Name,
                 UserCount = activeNowSubscriptions
                     .Where(x => x.SubscriptionId == subscription.Id)
                     .Select(x => x.UserId)
@@ -141,8 +141,8 @@ public class GetSubscriptionStatisticsQueryHandler : IRequestHandler<GetSubscrip
                 {
                     SubscriptionId = subscription.Id,
                     SubscriptionName = subscription.Name,
-                    LevelOrder = subscription.LevelOrder,
-                    LevelDisplayName = subscription.LevelOrder.GetDisplayName(),
+                    LevelOrder = subscription.LevelOrder ?? SubscriptionLevel.Free,
+                    LevelDisplayName = subscription.LevelOrder is { } level ? level.GetDisplayName() : subscription.Name,
                     RegistrationCount = packageRegistrations.Count,
                     UniqueUserCount = packageRegistrations
                         .Select(x => x.UserId)

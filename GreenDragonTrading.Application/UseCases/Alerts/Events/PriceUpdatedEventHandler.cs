@@ -1,4 +1,5 @@
 ﻿using GreenDragonTrading.Application.Interfaces;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.DTOs.Realtime;
 using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Domain.Constants;
@@ -12,6 +13,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 {
     public class PriceUpdatedEventHandler(
         IRedisService redisService,
+        IOhlcvUnitOfWork ohlcvUow,
         IUnitOfWork uow,
         INotificationBroadcaster notificationBroadcaster,
         ITelegramBotService telegramBotService) : INotificationHandler<PriceUpdatedEvent>
@@ -19,6 +21,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> TickerLocks = new();
 
         private readonly IRedisService _redisService = redisService;
+        private readonly IOhlcvUnitOfWork _ohlcvUow = ohlcvUow;
         private readonly IUnitOfWork _uow = uow;
         private readonly INotificationBroadcaster _notificationBroadcaster = notificationBroadcaster;
         private readonly ITelegramBotService _telegramBotService = telegramBotService;
@@ -67,14 +70,14 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.Above, double.NegativeInfinity, (double)currentPrice));
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.Below, (double)currentPrice, double.PositiveInfinity));
-                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.Above, double.NegativeInfinity, (double)currentVolume));
-                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.Below, (double)currentVolume, double.PositiveInfinity));
 
-                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.PercentChangeUp, double.NegativeInfinity, (double)currentPrice));
-                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.PercentChangeDown, (double)currentPrice, double.PositiveInfinity));
+                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.PercentChangeUp, double.NegativeInfinity, double.PositiveInfinity));
+                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.PercentChangeDown, double.NegativeInfinity, double.PositiveInfinity));
 
-                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.PercentChangeUp, double.NegativeInfinity, (double)currentVolume));
-                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.PercentChangeDown, (double)currentVolume, double.PositiveInfinity));
+                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.Above, double.NegativeInfinity, double.PositiveInfinity));
+                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.Below, double.NegativeInfinity, double.PositiveInfinity));
+                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.PercentChangeUp, double.NegativeInfinity, double.PositiveInfinity));
+                alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.PercentChangeDown, double.NegativeInfinity, double.PositiveInfinity));
 
                 var allAlertIds = alertIds
                     .Select(ParseAlertId)
@@ -99,17 +102,120 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 var now = DateTimeOffset.UtcNow;
                 var hasChanges = false;
                 var systemSessionIdsByUser = new Dictionary<Guid, int>();
+                var currentCandleCache = new Dictionary<string, CurrentCandleDto?>(StringComparer.OrdinalIgnoreCase);
+                var closedCandleCache = new Dictionary<string, List<Domain.Entities.Ohlcv>>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var alert in alerts)
                 {
-                    if (!IsTriggered(
-                        alert,
-                        currentPrice,
-                        currentVolume,
-                        pricePercentUp,
-                        pricePercentDown,
-                        volumePercentUp,
-                        volumePercentDown))
+                    var shouldTrigger = false;
+                    var effectiveCurrentVolume = currentVolume;
+                    var effectiveVolumePercentUp = volumePercentUp;
+                    var effectiveVolumePercentDown = volumePercentDown;
+                    string? candleTimeRange = null;
+
+                    if (alert.Type == AlertType.Volume)
+                    {
+                        if (!alert.VolumeTimeFrame.HasValue)
+                        {
+                            continue;
+                        }
+
+                        var timeframe = ToTimeframeString(alert.VolumeTimeFrame.Value);
+                        var useCurrentCandle = alert.Condition is ConditionType.Above or ConditionType.PercentChangeUp;
+                        var snapshot = await GetVolumeSnapshotAsync(
+                            ticker,
+                            timeframe,
+                            alert.VolumeLookbackBars,
+                            useCurrentCandle,
+                            currentCandleCache,
+                            closedCandleCache,
+                            cancellationToken);
+
+                        if (snapshot == null)
+                        {
+                            continue;
+                        }
+
+                        effectiveCurrentVolume = snapshot.CurrentVolume;
+                        effectiveVolumePercentUp = 0m;
+                        effectiveVolumePercentDown = 0m;
+
+                        // Build candle time range for display (e.g., "14:00-15:00 06/05/2026")
+                        var vnCandleTime = snapshot.CandleTime.AddHours(7);
+                        var tfMinutes = OhlcvConstants.Timeframes.ToMinutes[timeframe];
+                        if (tfMinutes >= 1440)
+                        {
+                            candleTimeRange = vnCandleTime.ToString("dd/MM/yyyy");
+                        }
+                        else
+                        {
+                            var vnEndTime = vnCandleTime.AddMinutes(tfMinutes);
+                            candleTimeRange = $"{vnCandleTime:HH:mm}-{vnEndTime:HH:mm} {vnCandleTime:dd/MM/yyyy}";
+                        }
+
+                        // Don't trigger on candles that closed before the alert was created.
+                        // A Volume alert should only react to data that occurred after creation,
+                        // otherwise a newly created alert would fire on yesterday's candle.
+                        var vnAlertCreatedAt = alert.CreatedAt.ToOffset(TimeSpan.FromHours(7)).DateTime;
+                        var candleCloseVn = vnCandleTime.AddMinutes(tfMinutes);
+                        if (candleCloseVn <= vnAlertCreatedAt)
+                        {
+                            continue;
+                        }
+
+                        if (alert.Condition == ConditionType.Above)
+                        {
+                            shouldTrigger = alert.ThresholdValue.HasValue
+                                && effectiveCurrentVolume >= alert.ThresholdValue.Value;
+                            if (shouldTrigger && alert.ThresholdValue!.Value > 0)
+                            {
+                                effectiveVolumePercentUp = ((effectiveCurrentVolume - alert.ThresholdValue.Value) / alert.ThresholdValue.Value) * 100m;
+                            }
+                        }
+                        else if (alert.Condition == ConditionType.Below)
+                        {
+                            shouldTrigger = alert.ThresholdValue.HasValue
+                                && effectiveCurrentVolume <= alert.ThresholdValue.Value;
+                            if (shouldTrigger && alert.ThresholdValue!.Value > 0)
+                            {
+                                effectiveVolumePercentDown = ((alert.ThresholdValue.Value - effectiveCurrentVolume) / alert.ThresholdValue.Value) * 100m;
+                            }
+                        }
+                        else if (alert.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown)
+                        {
+                            if (!snapshot.BaselineMinVolume.HasValue || snapshot.BaselineMinVolume.Value <= 0)
+                            {
+                                continue;
+                            }
+
+                            if (!alert.ChangePercentage.HasValue)
+                            {
+                                continue;
+                            }
+
+                            var baseline = snapshot.BaselineMinVolume.Value;
+                            var pct = ((effectiveCurrentVolume - baseline) / baseline) * 100m;
+                            effectiveVolumePercentUp = Math.Max(pct, 0m);
+                            effectiveVolumePercentDown = Math.Max(-pct, 0m);
+
+                            shouldTrigger = alert.Condition == ConditionType.PercentChangeUp
+                                ? pct >= alert.ChangePercentage.Value
+                                : pct <= -alert.ChangePercentage.Value;
+                        }
+                    }
+                    else
+                    {
+                        shouldTrigger = IsTriggered(
+                            alert,
+                            currentPrice,
+                            currentVolume,
+                            pricePercentUp,
+                            pricePercentDown,
+                            volumePercentUp,
+                            volumePercentDown);
+                    }
+
+                    if (!shouldTrigger)
                     {
                         continue;
                     }
@@ -128,12 +234,13 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     var message = AlertTemplateRenderingHelper.BuildAlertMessage(
                         alert,
                         currentPrice,
-                        currentVolume,
+                        effectiveCurrentVolume,
                         pricePercentUp,
                         pricePercentDown,
-                        volumePercentUp,
-                        volumePercentDown,
-                        template);
+                        effectiveVolumePercentUp,
+                        effectiveVolumePercentDown,
+                        template,
+                        candleTimeRange);
 
                     if (!systemSessionIdsByUser.TryGetValue(alert.UserId, out var systemSessionId))
                     {
@@ -254,6 +361,195 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             return await _redisService.SortedSetRangeByScoreAsync(key, start, stop);
         }
 
+        private async Task<VolumeSnapshot?> GetVolumeSnapshotAsync(
+            string ticker,
+            string timeframe,
+            int? lookbackBars,
+            bool useCurrentCandle,
+            Dictionary<string, CurrentCandleDto?> currentCandleCache,
+            Dictionary<string, List<Domain.Entities.Ohlcv>> closedCandleCache,
+            CancellationToken cancellationToken)
+        {
+            var extraClosed = useCurrentCandle ? 0 : 1;
+            var requiredClosed = Math.Max((lookbackBars ?? 1) + extraClosed, 1);
+            var closedCandles = await GetClosedCandlesAsync(
+                ticker,
+                timeframe,
+                requiredClosed,
+                closedCandleCache,
+                cancellationToken);
+
+            if (closedCandles.Count == 0)
+            {
+                return null;
+            }
+
+            // When not using the current (still-forming) candle, ensure we only compare
+            // against candles whose time period has fully elapsed.
+            // This is critical for computed timeframes (H1, H4, etc.) where the aggregation
+            // may include a partial current-period candle as if it were closed.
+            if (!useCurrentCandle)
+            {
+                // c.Time is stored in UTC; compare against UTC now to avoid timezone mismatch
+                var utcNow = DateTimeOffset.UtcNow.DateTime;
+                var tfMinutes = OhlcvConstants.Timeframes.ToMinutes[timeframe];
+                closedCandles = closedCandles
+                    .Where(c => c.Time.AddMinutes(tfMinutes) <= utcNow)
+                    .OrderByDescending(c => c.Time)
+                    .ToList();
+
+                if (closedCandles.Count == 0)
+                {
+                    return null;
+                }
+            }
+
+            var currentVolume = (decimal)closedCandles[0].Volume;
+
+            if (useCurrentCandle)
+            {
+                var currentCandle = await GetCurrentCandleAsync(ticker, timeframe, currentCandleCache);
+                if (currentCandle != null && currentCandle.Volume > 0)
+                {
+                    currentVolume = currentCandle.Volume;
+                }
+            }
+
+            decimal? baselineMin = null;
+            if (lookbackBars.HasValue && lookbackBars.Value > 0)
+            {
+                if (closedCandles.Count < lookbackBars.Value + extraClosed)
+                {
+                    return null;
+                }
+
+                var baselineCandles = useCurrentCandle
+                    ? closedCandles.Take(lookbackBars.Value)
+                    : closedCandles.Skip(1).Take(lookbackBars.Value);
+
+                baselineMin = baselineCandles.Min(candle => (decimal)candle.Volume);
+            }
+
+            return new VolumeSnapshot(currentVolume, baselineMin, closedCandles[0].Time);
+        }
+
+        private async Task<CurrentCandleDto?> GetCurrentCandleAsync(
+            string ticker,
+            string timeframe,
+            Dictionary<string, CurrentCandleDto?> cache)
+        {
+            var cacheKey = $"{ticker}:{timeframe}:current";
+            if (cache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+
+            var redisKey = RedisConstants.Ohlcv(ticker, timeframe);
+            var candle = await _redisService.GetAsync<CurrentCandleDto>(redisKey);
+            cache[cacheKey] = candle;
+            return candle;
+        }
+
+        private async Task<List<Domain.Entities.Ohlcv>> GetClosedCandlesAsync(
+            string ticker,
+            string timeframe,
+            int limit,
+            Dictionary<string, List<Domain.Entities.Ohlcv>> cache,
+            CancellationToken cancellationToken)
+        {
+            var cacheKey = $"{ticker}:{timeframe}:{limit}";
+            if (cache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+
+            List<Domain.Entities.Ohlcv> candles;
+            if (OhlcvConstants.Timeframes.IsStored(timeframe))
+            {
+                candles = await _ohlcvUow.Ohlcv.GetLatestCandlesAsync(
+                    ticker,
+                    timeframe,
+                    limit,
+                    cancellationToken);
+            }
+            else
+            {
+                candles = await GetComputedCandlesAsync(
+                    ticker,
+                    timeframe,
+                    limit,
+                    cancellationToken);
+            }
+
+            candles = candles
+                .OrderByDescending(candle => candle.Time)
+                .ToList();
+
+            cache[cacheKey] = candles;
+            return candles;
+        }
+
+        private async Task<List<Domain.Entities.Ohlcv>> GetComputedCandlesAsync(
+            string ticker,
+            string timeframe,
+            int limit,
+            CancellationToken cancellationToken)
+        {
+            if (!OhlcvConstants.Timeframes.ComputedFromM1.Contains(timeframe))
+            {
+                return new List<Domain.Entities.Ohlcv>();
+            }
+
+            var newestTime = await _ohlcvUow.Ohlcv.GetNewestDateAsync(
+                ticker,
+                OhlcvConstants.Timeframes.M1,
+                cancellationToken);
+
+            if (!newestTime.HasValue)
+            {
+                return new List<Domain.Entities.Ohlcv>();
+            }
+
+            var targetMinutes = OhlcvConstants.Timeframes.ToMinutes[timeframe];
+            var lookbackMinutes = Math.Max(1, limit) * targetMinutes;
+            var fromTime = newestTime.Value.AddMinutes(-(lookbackMinutes + targetMinutes * 2));
+
+            var sourceData = await _ohlcvUow.Ohlcv.GetByTickerAndTimeRangeAsync(
+                ticker,
+                OhlcvConstants.Timeframes.M1,
+                fromTime,
+                newestTime.Value,
+                cancellationToken);
+
+            if (!sourceData.Any())
+            {
+                return new List<Domain.Entities.Ohlcv>();
+            }
+
+            var aggregated = OhlcvAggregationHelper.AggregateFromM1(sourceData, timeframe);
+            return aggregated
+                .OrderByDescending(candle => candle.Time)
+                .Take(limit)
+                .ToList();
+        }
+
+        private static string ToTimeframeString(VolumeTimeFrame timeframe)
+        {
+            return timeframe switch
+            {
+                VolumeTimeFrame.M1 => OhlcvConstants.Timeframes.M1,
+                VolumeTimeFrame.M5 => OhlcvConstants.Timeframes.M5,
+                VolumeTimeFrame.M15 => OhlcvConstants.Timeframes.M15,
+                VolumeTimeFrame.M30 => OhlcvConstants.Timeframes.M30,
+                VolumeTimeFrame.H1 => OhlcvConstants.Timeframes.H1,
+                VolumeTimeFrame.H4 => OhlcvConstants.Timeframes.H4,
+                VolumeTimeFrame.D1 => OhlcvConstants.Timeframes.D1,
+                _ => OhlcvConstants.Timeframes.M1
+            };
+        }
+
+        private sealed record VolumeSnapshot(decimal CurrentVolume, decimal? BaselineMinVolume, DateTime CandleTime);
+
         private async Task<int> GetOrCreateSystemSessionIdAsync(
             Guid userId,
             DateTimeOffset now,
@@ -340,26 +636,41 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
             var percentUpValue = alert.Type == AlertType.Price ? pricePercentUp : volumePercentUp;
             var percentDownValue = alert.Type == AlertType.Price ? pricePercentDown : volumePercentDown;
 
+            if (alert.Condition is ConditionType.Above or ConditionType.Below && !alert.ThresholdValue.HasValue)
+            {
+                return false;
+            }
+
             if (alert.Type == AlertType.Volume && alert.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown)
             {
+                if (!alert.ChangePercentage.HasValue)
+                {
+                    return false;
+                }
+
                 return alert.Condition == ConditionType.PercentChangeUp
-                    ? currentVolume >= alert.ThresholdValue
-                    : currentVolume <= alert.ThresholdValue;
+                    ? percentUpValue >= alert.ChangePercentage.Value
+                    : percentDownValue >= alert.ChangePercentage.Value;
             }
 
             if (alert.Type == AlertType.Price && alert.Condition is ConditionType.PercentChangeUp or ConditionType.PercentChangeDown)
             {
+                if (!alert.ChangePercentage.HasValue)
+                {
+                    return false;
+                }
+
                 return alert.Condition == ConditionType.PercentChangeUp
-                    ? currentPrice >= alert.ThresholdValue
-                    : currentPrice <= alert.ThresholdValue;
+                    ? percentUpValue >= alert.ChangePercentage.Value
+                    : percentDownValue >= alert.ChangePercentage.Value;
             }
 
             return alert.Condition switch
             {
                 ConditionType.Above => monitoredValue >= alert.ThresholdValue,
                 ConditionType.Below => monitoredValue <= alert.ThresholdValue,
-                ConditionType.PercentChangeUp => percentUpValue >= alert.ThresholdValue,
-                ConditionType.PercentChangeDown => percentDownValue >= alert.ThresholdValue,
+                ConditionType.PercentChangeUp => percentUpValue >= alert.ChangePercentage,
+                ConditionType.PercentChangeDown => percentDownValue >= alert.ChangePercentage,
                 _ => false,
             };
         }

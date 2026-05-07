@@ -64,8 +64,6 @@ namespace GreenDragonTrading.Application.UseCases.Payments.Queries.GetPaymentSta
                 throw new NotFoundException("Giao dịch không tồn tại.");
             }
 
-            // If webhook/IPN is delayed or missed, automatically sync pending transactions
-            // so frontend only needs to call the status endpoint.
             if (response.Status == TransactionStatus.Pending
                 && DateTimeOffset.UtcNow - response.CreatedAt >= TimeSpan.FromSeconds(10))
             {

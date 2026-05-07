@@ -42,7 +42,6 @@ public class ToggleUserStatusCommandHandler : IRequestHandler<ToggleUserStatusCo
 
         var actorRole = _currentUserService.Role;
 
-        // Admin can manage Staff/User; Staff can manage User only.
         if (actorRole == nameof(UserRole.Admin))
         {
             if (targetUser.Role == UserRole.Admin)

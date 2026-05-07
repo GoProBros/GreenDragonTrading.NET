@@ -8,6 +8,7 @@ using GreenDragonTrading.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 {
@@ -98,21 +99,51 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
             var uow = serviceProvider.GetRequiredService<IUnitOfWork>();
             var proactiveEvaluationService = serviceProvider.GetRequiredService<IProactiveAlertEvaluationService>();
             var notificationBroadcaster = serviceProvider.GetRequiredService<INotificationBroadcaster>();
+            var evidenceService = serviceProvider.GetRequiredService<IProactiveAlertEvidenceService>();
+
+            var traceId = job.TraceId;
+            var candidateUserCount = job.TargetUserIds.Count;
+            var notifiedUserCount = 0;
 
             try
             {
+                // ── STEP: dequeued ──
+                if (!string.IsNullOrWhiteSpace(traceId))
+                {
+                    await evidenceService.AppendStepAsync(traceId, job.Ticker, "dequeued", "success",
+                        detail: new()
+                        {
+                            ["jobId"] = job.JobId,
+                            ["targetUserCount"] = candidateUserCount.ToString(),
+                        },
+                        cancellationToken: cancellationToken);
+                }
+
                 var activeUsers = (await uow.Users.FindAsync(
                     x => job.TargetUserIds.Contains(x.Id) && x.Status == CommonStatus.Active,
                     cancellationToken)).ToList();
 
                 if (activeUsers.Count == 0)
                 {
+                    if (!string.IsNullOrWhiteSpace(traceId))
+                    {
+                        await evidenceService.AppendStepAsync(traceId, job.Ticker, "dequeued", "fail",
+                            failReason: "All target users are now inactive",
+                            cancellationToken: cancellationToken);
+                        await evidenceService.FinalizeTraceAsync(traceId, "dequeued_no_active_users",
+                            candidateUserCount, candidateUserCount, 0, cancellationToken);
+                    }
                     return;
                 }
 
-                var aiResult = await EvaluateWithAiAsync(proactiveEvaluationService, job, cancellationToken);
+                var aiResult = await EvaluateWithAiAsync(proactiveEvaluationService, evidenceService, job, cancellationToken);
                 if (!aiResult.IsSuccess)
                 {
+                    if (!string.IsNullOrWhiteSpace(traceId))
+                    {
+                        await evidenceService.FinalizeTraceAsync(traceId, "ai_failed",
+                            candidateUserCount, candidateUserCount, 0, cancellationToken);
+                    }
                     return;
                 }
 
@@ -139,6 +170,11 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
 
                 if (pendingBroadcasts.Count == 0)
                 {
+                    if (!string.IsNullOrWhiteSpace(traceId))
+                    {
+                        await evidenceService.FinalizeTraceAsync(traceId, "ai_failed",
+                            candidateUserCount, candidateUserCount, 0, cancellationToken);
+                    }
                     return;
                 }
 
@@ -162,6 +198,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                                 Ticker = job.Ticker,
                             },
                             cancellationToken);
+                        notifiedUserCount++;
                     }
                     catch (Exception ex)
                     {
@@ -173,11 +210,28 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     }
                 }
 
+                // ── STEP: broadcast ──
+                if (!string.IsNullOrWhiteSpace(traceId))
+                {
+                    await evidenceService.AppendStepAsync(traceId, job.Ticker, "broadcast", "success",
+                        detail: new()
+                        {
+                            ["notifiedUsers"] = notifiedUserCount.ToString(),
+                            ["aiUserMessage"] = aiResult.Content,
+                        },
+                        cancellationToken: cancellationToken);
+
+                    var finalResult = aiResult.IsFallback ? "ai_fallback" : "broadcast_success";
+                    await evidenceService.FinalizeTraceAsync(traceId, finalResult,
+                        candidateUserCount, candidateUserCount, notifiedUserCount, cancellationToken);
+                }
+
                 _logger.LogInformation(
-                    "Processed proactive AI job {JobId} for ticker {Ticker} and {UserCount} users",
+                    "Processed proactive AI job {JobId} for ticker {Ticker} and {UserCount} users (trace={TraceId})",
                     job.JobId,
                     job.Ticker,
-                    pendingBroadcasts.Count);
+                    pendingBroadcasts.Count,
+                    traceId);
             }
             catch (Exception ex)
             {
@@ -186,17 +240,38 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                     "Failed processing proactive AI job {JobId} for ticker {Ticker}",
                     job.JobId,
                     job.Ticker);
+
+                if (!string.IsNullOrWhiteSpace(traceId))
+                {
+                    try
+                    {
+                        await evidenceService.AppendStepAsync(traceId, job.Ticker, "error", "error",
+                            failReason: ex.Message, cancellationToken: CancellationToken.None);
+                        await evidenceService.FinalizeTraceAsync(traceId, "error",
+                            candidateUserCount, candidateUserCount, notifiedUserCount, CancellationToken.None);
+                    }
+                    catch (Exception innerEx)
+                    {
+                        _logger.LogWarning(innerEx, "Failed to record error evidence for trace {TraceId}", traceId);
+                    }
+                }
             }
         }
 
         private async Task<AiEvaluationResult> EvaluateWithAiAsync(
             IProactiveAlertEvaluationService proactiveEvaluationService,
+            IProactiveAlertEvidenceService evidenceService,
             ProactiveAiEvaluationJobDto job,
             CancellationToken cancellationToken)
         {
+            var traceId = job.TraceId;
+            var startedAt = DateTime.UtcNow;
+
             try
             {
                 var evaluationResult = await proactiveEvaluationService.EvaluateAsync(job, cancellationToken);
+                var latencyMs = (int)(DateTime.UtcNow - startedAt).TotalMilliseconds;
+
                 if (!evaluationResult.Success || evaluationResult.Data == null)
                 {
                     if (evaluationResult.IsValidationError)
@@ -227,23 +302,73 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
                             evaluationResult.ErrorMessage);
                     }
 
+                    if (!string.IsNullOrWhiteSpace(traceId))
+                    {
+                        await evidenceService.AppendStepAsync(traceId, job.Ticker, "ai_evaluation", "failed",
+                            failReason: evaluationResult.ErrorMessage ?? "AI service returned error",
+                            detail: new()
+                            {
+                                ["errorCode"] = evaluationResult.ErrorCode ?? "unknown",
+                                ["latencyMs"] = latencyMs.ToString(),
+                            },
+                            cancellationToken: cancellationToken);
+                    }
+
                     return AiEvaluationResult.Failure();
                 }
 
-                var content = !string.IsNullOrWhiteSpace(evaluationResult.Data.UserMessage)
-                    ? evaluationResult.Data.UserMessage
+                var data = evaluationResult.Data;
+                var usedFallback = data.Metadata?.UsedFallback ?? false;
+                var content = !string.IsNullOrWhiteSpace(data.UserMessage)
+                    ? data.UserMessage
                     : BuildFallbackProactiveSummary(job);
+
+                // ── STEP: ai_evaluation ──
+                if (!string.IsNullOrWhiteSpace(traceId))
+                {
+                    var aiResult = usedFallback ? "fallback" : "success";
+                    await evidenceService.AppendStepAsync(traceId, job.Ticker, "ai_evaluation", aiResult,
+                        detail: new()
+                        {
+                            ["severity"] = data.Severity,
+                            ["direction"] = data.Direction,
+                            ["confidence"] = data.Confidence.ToString("F2", CultureInfo.InvariantCulture),
+                            ["suggestedAction"] = data.SuggestedAction,
+                            ["userMessage"] = content,
+                            ["modelName"] = data.Metadata?.ModelName ?? "unknown",
+                            ["promptVersion"] = data.Metadata?.PromptVersion ?? "unknown",
+                            ["latencyMs"] = latencyMs.ToString(),
+                            ["usedFallback"] = usedFallback ? "true" : "false",
+                        },
+                        cancellationToken: cancellationToken);
+                }
 
                 return new AiEvaluationResult
                 {
                     IsSuccess = true,
+                    IsFallback = usedFallback,
                     Content = content,
-                    ResponseDataJson = System.Text.Json.JsonSerializer.Serialize(evaluationResult.Data),
+                    ResponseDataJson = System.Text.Json.JsonSerializer.Serialize(data),
                 };
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error calling AI proactive evaluation for {Ticker}", job.Ticker);
+
+                if (!string.IsNullOrWhiteSpace(traceId))
+                {
+                    try
+                    {
+                        await evidenceService.AppendStepAsync(traceId, job.Ticker, "ai_evaluation", "error",
+                            failReason: ex.Message,
+                            cancellationToken: CancellationToken.None);
+                    }
+                    catch (Exception innerEx)
+                    {
+                        _logger.LogWarning(innerEx, "Failed to record AI evaluation error for trace {TraceId}", traceId);
+                    }
+                }
+
                 return AiEvaluationResult.Failure();
             }
         }
@@ -338,6 +463,7 @@ namespace GreenDragonTrading.Infrastructure.BackgroundWorkers
         private sealed class AiEvaluationResult
         {
             public bool IsSuccess { get; init; }
+            public bool IsFallback { get; init; }
             public string Content { get; init; } = string.Empty;
             public string? ResponseDataJson { get; init; }
 

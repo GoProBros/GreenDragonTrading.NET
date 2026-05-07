@@ -14,14 +14,30 @@ namespace GreenDragonTrading.Infrastructure.Persistence.Repositories
         public async Task<Subscription?> GetByLevelAsync(int levelOrder, CancellationToken cancellationToken = default)
         {
             return await _context.Set<Subscription>()
-                .FirstOrDefaultAsync(s => (int)s.LevelOrder == levelOrder, cancellationToken);
+                .FirstOrDefaultAsync(s => s.LevelOrder.HasValue && (int)s.LevelOrder.Value == levelOrder, cancellationToken);
         }
 
         public async Task<Subscription?> GetHighestActiveAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Set<Subscription>()
                 .Where(s => s.IsActive == CommonStatus.Active)
-                .OrderByDescending(s => s.LevelOrder)
+                .OrderByDescending(s => s.LevelOrder ?? (SubscriptionLevel)(-1))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<Subscription?> GetActiveFreeSubscriptionAsync(CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<Subscription>()
+                .Where(s => s.IsActive == CommonStatus.Active && s.IsFree)
+                .OrderByDescending(s => s.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<Subscription?> GetActiveAdminSubscriptionAsync(CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<Subscription>()
+                .Where(s => s.IsActive == CommonStatus.Active && s.IsAdmin)
+                .OrderByDescending(s => s.Id)
                 .FirstOrDefaultAsync(cancellationToken);
         }
     }

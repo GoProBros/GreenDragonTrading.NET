@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Entities;
@@ -42,7 +43,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
 
         public async Task<ApiResponse<AuthResponse>> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
         {
-            // Verify the Google ID token server-side
             GoogleUserInfo googleUser;
             try
             {
@@ -54,12 +54,10 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                 throw new UnauthenticatedException("Google token không hợp lệ.");
             }
 
-            // Find existing user or create a new one
             var user = await _uow.Users.GetByEmailAsync(googleUser.Email, cancellationToken);
 
             if (user == null)
             {
-                // Derive a unique username from the Google display name
                 var username = googleUser.Name.Length > 24
                     ? googleUser.Name[..24]
                     : googleUser.Name;
@@ -69,12 +67,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                     Id = Guid.NewGuid(),
                     Email = googleUser.Email,
                     Username = username,
-                    // Google users have no password — store a random unguessable hash
                     HashedPassword = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
                     PhoneNumber = null,
                     AvatarUrl = googleUser.PictureUrl,
                     Role = UserRole.User,
-                    IsEmailVerified = true, // Google already verified the email
+                    IsEmailVerified = true,
                     Status = CommonStatus.Active,
                     CreatedAt = DateTimeOffset.UtcNow,
                 };
@@ -82,7 +79,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                 await _uow.Users.AddAsync(user, cancellationToken);
                 await _uow.SaveChangesAsync(cancellationToken);
 
-                // Create both Web and Mobile default workspaces for the new user
                 await CreateDefaultWorkspacesForUserAsync(user.Id, cancellationToken);
 
                 _logger.LogInformation("New user created via Google: {Email}", user.Email);
@@ -92,7 +88,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                 if (user.Status != CommonStatus.Active)
                     throw new BusinessRuleException("Tài khoản đã bị khoá.");
 
-                // Update avatar if Google provides a newer one
                 if (!string.IsNullOrEmpty(googleUser.PictureUrl) && user.AvatarUrl != googleUser.PictureUrl)
                 {
                     user.AvatarUrl = googleUser.PictureUrl;
@@ -100,7 +95,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                 }
             }
 
-            var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
+            var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                _uow,
+                user.Role is UserRole.Admin or UserRole.Staff,
+                user.Id,
+                cancellationToken);
 
             var accessToken = _jwtService.GenerateAccessToken(
                 user.Id,
@@ -108,7 +107,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                 user.Username,
                 user.PhoneNumber,
                 user.Role.ToString(),
-                subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName()
+                effectiveSubscription?.LevelOrder is { } level
+                    ? level.GetDisplayName()
+                    : SubscriptionLevel.Free.GetDisplayName()
             );
             var refreshToken = _jwtService.GenerateRefreshToken();
 
@@ -128,7 +129,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.GoogleLogin
                     PhoneNumber = user.PhoneNumber,
                     Role = user.Role.GetDisplayName(),
                     IsEmailVerified = user.IsEmailVerified,
-                    SubscriptionLevel = subscriptionLevel?.Subscription.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                    SubscriptionLevel = effectiveSubscription?.LevelOrder is { } lvl
+                        ? lvl.GetDisplayName()
+                        : SubscriptionLevel.Free.GetDisplayName(),
                     TelegramChatId = user.TelegramId,
                     IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)
                 }

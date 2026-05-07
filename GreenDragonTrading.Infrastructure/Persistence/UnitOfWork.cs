@@ -28,10 +28,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private IWatchListRepository? watchLists;
 
-        private IPortfolioRepository? portfolios;
-
-        private ITradingTransactionRepository? tradingTransactions;
-
         private IFinancialReportRepository? financialReports;
 
         private IAnalysisReportRepository? analysisReports;
@@ -62,6 +58,10 @@ namespace GreenDragonTrading.Infrastructure.Persistence
 
         private ICorporateActionRepository? corporateActions;
 
+        private IProactiveAlertTraceRepository? proactiveAlertTraces;
+
+        private IProactiveAlertLayerBSettingRepository? proactiveAlertLayerBSettings;
+
         public ISymbolRepository Symbols => symbols ??= new SymbolRepository(_context);
         public ISectorRepository Sectors => sectors ??= new SectorRepository(_context);
         public IUserRepository Users => users ??= new UserRepository(_context);
@@ -71,8 +71,6 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IWorkspaceRepository Workspaces => workspaces ??= new WorkspaceRepository(_context);
         public IModuleLayoutRepository ModuleLayouts => moduleLayouts ??= new ModuleLayoutRepository(_context);
         public IWatchListRepository WatchLists => watchLists ??= new WatchListRepository(_context);
-        public IPortfolioRepository Portfolios => portfolios ??= new PortfolioRepository(_context);
-        public ITradingTransactionRepository TradingTransactions => tradingTransactions ??= new TradingTransactionRepository(_context);
         public IFinancialReportRepository FinancialReports => financialReports ??= new FinancialReportRepository(_context);
         public IAnalysisReportRepository AnalysisReports => analysisReports ??= new AnalysisReportRepository(_context);
         public IAnalysisReportSourceRepository AnalysisReportSources => analysisReportSources ??= new AnalysisReportSourceRepository(_context);
@@ -88,6 +86,8 @@ namespace GreenDragonTrading.Infrastructure.Persistence
         public IMacroeconomicDataRepository MacroeconomicData => macroeconomicData ??= new MacroeconomicDataRepository(_context);
         public IUserPushTokenRepository UserPushTokens => userPushTokens ??= new UserPushTokenRepository(_context);
         public ICorporateActionRepository CorporateActions => corporateActions ??= new CorporateActionRepository(_context);
+        public IProactiveAlertTraceRepository ProactiveAlertTraces => proactiveAlertTraces ??= new ProactiveAlertTraceRepository(_context);
+        public IProactiveAlertLayerBSettingRepository ProactiveAlertLayerBSettings => proactiveAlertLayerBSettings ??= new ProactiveAlertLayerBSettingRepository(_context);
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

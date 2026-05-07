@@ -2,6 +2,7 @@ using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.CreateChatSession;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.GetOrCreateDirectSession;
+using GreenDragonTrading.Application.UseCases.Chat.Commands.MarkAllSessionsAsRead;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.MarkSessionAsRead;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendChatMessage;
 using GreenDragonTrading.Application.UseCases.Chat.Commands.SendDirectMessage;
@@ -10,6 +11,7 @@ using GreenDragonTrading.Application.UseCases.Chat.Commands.SummarizeSession;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatJobStatus;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatMessages;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSessions;
+using GreenDragonTrading.Application.UseCases.Chat.Queries.GetChatSuggestions;
 using GreenDragonTrading.Application.UseCases.Chat.Queries.GetDirectChatSessions;
 using GreenDragonTrading.Domain.Enums;
 using MediatR;
@@ -148,6 +150,22 @@ namespace GreenDragonTrading.Api.Controllers
         }
 
         /// <summary>
+        /// Mark all chat sessions as read for the current user.
+        /// Updates LastReadAt on every participant record belonging to the current user.
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns>Operation status</returns>
+        [HttpPatch("sessions/read-all")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse>> MarkAllSessionsAsRead(
+            CancellationToken cancellationToken)
+        {
+            var command = new MarkAllSessionsAsReadCommand();
+            var result = await _mediator.Send(command, cancellationToken);
+            return result;
+        }
+
+        /// <summary>
         /// Trigger a conversation summary update for a chat session.
         /// Summarizes all messages if no summary exists, otherwise only processes new messages since the last summary.
         /// </summary>
@@ -198,8 +216,22 @@ namespace GreenDragonTrading.Api.Controllers
             return result;
         }
 
-        /// <summary>
-        /// Send a message in a Direct (1-1) chat session.
+        /// <summary>        /// Get AI-powered chat question suggestions based on the user's watchlist.
+        /// Returns 3 starter questions (FORECAST, RESEARCH, SUMMARIZE) in Vietnamese.
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns>List of suggested questions with source symbols and metadata</returns>
+        [HttpGet("suggestions")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<ChatSuggestionsDto>>> GetChatSuggestions(
+            CancellationToken cancellationToken)
+        {
+            var query = new GetChatSuggestionsQuery();
+            var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
+        }
+
+        /// <summary>        /// Send a message in a Direct (1-1) chat session.
         /// </summary>
         /// <param name="sessionId">The Direct chat session ID</param>
         /// <param name="request">Message content</param>

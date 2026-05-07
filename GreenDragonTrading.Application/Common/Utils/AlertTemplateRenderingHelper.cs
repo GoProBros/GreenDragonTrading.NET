@@ -13,17 +13,45 @@ public static class AlertTemplateRenderingHelper
     public static IReadOnlyDictionary<string, string> BuildContext(
         Alert alert,
         decimal currentPrice,
-        decimal currentVolume)
+        decimal currentVolume,
+        decimal pricePercentUp,
+        decimal pricePercentDown,
+        decimal volumePercentUp,
+        decimal volumePercentDown,
+        string? candleTimeRange = null)
     {
         return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["Ticker"] = alert.Ticker,
-            ["ThresholdValue"] = alert.ThresholdValue.ToString("0.####"),
-            ["ChangePercentage"] = alert.ChangePercentage?.ToString("0.##") ?? string.Empty,
+            ["Mã Chứng Khoán"] = alert.Ticker,
+            ["ThresholdValue"] = alert.ThresholdValue?.ToString("0.####") ?? "0",
+            ["Giá Định Mức"] = alert.ThresholdValue?.ToString("0.####") ?? "0",
+            ["ChangePercentage"] = alert.ChangePercentage?.ToString("0.##") ?? "0",
+            ["Phần Trăm Thay Đổi"] = alert.ChangePercentage?.ToString("0.##") ?? "0",
             ["Type"] = alert.Type.GetDisplayName(),
+            ["Loại Cảnh Báo"] = alert.Type.GetDisplayName(),
             ["Condition"] = alert.Condition.GetDisplayName(),
+            ["Điều Kiện"] = alert.Condition.GetDisplayName(),
             ["CurrentPrice"] = currentPrice.ToString("0.####"),
-            ["CurrentVolume"] = currentVolume.ToString("0.####")
+            ["Giá Hiện Tại"] = currentPrice.ToString("0.####"),
+            ["CurrentVolume"] = currentVolume.ToString("0.####"),
+            ["Khối Lượng Hiện Tại"] = currentVolume.ToString("0.####"),
+            ["PricePercentUp"] = pricePercentUp.ToString("0.##"),
+            ["Tăng Giá %"] = pricePercentUp.ToString("0.##"),
+            ["PricePercentDown"] = pricePercentDown.ToString("0.##"),
+            ["Giảm Giá %"] = pricePercentDown.ToString("0.##"),
+            ["VolumePercentUp"] = volumePercentUp.ToString("0.##"),
+            ["Tăng Khối Lượng %"] = volumePercentUp.ToString("0.##"),
+            ["VolumePercentDown"] = volumePercentDown.ToString("0.##"),
+            ["Giảm Khối Lượng %"] = volumePercentDown.ToString("0.##"),
+            ["VolumeTimeFrame"] = alert.VolumeTimeFrame?.ToString() ?? "N/A",
+            ["Khung Thời Gian"] = alert.VolumeTimeFrame?.ToString() ?? "N/A",
+            ["VolumeLookbackBars"] = alert.VolumeLookbackBars?.ToString() ?? "0",
+            ["Số Nến So Sánh"] = alert.VolumeLookbackBars?.ToString() ?? "0",
+            ["Time"] = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("HH:mm:ss dd/MM/yyyy"),
+            ["Thời Gian"] = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("HH:mm:ss dd/MM/yyyy"),
+            ["CandleTimeRange"] = candleTimeRange ?? "N/A",
+            ["Khung Giờ Nến"] = candleTimeRange ?? "N/A"
         };
     }
 
@@ -63,9 +91,18 @@ public static class AlertTemplateRenderingHelper
         decimal pricePercentDown,
         decimal volumePercentUp,
         decimal volumePercentDown,
-        AlertTemplate? template)
+        AlertTemplate? template,
+        string? candleTimeRange = null)
     {
-        var context = BuildContext(alert, currentPrice, currentVolume);
+        var context = BuildContext(
+            alert,
+            currentPrice,
+            currentVolume,
+            pricePercentUp,
+            pricePercentDown,
+            volumePercentUp,
+            volumePercentDown,
+            candleTimeRange);
         if (template != null && !string.IsNullOrWhiteSpace(template.BodyTemplate))
         {
             return RenderTemplate(template.BodyTemplate, context);

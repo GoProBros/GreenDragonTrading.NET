@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Constants;
 using GreenDragonTrading.Domain.Interfaces;

@@ -29,7 +29,7 @@ public interface IModuleLayoutRepository : IPostgreSqlGenericRepository<ModuleLa
     Task<ModuleLayout?> GetByIdAsync(long id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lấy layout theo ID và user ID (để đảm bảo user chỉ truy cập layout của mình)
+    /// Lấy layout theo ID và user ID (để đảm bảo user chỉ truy cập layout của mình hoặc system default)
     /// </summary>
     /// <param name="id">ID layout</param>
     /// <param name="userId">ID người dùng</param>

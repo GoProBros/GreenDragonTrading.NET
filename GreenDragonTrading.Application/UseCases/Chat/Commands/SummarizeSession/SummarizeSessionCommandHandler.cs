@@ -93,7 +93,28 @@ public class SummarizeSessionCommandHandler : IRequestHandler<SummarizeSessionCo
             }, "Số lượng tin nhắn chưa đủ ngưỡng để tóm tắt. Đã trả về số lượng tin gần nhất theo cấu hình.");
         }
 
+        var keepRecentCount = Math.Max(0, _aiOptions.SummaryKeepRecentCount);
+        var availableCount = Math.Max(0, messagesToSummarize.Count - keepRecentCount);
+        var summarizeCount = availableCount;
+        if (summarizeCount <= 0)
+        {
+            _logger.LogInformation(
+                "Skip summarizing session {SessionId} because summarizeCount is zero (pending {PendingCount}, keepRecent {KeepRecent})",
+                session.Id,
+                messagesToSummarize.Count,
+                keepRecentCount);
+
+            return ApiResponse<SummarizeSessionResponseDto>.Success(new SummarizeSessionResponseDto
+            {
+                SessionId = session.Id,
+                UpdatedSummary = session.ConversationSummary ?? string.Empty,
+                LastSummaryMessageId = session.LastSummaryMessageId ?? 0,
+                ProcessedMessages = 0
+            }, "Không có tin nhắn đủ điều kiện để tóm tắt");
+        }
+
         var aiMessages = messagesToSummarize
+            .Take(summarizeCount)
             .Select(m => new AiMessageInput
             {
                 Role = m.SenderId == null ? "assistant" : "user",
@@ -111,21 +132,21 @@ public class SummarizeSessionCommandHandler : IRequestHandler<SummarizeSessionCo
         }
 
         session.ConversationSummary = result.UpdatedSummary;
-        session.LastSummaryMessageId = messagesToSummarize[^1].Id;
+        session.LastSummaryMessageId = messagesToSummarize[summarizeCount - 1].Id;
         session.UpdatedAt = DateTimeOffset.UtcNow;
         _uow.ChatSessions.Update(session);
         await _uow.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
             "Summary updated for session {SessionId}, processed {Count} messages",
-            session.Id, messagesToSummarize.Count);
+            session.Id, summarizeCount);
 
         return ApiResponse<SummarizeSessionResponseDto>.Success(new SummarizeSessionResponseDto
         {
             SessionId = session.Id,
             UpdatedSummary = result.UpdatedSummary,
-            LastSummaryMessageId = messagesToSummarize[^1].Id,
-            ProcessedMessages = messagesToSummarize.Count
+            LastSummaryMessageId = messagesToSummarize[summarizeCount - 1].Id,
+            ProcessedMessages = summarizeCount
         }, "Tóm tắt cuộc trò chuyện thành công");
     }
 }

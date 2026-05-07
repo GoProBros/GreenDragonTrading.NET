@@ -22,14 +22,17 @@ public class CreateAlertTemplateCommandHandler(
     {
         if (!_currentUserService.IsAdminOrStaff)
         {
-            throw new AccessDeniedException("Chi admin/staff moi co quyen tao alert template.");
+            throw new AccessDeniedException("Chỉ admin/staff mới có quyền tạo alert template.");
         }
 
         var now = DateTimeOffset.UtcNow;
+        var normalizedType = request.IsDefault ? null : request.Type;
+        var normalizedCondition = request.IsDefault ? null : request.Condition;
+
         var template = new AlertTemplate
         {
-            Type = request.Type,
-            Condition = request.Condition,
+            Type = normalizedType,
+            Condition = normalizedCondition,
             TitleTemplate = request.TitleTemplate.Trim(),
             BodyTemplate = request.BodyTemplate.Trim(),
             IsActive = request.IsActive,
@@ -41,7 +44,7 @@ public class CreateAlertTemplateCommandHandler(
         await _uow.AlertTemplates.AddAsync(template, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), "Tao alert template thanh cong.");
+        return ApiResponse<AlertTemplateDto>.Success(MapToDto(template), "Tạo alert template thành công.");
     }
 
     private static AlertTemplateDto MapToDto(AlertTemplate template)

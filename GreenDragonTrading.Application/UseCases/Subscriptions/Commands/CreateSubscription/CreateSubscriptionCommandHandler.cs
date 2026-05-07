@@ -1,6 +1,7 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Domain.Entities;
+using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,11 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
         public async Task<ApiResponse<SubscriptionDto>> Handle(CreateSubscriptionCommand request, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Creating subscription: Name={Name}, LevelOrder={LevelOrder}", request.Name, request.LevelOrder);
+            if(request.LevelOrder < SubscriptionLevel.VipOne || request.LevelOrder > SubscriptionLevel.VipFour)
+            {
+                _logger.LogWarning("Invalid subscription level: {LevelOrder}", request.LevelOrder);
+                return ApiResponse<SubscriptionDto>.Failure("Cấp độ đăng ký không hợp lệ.");
+            }
 
             var subscription = new Subscription
             {
@@ -30,6 +36,8 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
                 Price = request.Price,
                 DurationInDays = request.DurationInDays,
                 IsActive = request.IsActive,
+                IsFree = false,
+                IsAdmin = false,
                 AllowedModules = request.AllowedModules.GetRawText()
             };
 
@@ -42,10 +50,10 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.CreateS
             {
                 Id = subscription.Id,
                 Name = subscription.Name,
-                LevelOrder = subscription.LevelOrder,
-                MaxWorkspaces = subscription.MaxWorkspaces,
-                Price = subscription.Price,
-                DurationInDays = subscription.DurationInDays,
+                LevelOrder = subscription.LevelOrder ?? default,
+                MaxWorkspaces = subscription.MaxWorkspaces ?? 0,
+                Price = subscription.Price ?? 0,
+                DurationInDays = subscription.DurationInDays ?? 0,
                 IsActive = subscription.IsActive,
                 AllowedModules = request.AllowedModules
             };

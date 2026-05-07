@@ -29,7 +29,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
         {
             try
             {
-                // xóa refresh token khỏi redis
                 var tokenKey = $"refresh:token:{request.RefreshToken}";
                 var userId = await _redisService.GetAsync<Guid>(tokenKey);
 
@@ -41,7 +40,6 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Commands.Logout
                 await _redisService.RemoveAsync(tokenKey);
                 _logger.LogInformation("Refresh token revoked for user: {UserId}", userId);
 
-                // cho access token vào blacklist
                 var tokenInfo = _jwtService.GetTokenInfo(request.AccessToken);
                 
                 if (tokenInfo == null)

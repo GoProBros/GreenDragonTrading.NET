@@ -42,6 +42,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Queries.GetAlertById
                 Condition = alert.Condition,
                 ChangePercentage = alert.ChangePercentage,
                 ThresholdValue = alert.ThresholdValue,
+                VolumeTimeFrame = alert.VolumeTimeFrame,
+                VolumeLookbackBars = alert.VolumeLookbackBars,
                 Name = alert.Name,
                 IsActive = alert.IsActive,
                 IsTriggered = alert.IsTriggered,

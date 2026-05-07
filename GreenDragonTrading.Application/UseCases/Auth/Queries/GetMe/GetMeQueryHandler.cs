@@ -1,5 +1,6 @@
 using GreenDragonTrading.Application.Common.Models;
 using GreenDragonTrading.Application.DTOs;
+using GreenDragonTrading.Application.Common.Utils;
 using GreenDragonTrading.Application.Interfaces;
 using GreenDragonTrading.Domain.Enums;
 using GreenDragonTrading.Domain.Exceptions;
@@ -39,14 +40,11 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
                 throw new NotFoundException("Người dùng không tồn tại.");
             }
 
-            var subscriptionLevel = await _uow.UserSubscriptions.GetActiveSubscriptionAsync(user.Id, cancellationToken);
-            var effectiveSubscription = subscriptionLevel?.Subscription;
-
-            if (user.Role is UserRole.Admin or UserRole.Staff)
-            {
-                effectiveSubscription = await _uow.Subscriptions.GetHighestActiveAsync(cancellationToken)
-                    ?? effectiveSubscription;
-            }
+            var effectiveSubscription = await SubscriptionAccessHelper.GetEffectiveSubscriptionAsync(
+                _uow,
+                user.Role is UserRole.Admin or UserRole.Staff,
+                user.Id,
+                cancellationToken);
 
             var userDto = new UserDto
             {
@@ -56,7 +54,9 @@ namespace GreenDragonTrading.Application.UseCases.Auth.Queries.GetMe
                 PhoneNumber = user.PhoneNumber,
                 Role = user.Role.GetDisplayName(),
                 IsEmailVerified = user.IsEmailVerified,
-                SubscriptionLevel = effectiveSubscription?.LevelOrder.GetDisplayName() ?? SubscriptionLevel.Free.GetDisplayName(),
+                SubscriptionLevel = effectiveSubscription?.LevelOrder is { } level
+                    ? level.GetDisplayName()
+                    : SubscriptionLevel.Free.GetDisplayName(),
                 AllowedModules = ParseAllowedModuleNames(effectiveSubscription?.AllowedModules),
                 TelegramChatId = user.TelegramId,
                 IsTelegramLinked = !string.IsNullOrWhiteSpace(user.TelegramId)

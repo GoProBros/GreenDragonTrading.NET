@@ -17,7 +17,7 @@ public class GetAlertTemplatePlaceholdersQueryHandler
             .Select(definition => new AlertTemplatePlaceholderDto
             {
                 Key = definition.Key,
-                Token = AlertTemplatePlaceholderCatalog.ToToken(definition.Key),
+                Token = AlertTemplatePlaceholderCatalog.ToToken(definition.TokenKey),
                 Category = definition.Category,
                 Description = definition.Description
             })
@@ -30,6 +30,6 @@ public class GetAlertTemplatePlaceholdersQueryHandler
 
         return Task.FromResult(ApiResponse<AlertTemplatePlaceholdersDto>.Success(
             dto,
-            "Lay danh sach placeholder thanh cong."));
+            "Lấy danh sách placeholder thành công."));
     }
 }

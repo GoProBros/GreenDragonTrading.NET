@@ -43,12 +43,11 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.ToggleAlertSta
             var redisKey = RedisConstants.AlertsByTypeAndCondition(alert.Ticker, alert.Type, alert.Condition);
             if (alert.IsActive && !alert.IsTriggered)
             {
-                await _redisService.SortedSetAddAsync(redisKey, alert.Id.ToString(), (double)alert.ThresholdValue);
+                await _redisService.SortedSetAddAsync(redisKey, alert.Id.ToString(), (double)(alert.ThresholdValue ?? 0m));
             }
             else
             {
                 await _redisService.SortedSetRemoveAsync(redisKey, alert.Id.ToString());
-                // Backward-compatible cleanup for old redis key layout.
                 await _redisService.SortedSetRemoveAsync(RedisConstants.AlertsAbove(alert.Ticker), alert.Id.ToString());
                 await _redisService.SortedSetRemoveAsync(RedisConstants.AlertsBelow(alert.Ticker), alert.Id.ToString());
             }
@@ -64,6 +63,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.ToggleAlertSta
                 Condition = alert.Condition,
                 ChangePercentage = alert.ChangePercentage,
                 ThresholdValue = alert.ThresholdValue,
+                VolumeTimeFrame = alert.VolumeTimeFrame,
+                VolumeLookbackBars = alert.VolumeLookbackBars,
                 Name = alert.Name,
                 IsActive = alert.IsActive,
                 IsTriggered = alert.IsTriggered,

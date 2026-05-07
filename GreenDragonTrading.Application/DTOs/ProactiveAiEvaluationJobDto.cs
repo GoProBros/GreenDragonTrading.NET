@@ -6,6 +6,7 @@ namespace GreenDragonTrading.Application.DTOs
     public class ProactiveAiEvaluationJobDto
     {
         public string JobId { get; set; } = Guid.NewGuid().ToString("N");
+        public string? TraceId { get; set; }
         public List<Guid> TargetUserIds { get; set; } = new();
         public string Ticker { get; set; } = string.Empty;
         public DateTimeOffset EnqueuedAt { get; set; } = DateTimeOffset.UtcNow;

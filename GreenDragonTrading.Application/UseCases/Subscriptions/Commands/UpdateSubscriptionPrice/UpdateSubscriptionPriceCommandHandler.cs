@@ -52,12 +52,12 @@ namespace GreenDragonTrading.Application.UseCases.Subscriptions.Commands.UpdateS
             {
                 Id = subscription.Id,
                 Name = subscription.Name,
-                LevelOrder = subscription.LevelOrder,
-                MaxWorkspaces = subscription.MaxWorkspaces,
-                Price = subscription.Price,
-                DurationInDays = subscription.DurationInDays,
+                LevelOrder = subscription.LevelOrder ?? default,
+                MaxWorkspaces = subscription.MaxWorkspaces ?? 0,
+                Price = subscription.Price ?? 0,
+                DurationInDays = subscription.DurationInDays ?? 0,
                 IsActive = subscription.IsActive,
-                AllowedModules = JsonDocument.Parse(subscription.AllowedModules).RootElement.Clone()
+                AllowedModules = JsonDocument.Parse(string.IsNullOrWhiteSpace(subscription.AllowedModules) ? "[]" : subscription.AllowedModules).RootElement.Clone()
             };
 
             _logger.LogInformation(

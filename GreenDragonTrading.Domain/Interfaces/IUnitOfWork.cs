@@ -11,8 +11,6 @@
         IWorkspaceRepository Workspaces { get; }
         IModuleLayoutRepository ModuleLayouts { get; }
         IWatchListRepository WatchLists { get; }
-        IPortfolioRepository Portfolios { get; }
-        ITradingTransactionRepository TradingTransactions { get; }
         IFinancialReportRepository FinancialReports { get; }
         IAnalysisReportRepository AnalysisReports { get; }
         IAnalysisReportSourceRepository AnalysisReportSources { get; }
@@ -28,6 +26,8 @@
         IMacroeconomicDataRepository MacroeconomicData { get; }
         IUserPushTokenRepository UserPushTokens { get; }
         ICorporateActionRepository CorporateActions { get; }
+        IProactiveAlertLayerBSettingRepository ProactiveAlertLayerBSettings { get; }
+        IProactiveAlertTraceRepository ProactiveAlertTraces { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);

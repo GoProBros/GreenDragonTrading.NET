@@ -32,13 +32,17 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("change_percentage", TypeName = "numeric(18, 2)")]
         public decimal? ChangePercentage { get; set; }
 
-        [Required]
         [Column("current_price", TypeName = "numeric(18, 4)")]
-        public decimal CurrentPrice { get; set; }
+        public decimal? CurrentPrice { get; set; }
 
-        [Required]
         [Column("threshold_value", TypeName = "numeric(18, 4)")]
-        public decimal ThresholdValue { get; set; }
+        public decimal? ThresholdValue { get; set; }
+
+        [Column("volume_time_frame", TypeName = "smallint")]
+        public VolumeTimeFrame? VolumeTimeFrame { get; set; }
+
+        [Column("volume_lookback_bars", TypeName = "smallint")]
+        public int? VolumeLookbackBars { get; set; }
 
         [MaxLength(255)]
         [Column("name", TypeName = "varchar(255)")]

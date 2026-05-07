@@ -1,4 +1,5 @@
 using GreenDragonTrading.Application.Common.Options;
+using GreenDragonTrading.Application.DTOs;
 using GreenDragonTrading.Application.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -373,6 +374,43 @@ namespace GreenDragonTrading.Infrastructure.Services
             }
 
             return summaryResponse;
+        }
+
+        /// <inheritdoc />
+        public async Task<AiChatSuggestionsResponse?> GetSuggestionsAsync(
+            CancellationToken cancellationToken = default)
+        {
+            var endpoint = NormalizeEndpoint(_options.SuggestionsEndpoint);
+
+            HttpResponseMessage response;
+            try
+            {
+                using var requestMessage = new HttpRequestMessage(HttpMethod.Get, endpoint);
+                AttachAuthorizationHeader(requestMessage);
+                response = await _httpClient.SendAsync(requestMessage, cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "AI Engine is unavailable when fetching suggestions");
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning("Suggestions endpoint returned {StatusCode}: {ErrorBody}", response.StatusCode, errorBody);
+                return null;
+            }
+
+            var suggestionsResponse = await response.Content.ReadFromJsonAsync<AiChatSuggestionsResponse>(cancellationToken: cancellationToken);
+            if (suggestionsResponse == null)
+            {
+                _logger.LogWarning("AI Engine returned empty response for suggestions");
+                return null;
+            }
+
+            _logger.LogDebug("Retrieved {Count} suggestions from AI Engine", suggestionsResponse.Questions.Count);
+            return suggestionsResponse;
         }
 
         private HttpRequestMessage CreatePostRequest(string endpoint, object payload)

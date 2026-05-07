@@ -54,13 +54,8 @@ namespace GreenDragonTrading.Domain.Entities
         [Column("telegram_id", TypeName = "varchar(255)")]
         public string? TelegramId { get; set; }
 
-        [Column("investment_capital", TypeName = "numeric(18, 2)")]
-        public decimal? InvestmentCapital { get; set; }
-
         // Navigation Properties
         public ICollection<Workspace> Workspaces { get; set; } = new List<Workspace>();
         public ICollection<UserSubscription> UserSubscriptions { get; set; } = new List<UserSubscription>();
-        public virtual ICollection<Portfolio> Portfolios { get; set; } = new List<Portfolio>();
-
     }
 }
