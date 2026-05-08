@@ -79,7 +79,11 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
             await _uow.Alerts.AddAsync(alert, cancellationToken);
             await _uow.SaveChangesAsync(cancellationToken);
 
-            if (alert.Type == AlertType.Price && alert.IsActive && !alert.IsTriggered && currentMarketData != null && currentMonitoredValue.HasValue)
+            // Chỉ đánh giá trigger ngay nếu có giá thật (> 0).
+            // Nếu LastPrice = 0 (chưa có giao dịch) → bỏ qua, Redis sẽ đánh giá khi có giá.
+            if (alert.Type == AlertType.Price && alert.IsActive && !alert.IsTriggered
+                && currentMarketData != null && currentMonitoredValue.HasValue
+                && currentMonitoredValue.Value > 0)
             {
                 // Calculate current values and percent changes (same logic as PriceUpdatedEventHandler)
                 var currentPrice = currentMarketData.LastPrice > 0
@@ -231,14 +235,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
             var monitoredValue = type == AlertType.Price
                 ? (decimal)marketData.LastPrice
                 : (decimal)marketData.TotalVol;
-
-            if (monitoredValue <= 0)
-            {
-                throw new BusinessRuleException(
-                    type == AlertType.Price
-                        ? "Giá hiện tại chưa sẵn sàng để đặt cảnh báo"
-                        : "Khối lượng hiện tại chưa sẵn sàng để đặt cảnh báo");
-            }
 
             return monitoredValue;
         }
