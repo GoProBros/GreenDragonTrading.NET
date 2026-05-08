@@ -132,14 +132,32 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Commands.CreateAlert
                     alert.UpdatedAt = now;
                     _uow.Alerts.Update(alert);
 
+                    // For Price Above/Below, compute percent relative to threshold
+                    var effectivePricePercentUp = pricePercentUp;
+                    var effectivePricePercentDown = pricePercentDown;
+                    if (alert.ThresholdValue.HasValue && alert.ThresholdValue.Value > 0
+                        && alert.Condition is ConditionType.Above or ConditionType.Below)
+                    {
+                        if (alert.Condition == ConditionType.Above)
+                        {
+                            effectivePricePercentUp = ((currentPrice - alert.ThresholdValue.Value) / alert.ThresholdValue.Value) * 100m;
+                            effectivePricePercentDown = 0m;
+                        }
+                        else
+                        {
+                            effectivePricePercentDown = ((alert.ThresholdValue.Value - currentPrice) / alert.ThresholdValue.Value) * 100m;
+                            effectivePricePercentUp = 0m;
+                        }
+                    }
+
                     // Resolve template and build message
                     var template = await ResolveTemplateAsync(alert.Type, alert.Condition, cancellationToken);
                     var message = AlertTemplateRenderingHelper.BuildAlertMessage(
                         alert,
                         currentPrice,
                         currentVolume,
-                        pricePercentUp,
-                        pricePercentDown,
+                        effectivePricePercentUp,
+                        effectivePricePercentDown,
                         volumePercentUp,
                         volumePercentDown,
                         template);

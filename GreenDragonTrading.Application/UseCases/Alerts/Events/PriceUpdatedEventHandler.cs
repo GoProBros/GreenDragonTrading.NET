@@ -70,7 +70,6 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
 
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.Above, double.NegativeInfinity, (double)currentPrice));
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.Below, (double)currentPrice, double.PositiveInfinity));
-
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.PercentChangeUp, double.NegativeInfinity, double.PositiveInfinity));
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Price, ConditionType.PercentChangeDown, double.NegativeInfinity, double.PositiveInfinity));
 
@@ -78,7 +77,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.Below, double.NegativeInfinity, double.PositiveInfinity));
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.PercentChangeUp, double.NegativeInfinity, double.PositiveInfinity));
                 alertIds.AddRange(await GetAlertIdsAsync(ticker, AlertType.Volume, ConditionType.PercentChangeDown, double.NegativeInfinity, double.PositiveInfinity));
-
+  
                 var allAlertIds = alertIds
                     .Select(ParseAlertId)
                     .Where(x => x.HasValue)
@@ -102,6 +101,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 var now = DateTimeOffset.UtcNow;
                 var hasChanges = false;
                 var systemSessionIdsByUser = new Dictionary<Guid, int>();
+
                 var currentCandleCache = new Dictionary<string, CurrentCandleDto?>(StringComparer.OrdinalIgnoreCase);
                 var closedCandleCache = new Dictionary<string, List<Domain.Entities.Ohlcv>>(StringComparer.OrdinalIgnoreCase);
 
@@ -111,6 +111,8 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     var effectiveCurrentVolume = currentVolume;
                     var effectiveVolumePercentUp = volumePercentUp;
                     var effectiveVolumePercentDown = volumePercentDown;
+                    var effectivePricePercentUp = pricePercentUp;
+                    var effectivePricePercentDown = pricePercentDown;
                     string? candleTimeRange = null;
 
                     if (alert.Type == AlertType.Volume)
@@ -121,7 +123,9 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         }
 
                         var timeframe = ToTimeframeString(alert.VolumeTimeFrame.Value);
+
                         var useCurrentCandle = alert.Condition is ConditionType.Above or ConditionType.PercentChangeUp;
+
                         var snapshot = await GetVolumeSnapshotAsync(
                             ticker,
                             timeframe,
@@ -140,22 +144,18 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         effectiveVolumePercentUp = 0m;
                         effectiveVolumePercentDown = 0m;
 
-                        // Build candle time range for display (e.g., "14:00-15:00 06/05/2026")
                         var vnCandleTime = snapshot.CandleTime.AddHours(7);
                         var tfMinutes = OhlcvConstants.Timeframes.ToMinutes[timeframe];
-                        if (tfMinutes >= 1440)
+                        if (tfMinutes >= 1440) 
                         {
                             candleTimeRange = vnCandleTime.ToString("dd/MM/yyyy");
                         }
-                        else
+                        else 
                         {
                             var vnEndTime = vnCandleTime.AddMinutes(tfMinutes);
                             candleTimeRange = $"{vnCandleTime:HH:mm}-{vnEndTime:HH:mm} {vnCandleTime:dd/MM/yyyy}";
                         }
 
-                        // Don't trigger on candles that closed before the alert was created.
-                        // A Volume alert should only react to data that occurred after creation,
-                        // otherwise a newly created alert would fire on yesterday's candle.
                         var vnAlertCreatedAt = alert.CreatedAt.ToOffset(TimeSpan.FromHours(7)).DateTime;
                         var candleCloseVn = vnCandleTime.AddMinutes(tfMinutes);
                         if (candleCloseVn <= vnAlertCreatedAt)
@@ -167,6 +167,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         {
                             shouldTrigger = alert.ThresholdValue.HasValue
                                 && effectiveCurrentVolume >= alert.ThresholdValue.Value;
+
                             if (shouldTrigger && alert.ThresholdValue!.Value > 0)
                             {
                                 effectiveVolumePercentUp = ((effectiveCurrentVolume - alert.ThresholdValue.Value) / alert.ThresholdValue.Value) * 100m;
@@ -176,6 +177,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         {
                             shouldTrigger = alert.ThresholdValue.HasValue
                                 && effectiveCurrentVolume <= alert.ThresholdValue.Value;
+
                             if (shouldTrigger && alert.ThresholdValue!.Value > 0)
                             {
                                 effectiveVolumePercentDown = ((alert.ThresholdValue.Value - effectiveCurrentVolume) / alert.ThresholdValue.Value) * 100m;
@@ -213,6 +215,21 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                             pricePercentDown,
                             volumePercentUp,
                             volumePercentDown);
+
+                        if (shouldTrigger && alert.ThresholdValue.HasValue && alert.ThresholdValue.Value > 0
+                            && alert.Condition is ConditionType.Above or ConditionType.Below)
+                        {
+                            if (alert.Condition == ConditionType.Above)
+                            {
+                                effectivePricePercentUp = ((currentPrice - alert.ThresholdValue.Value) / alert.ThresholdValue.Value) * 100m;
+                                effectivePricePercentDown = 0m;
+                            }
+                            else
+                            {
+                                effectivePricePercentDown = ((alert.ThresholdValue.Value - currentPrice) / alert.ThresholdValue.Value) * 100m;
+                                effectivePricePercentUp = 0m;
+                            }
+                        }
                     }
 
                     if (!shouldTrigger)
@@ -231,12 +248,13 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                         alert.Id.ToString());
 
                     var template = await ResolveTemplateAsync(alert.Type, alert.Condition);
+
                     var message = AlertTemplateRenderingHelper.BuildAlertMessage(
                         alert,
                         currentPrice,
                         effectiveCurrentVolume,
-                        pricePercentUp,
-                        pricePercentDown,
+                        effectivePricePercentUp,
+                        effectivePricePercentDown,
                         effectiveVolumePercentUp,
                         effectiveVolumePercentDown,
                         template,
@@ -333,6 +351,7 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                     x => x.First().TelegramId!);
         }
 
+
         private async Task TrySendTelegramAsync(
             IReadOnlyDictionary<Guid, string> telegramChatIdsByUser,
             Guid userId,
@@ -384,13 +403,9 @@ namespace GreenDragonTrading.Application.UseCases.Alerts.Events
                 return null;
             }
 
-            // When not using the current (still-forming) candle, ensure we only compare
-            // against candles whose time period has fully elapsed.
-            // This is critical for computed timeframes (H1, H4, etc.) where the aggregation
-            // may include a partial current-period candle as if it were closed.
+           
             if (!useCurrentCandle)
             {
-                // c.Time is stored in UTC; compare against UTC now to avoid timezone mismatch
                 var utcNow = DateTimeOffset.UtcNow.DateTime;
                 var tfMinutes = OhlcvConstants.Timeframes.ToMinutes[timeframe];
                 closedCandles = closedCandles

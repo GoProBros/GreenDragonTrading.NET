@@ -7,8 +7,8 @@ public static class TelegramConstants
     public const string DeepLinkBaseUrl = "https://t.me";
 
     public const string StartTokenCreatedMessage = "Tạo token liên kết Telegram thành công";
-    public const string MissingStartTokenMessage = "Khong tim thay ma lien ket (st). Vui long tao lai lien ket tu ung dung.";
-    public const string LinkSuccessBotReplyMessage = "Lien ket Telegram thanh cong. Ban se nhan canh bao tai day.";
+    public const string MissingStartTokenMessage = "Không tìm thấy mã liên kết (st). Vui lòng tạo lại liên kết từ ứng dụng.";
+    public const string LinkSuccessBotReplyMessage = "Liên kết Telegram thành công. Bạn sẽ nhận thông báo tại đây.";
 
     public const string InvalidLinkTokenMessage = "Token liên kết không hợp lệ.";
     public const string InvalidOrExpiredLinkTokenMessage = "Token liên kết đã hết hạn hoặc không hợp lệ. Vui lòng lấy token mới từ ứng dụng.";
