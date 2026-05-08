@@ -4,10 +4,10 @@ namespace GreenDragonTrading.Domain.Enums
 {
     public enum AlertType : short
     {
-        [Display(Name = "Price Alert")]
+        [Display(Name = "Cảnh báo giá")]
         Price = 1,
 
-        [Display(Name = "Volume Alert")]
+        [Display(Name = "Cảnh báo khối lượng")]
         Volume = 2,
     }
 }
